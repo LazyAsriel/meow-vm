@@ -1,0 +1,8 @@
+.func @main
+    .registers 3
+    
+    LOAD_INT 0, 1
+    LOAD_INT 1, 2
+    ADD 0, 0, 1
+    HALT
+.endfunc

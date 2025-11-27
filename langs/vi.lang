@@ -1,0 +1,10 @@
+# --- Runtime Errors ---
+STACK_OVERFLOW      = Tràn ngăn xếp (Stack Overflow)!
+DIV_BY_ZERO         = Lỗi chia cho số 0.
+UNDEFINED_VAR       = Biến '{name}' chưa được định nghĩa.
+NOT_CALLABLE        = Giá trị loại '{type}' không thể gọi được.
+ARITY_MISMATCH      = Hàm mong đợi {expected} tham số nhưng nhận được {got}.
+PROPERTY_NOT_FOUND  = Không tìm thấy thuộc tính '{name}' trên đối tượng.
+
+# --- Compile/System Errors ---
+FILE_NOT_FOUND      = Không thể mở tệp: {path}

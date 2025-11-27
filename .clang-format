@@ -1,0 +1,55 @@
+---
+# Dựa trên bộ quy tắc của Google: rất sạch sẽ và nghiêm ngặt.
+BasedOnStyle: Google
+Language:        Cpp
+
+# --- Các tùy chỉnh chính để "thoáng" và "đẹp" hơn ---
+# 1. Sử dụng 4 dấu cách để indent (Google mặc định là 2)
+IndentWidth: 4
+ContinuationIndentWidth: 4
+UseTab: Never
+
+# 2. Phong cách Allman: Luôn đặt dấu { ở dòng mới.
+# BreakBeforeBraces: Allman
+
+# 3. Giới hạn cột: chọn 100 hoặc 80
+ColumnLimit: 200
+
+# --- Căn chỉnh (Alignment) ---
+# Không để Google style tự quyết PointerAlignment
+DerivePointerAlignment: false
+PointerAlignment: Left
+# Tham chiếu (references) theo pointer (ví dụ: int *& r)
+ReferenceAlignment: Pointer
+
+# --- Sắp xếp Includes ---
+# Tự động sắp xếp các #include
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
+
+# Phân loại include: 1. C headers, 2. C++ headers, 3. Thư viện ngoài, 4. Thư mục dự án
+IncludeCategories:
+  - Regex: '^<.*\.h>'
+    Priority: 1
+  - Regex: '^<.*>'
+    Priority: 2
+  - Regex: '^"(.*\.(hpp|h))"'
+    Priority: 3
+  - Regex: '.*'
+    Priority: 4
+
+# Nếu bạn muốn clang-format luôn đưa "main header" (ví dụ foo.cpp => "foo.h") lên đầu:
+IncludeIsMainRegex: '(.*)'
+
+# --- Các tùy chọn về dòng ngắn (giữ phong cách cũ của bạn) ---
+AllowShortFunctionsOnASingleLine: false
+AllowShortLambdasOnASingleLine: All
+AllowShortEnumsOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: true
+AllowShortLoopsOnASingleLine: true
+
+# --- Khoảng trắng (Spaces) ---
+SpaceAfterTemplateKeyword: true
+SpacesInContainerLiterals: true
+SpacesInParens: Never
+...
