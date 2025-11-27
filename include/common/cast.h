@@ -8,11 +8,20 @@
 
 namespace meow {
 
-constexpr std::string_view trim_whitespace(std::string_view sv) noexcept {
-    while (!sv.empty() && std::isspace(static_cast<unsigned char>(sv.front()))) {
+inline constexpr bool is_space(char c) noexcept {
+    return c == ' ' || (c >= '\t' && c <= '\r');
+}
+
+inline constexpr char to_lower(char c) noexcept {
+    // return c | 0x20;
+    return (c >= 'A' && c <= 'Z') ? c + 32 : c;
+}
+
+inline constexpr std::string_view trim_whitespace(std::string_view sv) noexcept {
+    while (!sv.empty() && is_space(sv.front())) {
         sv.remove_prefix(1);
     }
-    while (!sv.empty() && std::isspace(static_cast<unsigned char>(sv.back()))) {
+    while (!sv.empty() && is_space(sv.back())) {
         sv.remove_suffix(1);
     }
     return sv;
@@ -26,9 +35,9 @@ inline int64_t to_int(param_t value) noexcept {
         [](int_t i) -> int64_t { return i; },
         [](float_t r) -> int64_t {
             if (std::isnan(r)) return 0;
-            if (std::isinf(r)) return (r > 0) ? i64_limits::max() : i64_limits::min();
-            if (r >= static_cast<double>(i64_limits::max())) return i64_limits::max();
-            if (r <= static_cast<double>(i64_limits::min())) return i64_limits::min();
+            if (std::isinf(r)) [[unlikely]] return (r > 0) ? i64_limits::max() : i64_limits::min();
+            if (r >= static_cast<double>(i64_limits::max())) [[unlikely]] return i64_limits::max();
+            if (r <= static_cast<double>(i64_limits::min())) [[unlikely]] return i64_limits::min();
             return static_cast<int64_t>(r);
         },
         [](bool_t b) -> int64_t { return b ? 1 : 0; },
@@ -48,7 +57,7 @@ inline int64_t to_int(param_t value) noexcept {
             }
 
             if (sv.size() >= 2 && sv.front() == '0') {
-                char indicator = std::tolower(static_cast<unsigned char>(sv[1]));
+                char indicator = to_lower(sv[1]);
                 if (indicator == 'x') { base = 16; sv.remove_prefix(2); }
                 else if (indicator == 'b') { base = 2; sv.remove_prefix(2); }
                 else if (indicator == 'o') { base = 8; sv.remove_prefix(2); }
@@ -59,7 +68,7 @@ inline int64_t to_int(param_t value) noexcept {
             int64_t result = 0;
             auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), result, base);
 
-            if (ec == std::errc::result_out_of_range) {
+            if (ec == std::errc::result_out_of_range) [[unlikely]] {
                 return negative ? i64_limits::min() : i64_limits::max();
             }
             
@@ -81,7 +90,7 @@ inline double to_float(param_t value) noexcept {
             if (sv.empty()) return 0.0;
             auto is_case_insensitive = [](std::string_view a, std::string_view b) {
                 return std::ranges::equal(a, b, [](char c1, char c2) {
-                    return std::tolower(static_cast<unsigned char>(c1)) == std::tolower(static_cast<unsigned char>(c2));
+                    return to_lower(c1) == to_lower(c2);
                 });
             };
 
@@ -98,7 +107,7 @@ inline double to_float(param_t value) noexcept {
             double result = 0.0;
             auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), result, std::chars_format::general);
 
-            if (ec == std::errc::result_out_of_range) {
+            if (ec == std::errc::result_out_of_range) [[unlikely]] {
                 return (sv.front() == '-') ? -std::numeric_limits<double>::infinity() 
                                            : std::numeric_limits<double>::infinity();
             }
@@ -125,7 +134,7 @@ inline bool to_bool(param_t value) noexcept {
 inline std::string to_string(param_t value) noexcept;
 
 namespace detail {
-inline void object_to_string_impl(object_t obj, std::string& out) noexcept {
+inline void object_to_string(object_t obj, std::string& out) noexcept {
     if (obj == nullptr) {
         out += "<null_object_ptr>";
         return;
@@ -209,7 +218,7 @@ inline void object_to_string_impl(object_t obj, std::string& out) noexcept {
             break;
 
         default:
-            out += "<unknown_object_type>";
+            std::unreachable();
             break;
     }
 }
@@ -230,7 +239,7 @@ inline std::string to_string(param_t value) noexcept {
         [](object_t obj) -> std::string {
             std::string out;
             out.reserve(64); 
-            detail::object_to_string_impl(obj, out);
+            detail::object_to_string(obj, out);
             return out;
         }
     );

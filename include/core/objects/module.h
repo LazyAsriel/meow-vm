@@ -105,3 +105,103 @@ public:
     void trace(visitor_t& visitor) const noexcept override;
 };
 }
+
+
+// /**
+//  * @file module.h
+//  * @brief Module: The container of Code, Data, and Interface.
+//  */
+
+// #pragma once
+
+// #include <vector>
+// #include "common/pch.h"
+// #include "core/meow_object.h"
+// #include "core/value.h"
+
+// namespace meow {
+
+// class ObjModule final : public ObjBase<ObjectType::MODULE> {
+// public:
+//     enum class State : uint8_t { LOADING, RUNNING, READY };
+// private:
+//     // --- Data Storage (Flat Layout) ---
+//     std::vector<value_t> globals_;
+//     std::vector<value_t> exports_;
+    
+//     std::vector<string_t> global_names_; 
+//     std::vector<string_t> export_names_;
+
+//     // --- Metadata ---
+//     string_t path_;
+//     proto_t  entry_point_;
+//     State    state_{ State::LOADING };
+
+// public:
+//     explicit ObjModule(string_t path, proto_t main = nullptr) noexcept
+//         : path_(path), entry_point_(main) {}
+
+//     inline void resize_globals(uint32_t size) {
+//         globals_.resize(size, {});
+//         global_names_.resize(size, nullptr);
+//     }
+
+//     [[nodiscard]] inline value_t global(uint32_t idx) const noexcept {
+//         return globals_[idx];
+//     }
+
+//     inline void set_global(uint32_t idx, value_t val) noexcept {
+//         globals_[idx] = val;
+//     }
+
+//     inline void resize_exports(uint32_t size) {
+//         exports_.resize(size, {});
+//         export_names_.resize(size, nullptr);
+//     }
+
+//     [[nodiscard]] inline value_t exported(uint32_t idx) const noexcept {
+//         return exports_[idx];
+//     }
+
+//     inline void set_exported(uint32_t idx, value_t val) noexcept {
+//         exports_[idx] = val;
+//     }
+
+//     void name_global(uint32_t idx, string_t name) {
+//         if (idx < global_names_.size()) global_names_[idx] = name;
+//     }
+    
+//     void name_export(uint32_t idx, string_t name) {
+//         if (idx < export_names_.size()) export_names_[idx] = name;
+//     }
+
+//     [[nodiscard]] value_t find_global(string_t name) const noexcept {
+//         return find_in(globals_, global_names_, name);
+//     }
+
+//     [[nodiscard]] value_t find_exported(string_t name) const noexcept {
+//         return find_in(exports_, export_names_, name);
+//     }
+//     [[nodiscard]] inline string_t path()  const noexcept { return path_; }
+//     [[nodiscard]] inline proto_t  entry() const noexcept { return entry_point_; }
+    
+//     inline void set_entry(proto_t p) noexcept { entry_point_ = p; }
+
+//     inline void set_state(State s) noexcept { state_ = s; }
+//     [[nodiscard]] inline bool is_ready() const noexcept { return state_ == State::READY; }
+
+//     // --- GC ---
+//     void trace(GCVisitor& v) const noexcept override;
+
+// private:
+//     static value_t find_in(const std::vector<value_t>& vals, 
+//                            const std::vector<string_t>& names, 
+//                            string_t key) {
+//         for (size_t i = 0; i < names.size(); ++i) {
+//             if (names[i] == key) return vals[i];
+//         }
+//         return {};
+//     }
+// };
+
+// } // namespace meow
