@@ -1,4 +1,4 @@
-#include "bytecode/binary_loader.h"
+#include "bytecode/loader.h"
 #include "memory/memory_manager.h"
 #include "core/objects/string.h"
 #include "core/objects/function.h"
@@ -18,21 +18,21 @@ enum class ConstantTag : uint8_t {
     PROTO_REF_T
 };
 
-BinaryLoader::BinaryLoader(MemoryManager* heap, const std::vector<uint8_t>& data)
+Loader::Loader(MemoryManager* heap, const std::vector<uint8_t>& data)
     : heap_(heap), data_(data), cursor_(0) {}
 
-void BinaryLoader::check_can_read(size_t bytes) {
+void Loader::check_can_read(size_t bytes) {
     if (cursor_ + bytes > data_.size()) {
-        throw BinaryLoaderError("Unexpected end of file. File is truncated or corrupt.");
+        throw LoaderError("Unexpected end of file. File is truncated or corrupt.");
     }
 }
 
-uint8_t BinaryLoader::read_u8() {
+uint8_t Loader::read_u8() {
     check_can_read(1);
     return data_[cursor_++];
 }
 
-uint16_t BinaryLoader::read_u16() {
+uint16_t Loader::read_u16() {
     check_can_read(2);
     uint16_t val = static_cast<uint16_t>(data_[cursor_]) |
                    (static_cast<uint16_t>(data_[cursor_ + 1]) << 8);
@@ -40,7 +40,7 @@ uint16_t BinaryLoader::read_u16() {
     return val;
 }
 
-uint32_t BinaryLoader::read_u32() {
+uint32_t Loader::read_u32() {
     check_can_read(4);
     uint32_t val = static_cast<uint32_t>(data_[cursor_]) |
                    (static_cast<uint32_t>(data_[cursor_ + 1]) << 8) |
@@ -50,7 +50,7 @@ uint32_t BinaryLoader::read_u32() {
     return val;
 }
 
-uint64_t BinaryLoader::read_u64() {
+uint64_t Loader::read_u64() {
     check_can_read(8);
     uint64_t val;
     std::memcpy(&val, &data_[cursor_], 8); 
@@ -63,11 +63,11 @@ uint64_t BinaryLoader::read_u64() {
     }
 }
 
-double BinaryLoader::read_f64() {
+double Loader::read_f64() {
     return std::bit_cast<double>(read_u64());
 }
 
-string_t BinaryLoader::read_string() {
+string_t Loader::read_string() {
     uint32_t length = read_u32();
     check_can_read(length);
     // TODO: Validate utf-8 here if needed
@@ -76,7 +76,7 @@ string_t BinaryLoader::read_string() {
     return heap_->new_string(str);
 }
 
-Value BinaryLoader::read_constant(size_t current_proto_idx, size_t current_const_idx) {
+Value Loader::read_constant(size_t current_proto_idx, size_t current_const_idx) {
     ConstantTag tag = static_cast<ConstantTag>(read_u8());
     switch (tag) {
         case ConstantTag::NULL_T:   return Value(null_t{});
@@ -91,11 +91,11 @@ Value BinaryLoader::read_constant(size_t current_proto_idx, size_t current_const
             return Value(null_t{}); 
         }
         default:
-            throw BinaryLoaderError("Unknown constant tag in binary file.");
+            throw LoaderError("Unknown constant tag in binary file.");
     }
 }
 
-proto_t BinaryLoader::read_prototype(size_t current_proto_idx) {
+proto_t Loader::read_prototype(size_t current_proto_idx) {
     uint32_t num_registers = read_u32();
     uint32_t num_upvalues = read_u32();
     uint32_t name_idx_in_pool = read_u32();
@@ -109,14 +109,14 @@ proto_t BinaryLoader::read_prototype(size_t current_proto_idx) {
     }
     
     if (name_idx_in_pool >= constants.size() || !constants[name_idx_in_pool].is_string()) {
-        throw BinaryLoaderError("Invalid function prototype name index (must be a string).");
+        throw LoaderError("Invalid function prototype name index (must be a string).");
     }
     string_t name = constants[name_idx_in_pool].as_string();
 
     // Upvalues
     uint32_t upvalue_desc_count = read_u32();
     if (upvalue_desc_count != num_upvalues) {
-         throw BinaryLoaderError("Upvalue count mismatch.");
+         throw LoaderError("Upvalue count mismatch.");
     }
     std::vector<UpvalueDesc> upvalue_descs;
     upvalue_descs.reserve(upvalue_desc_count);
@@ -136,23 +136,23 @@ proto_t BinaryLoader::read_prototype(size_t current_proto_idx) {
     return heap_->new_proto(num_registers, num_upvalues, name, std::move(chunk), std::move(upvalue_descs));
 }
 
-void BinaryLoader::check_magic() {
+void Loader::check_magic() {
     if (read_u32() != MAGIC_NUMBER) {
-        throw BinaryLoaderError("Not a valid Meow bytecode file (magic number mismatch).");
+        throw LoaderError("Not a valid Meow bytecode file (magic number mismatch).");
     }
     uint32_t version = read_u32();
     if (version != FORMAT_VERSION) {
-        throw BinaryLoaderError(std::format("Bytecode version mismatch. File is v{}, VM supports v{}.", version, FORMAT_VERSION));
+        throw LoaderError(std::format("Bytecode version mismatch. File is v{}, VM supports v{}.", version, FORMAT_VERSION));
     }
 }
 
-void BinaryLoader::link_prototypes() {    
+void Loader::link_prototypes() {    
     for (const auto& patch : patches_) {
         if (patch.proto_idx >= loaded_protos_.size()) {
-            throw BinaryLoaderError("Internal Error: Patch parent proto index out of bounds.");
+            throw LoaderError("Internal Error: Patch parent proto index out of bounds.");
         }
         if (patch.target_idx >= loaded_protos_.size()) {
-            throw BinaryLoaderError("Invalid prototype reference: Target proto index out of bounds.");
+            throw LoaderError("Invalid prototype reference: Target proto index out of bounds.");
         }
 
         proto_t parent_proto = loaded_protos_[patch.proto_idx];
@@ -166,7 +166,7 @@ void BinaryLoader::link_prototypes() {
         Chunk& chunk = const_cast<Chunk&>(parent_proto->get_chunk()); 
         
         if (patch.const_idx >= chunk.get_pool_size()) {
-             throw BinaryLoaderError("Internal Error: Patch constant index out of bounds.");
+             throw LoaderError("Internal Error: Patch constant index out of bounds.");
         }
 
         // 4. Vá! Gán đè giá trị null placeholder bằng Proto Object
@@ -174,14 +174,14 @@ void BinaryLoader::link_prototypes() {
     }
 }
 
-proto_t BinaryLoader::load_module() {
+proto_t Loader::load_module() {
     check_magic();
     
     uint32_t main_proto_index = read_u32();
     uint32_t prototype_count = read_u32();
     
     if (prototype_count == 0) {
-        throw BinaryLoaderError("No prototypes found in bytecode file.");
+        throw LoaderError("No prototypes found in bytecode file.");
     }
     
     loaded_protos_.reserve(prototype_count);
@@ -190,7 +190,7 @@ proto_t BinaryLoader::load_module() {
     }
     
     if (main_proto_index >= loaded_protos_.size()) {
-        throw BinaryLoaderError("Main prototype index is out of bounds.");
+        throw LoaderError("Main prototype index is out of bounds.");
     }
     
     link_prototypes();
@@ -201,7 +201,7 @@ proto_t BinaryLoader::load_module() {
 }
 
 
-// #include "bytecode/binary_loader.h"
+// #include "bytecode/loader.h"
 // #include "memory/memory_manager.h"
 // #include "core/objects/string.h"
 // #include "core/objects/function.h"
@@ -238,14 +238,14 @@ proto_t BinaryLoader::load_module() {
 //     { auto res = (expr); if (!res) return std::unexpected(res.error()); }
 
 
-// BinaryLoader::BinaryLoader(MemoryManager* heap, const std::vector<uint8_t>& data)
+// Loader::Loader(MemoryManager* heap, const std::vector<uint8_t>& data)
 //     : heap_(heap), data_(data), cursor_(0) {}
 
-// LoaderError BinaryLoader::make_error(const std::string& msg) const {
+// LoaderError Loader::make_error(const std::string& msg) const {
 //     return LoaderError{ msg, cursor_ };
 // }
 
-// std::expected<void, LoaderError> BinaryLoader::check_boundary(size_t bytes) const {
+// std::expected<void, LoaderError> Loader::check_boundary(size_t bytes) const {
 //     if (cursor_ + bytes > data_.size()) {
 //         return std::unexpected(make_error("Unexpected end of file (Truncated data)."));
 //     }
@@ -254,12 +254,12 @@ proto_t BinaryLoader::load_module() {
 
 // // --- Primitive Readers ---
 
-// BinaryLoader::ReadResult<uint8_t> BinaryLoader::read_u8() {
+// Loader::ReadResult<uint8_t> Loader::read_u8() {
 //     MEOW_CHECK(check_boundary(1));
 //     return data_[cursor_++];
 // }
 
-// BinaryLoader::ReadResult<uint16_t> BinaryLoader::read_u16() {
+// Loader::ReadResult<uint16_t> Loader::read_u16() {
 //     MEOW_CHECK(check_boundary(2));
 //     uint16_t val = static_cast<uint16_t>(data_[cursor_]) |
 //                    (static_cast<uint16_t>(data_[cursor_ + 1]) << 8);
@@ -267,7 +267,7 @@ proto_t BinaryLoader::load_module() {
 //     return val;
 // }
 
-// BinaryLoader::ReadResult<uint32_t> BinaryLoader::read_u32() {
+// Loader::ReadResult<uint32_t> Loader::read_u32() {
 //     MEOW_CHECK(check_boundary(4));
 //     uint32_t val = static_cast<uint32_t>(data_[cursor_]) |
 //                    (static_cast<uint32_t>(data_[cursor_ + 1]) << 8) |
@@ -277,7 +277,7 @@ proto_t BinaryLoader::load_module() {
 //     return val;
 // }
 
-// BinaryLoader::ReadResult<uint64_t> BinaryLoader::read_u64() {
+// Loader::ReadResult<uint64_t> Loader::read_u64() {
 //     MEOW_CHECK(check_boundary(8));
 //     uint64_t val;
 //     std::memcpy(&val, &data_[cursor_], 8);
@@ -289,12 +289,12 @@ proto_t BinaryLoader::load_module() {
 //     return val;
 // }
 
-// BinaryLoader::ReadResult<double> BinaryLoader::read_f64() {
+// Loader::ReadResult<double> Loader::read_f64() {
 //     MEOW_TRY(val_u64, read_u64());
 //     return std::bit_cast<double>(val_u64);
 // }
 
-// BinaryLoader::ReadResult<string_t> BinaryLoader::read_string() {
+// Loader::ReadResult<string_t> Loader::read_string() {
 //     MEOW_TRY(length, read_u32());
 //     MEOW_CHECK(check_boundary(length));
 
@@ -307,7 +307,7 @@ proto_t BinaryLoader::load_module() {
 
 // // --- Complex Readers ---
 
-// BinaryLoader::ReadResult<Value> BinaryLoader::read_constant(size_t current_proto_idx, size_t current_const_idx) {
+// Loader::ReadResult<Value> Loader::read_constant(size_t current_proto_idx, size_t current_const_idx) {
 //     MEOW_TRY(tag_byte, read_u8());
 //     auto tag = static_cast<ConstantTag>(tag_byte);
 
@@ -338,7 +338,7 @@ proto_t BinaryLoader::load_module() {
 //     }
 // }
 
-// BinaryLoader::ReadResult<proto_t> BinaryLoader::read_prototype(size_t current_proto_idx) {
+// Loader::ReadResult<proto_t> Loader::read_prototype(size_t current_proto_idx) {
 //     MEOW_TRY(num_regs, read_u32());
 //     MEOW_TRY(num_upvals, read_u32());
 //     MEOW_TRY(name_idx, read_u32()); // Index của tên hàm trong pool (sẽ được đọc sau)
@@ -386,7 +386,7 @@ proto_t BinaryLoader::load_module() {
 //     return heap_->new_proto(num_regs, num_upvals, name, std::move(chunk), std::move(upvalue_descs));
 // }
 
-// std::expected<void, LoaderError> BinaryLoader::check_header(uint32_t& out_globals_count) {
+// std::expected<void, LoaderError> Loader::check_header(uint32_t& out_globals_count) {
 //     MEOW_TRY(magic, read_u32());
 //     if (magic != MAGIC_NUMBER) {
 //         return std::unexpected(make_error("Invalid Magic Number. Not a MeowVM binary."));
@@ -404,7 +404,7 @@ proto_t BinaryLoader::load_module() {
 //     return {};
 // }
 
-// std::expected<void, LoaderError> BinaryLoader::link_prototypes() {
+// std::expected<void, LoaderError> Loader::link_prototypes() {
 //     for (const auto& patch : patches_) {
 //         // Validate index
 //         if (patch.proto_idx >= loaded_protos_.size()) {
@@ -430,7 +430,7 @@ proto_t BinaryLoader::load_module() {
 //     return {};
 // }
 
-// LoaderResult BinaryLoader::load() {
+// LoaderResult Loader::load() {
 //     uint32_t globals_count = 0;
 //     MEOW_CHECK(check_header(globals_count));
 

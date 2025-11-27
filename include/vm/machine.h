@@ -6,7 +6,6 @@
 
 namespace meow {
 struct ExecutionContext;
-struct BuiltinRegistry;
 class OperatorDispatcher;
 class MemoryManager;
 class ModuleManager;

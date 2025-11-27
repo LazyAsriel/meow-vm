@@ -6,7 +6,7 @@
 #include "memory/memory_manager.h"
 #include "module/module_utils.h"
 #include "vm/meow_engine.h"
-#include "bytecode/binary_loader.h"
+#include "bytecode/loader.h"
 
 namespace meow {
 
@@ -126,22 +126,22 @@ module_t ModuleManager::load_module(string_t module_path_obj, string_t importer_
 
     proto_t main_proto = nullptr;
     try {
-        BinaryLoader loader(heap_, buffer);
+        Loader loader(heap_, buffer);
         main_proto = loader.load_module();
-    } catch (const BinaryLoaderError& e) {
+    } catch (const LoaderError& e) {
         throw std::runtime_error("Tệp bytecode bị hỏng hoặc không hợp lệ: " + 
                                  binary_file_path + " - Lỗi: " + e.what());
     }
 
     if (!main_proto) {
-        throw std::runtime_error("BinaryLoader trả về proto null mà không ném lỗi cho tệp: " + 
+        throw std::runtime_error("Loader trả về proto null mà không ném lỗi cho tệp: " + 
                                  binary_file_path);
     }
 
     string_t filename_obj = heap_->new_string(binary_file_path_fs.filename().string());
     module_t meow_module = heap_->new_module(filename_obj, binary_file_path_obj, main_proto);
 
-    // BinaryLoader loader(heap_, buffer);
+    // Loader loader(heap_, buffer);
     // auto load_result = loader.load();
 
     // if (!load_result) {

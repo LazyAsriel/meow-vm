@@ -1,7 +1,7 @@
 /**
  * @file assembler.cpp
  * @brief MeowVM Assembler - Converts textual assembly to .meowb bytecode
- * @details Fixed initialization order and aligned with BinaryLoader format.
+ * @details Fixed initialization order and aligned with Loader format.
  * Compile: clang++ -std=c++23 -O3 tools/assembler.cpp -o meow-asm
  */
 

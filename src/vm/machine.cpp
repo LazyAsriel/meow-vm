@@ -4,7 +4,6 @@
 #include "memory/mark_sweep_gc.h"
 #include "memory/memory_manager.h"
 #include "module/module_manager.h"
-#include "runtime/builtin_registry.h"
 #include "runtime/execution_context.h"
 #include "runtime/operator_dispatcher.h"
 #include "runtime/upvalue.h"

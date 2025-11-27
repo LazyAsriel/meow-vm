@@ -1,6 +1,5 @@
 #include "memory/mark_sweep_gc.h"
 #include "core/value.h"
-#include "runtime/builtin_registry.h"
 #include "runtime/execution_context.h"
 #include <print>
 

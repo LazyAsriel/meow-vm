@@ -7,7 +7,6 @@
 
 namespace meow {
 struct ExecutionContext;
-struct BuiltinRegistry;
 struct GCMetadata {
     bool is_marked_ = false;
 };

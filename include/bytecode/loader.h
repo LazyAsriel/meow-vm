@@ -7,14 +7,14 @@
 
 namespace meow {
 class MemoryManager;
-class BinaryLoaderError : public std::runtime_error {
+class LoaderError : public std::runtime_error {
 public:
-    explicit BinaryLoaderError(const std::string& msg) : std::runtime_error(msg) {}
+    explicit LoaderError(const std::string& msg) : std::runtime_error(msg) {}
 };
 
-class BinaryLoader {
+class Loader {
 public:
-    BinaryLoader(MemoryManager* heap, const std::vector<uint8_t>& data);
+    Loader(MemoryManager* heap, const std::vector<uint8_t>& data);
     proto_t load_module();
 
 private:
@@ -77,9 +77,9 @@ private:
 // // Alias cho kiểu trả về: Hoặc là ModuleData, hoặc là Lỗi
 // using LoaderResult = std::expected<ModuleData, LoaderError>;
 
-// class BinaryLoader {
+// class Loader {
 // public:
-//     BinaryLoader(MemoryManager* heap, const std::vector<uint8_t>& data);
+//     Loader(MemoryManager* heap, const std::vector<uint8_t>& data);
     
 //     // API chính: Không ném ngoại lệ, trả về Result
 //     LoaderResult load();
