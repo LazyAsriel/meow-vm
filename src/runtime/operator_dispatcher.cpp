@@ -28,15 +28,34 @@ static return_t trap_unary(MemoryManager*, param_t rhs) {
     })
 
 void OperatorDispatcher::register_binary(OpCode op, ValueType lhs, ValueType rhs, binary_function_t func) noexcept {
-    const size_t idx = (std::to_underlying(op) << (TYPE_BITS * 2)) | 
+    const size_t op_idx = std::to_underlying(op) - OP_OFFSET;
+    
+    if (op_idx >= (1 << OP_BITS_COMPACT)) {
+        std::cerr << "[VM Error] OpCode " << (int)std::to_underlying(op) 
+                  << " is outside the dispatcher range!\n";
+        return; 
+    }
+
+    const size_t idx = (op_idx << (TYPE_BITS * 2)) | 
                        (std::to_underlying(lhs) << TYPE_BITS) | 
                        std::to_underlying(rhs);
+                       
     if (idx < BINARY_TABLE_SIZE) binary_dispatch_table_[idx] = func;
 }
 
 void OperatorDispatcher::register_unary(OpCode op, ValueType rhs, unary_function_t func) noexcept {
-    const size_t idx = (std::to_underlying(op) << TYPE_BITS) | std::to_underlying(rhs);
-    if (idx < UNARY_TABLE_SIZE) unary_dispatch_table_[idx] = func;
+    const size_t op_idx = std::to_underlying(op) - OP_OFFSET;
+
+    if (op_idx >= (1 << OP_BITS_COMPACT)) {
+        std::cerr << "[VM Error] Unary OpCode " << (int)std::to_underlying(op) << " out of range!\n";
+        return;
+    }
+
+    const size_t idx = (op_idx << TYPE_BITS) | std::to_underlying(rhs);
+    
+    if (idx < UNARY_TABLE_SIZE) {
+        unary_dispatch_table_[idx] = func;
+    }
 }
 
 OperatorDispatcher::OperatorDispatcher(MemoryManager* heap) noexcept : heap_(heap) {

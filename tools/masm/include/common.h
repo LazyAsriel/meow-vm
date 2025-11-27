@@ -10,6 +10,7 @@ enum class OpCode : uint8_t {
     // Load/Store
     LOAD_CONST, LOAD_NULL, LOAD_TRUE, LOAD_FALSE,
     LOAD_INT, LOAD_FLOAT, MOVE,
+    __BEGIN_OPERATOR__,
     // Binary
     ADD, SUB, MUL, DIV, MOD, POW,
     EQ, NEQ, GT, GE, LT, LE,
@@ -17,6 +18,7 @@ enum class OpCode : uint8_t {
     NEG, NOT,
     // Bitwise
     BIT_AND, BIT_OR, BIT_XOR, BIT_NOT, LSHIFT, RSHIFT,
+    __END_OPERATOR__,
     // Variables
     GET_GLOBAL, SET_GLOBAL,     // <-- CẬP NHẬT: Nhận Index (u32) thay vì String Const
     GET_UPVALUE, SET_UPVALUE,

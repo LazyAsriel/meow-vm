@@ -15,6 +15,7 @@ enum class OpCode : unsigned char {
     LOAD_CONST, LOAD_NULL, LOAD_TRUE, LOAD_FALSE,
     LOAD_INT, LOAD_FLOAT,
     MOVE,
+    __BEGIN_OPERATOR__,
     // --- Binary ---
     ADD, SUB, MUL, DIV, MOD, POW,
     EQ, NEQ, GT, GE, LT, LE,
@@ -22,6 +23,7 @@ enum class OpCode : unsigned char {
     NEG, NOT,
     // --- Bitwise ---
     BIT_AND, BIT_OR, BIT_XOR, BIT_NOT, LSHIFT, RSHIFT,
+    __END_OPERATOR__,
     // --- Constant & variable
     GET_GLOBAL, SET_GLOBAL,
     GET_UPVALUE, SET_UPVALUE,

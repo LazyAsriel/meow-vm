@@ -181,11 +181,8 @@ dispatch_start:
             } else if (left.is_float() && right.is_float()) {
                 REGISTER(dst) = value_t(left.as_float() + right.as_float());
             } else {                
-                if (auto func = op_dispatcher_->find(OpCode::ADD, left, right)) {
-                    REGISTER(dst) = func(heap_.get(), left, right);
-                } else {
-                    throw_vm_error("Unsupported binary operator ADD");
-                }
+                auto func = (*op_dispatcher_)[OpCode::ADD, left, right];
+                REGISTER(dst) = func(heap_.get(), left, right);
             }
             DISPATCH();
         }
