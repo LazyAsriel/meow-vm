@@ -1,9 +1,3 @@
-# Danh sách opcode (theo *meow_vm.cpp*). 
-
-Mình liệt kê **mỗi opcode — làm gì** và **tham số** nó nhận (kiểu/ý nghĩa). Mình *không* giải thích cách hoạt động bên trong — chỉ chức năng và định dạng bytecode thôi như bạn yêu cầu. 😼✨
-
----
-
 ## Lưu ý chung
 
 * Các register / chỉ số thường là `uint16_t` (u16).

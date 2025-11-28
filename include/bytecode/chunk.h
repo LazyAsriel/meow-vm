@@ -78,7 +78,6 @@ public:
 
         return true;
     }
-
 private:
     std::vector<uint8_t> code_;
     std::vector<Value> constant_pool_;
