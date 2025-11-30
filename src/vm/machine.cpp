@@ -183,6 +183,9 @@ dispatch_start:
                 auto func = (*op_dispatcher_)[OpCode::ADD, left, right];
                 REGISTER(dst) = func(heap_.get(), left, right);
             }
+
+            printl("Final value in R0: {}", REGISTER(0).as_int());
+            printl("add r{}, r{}, r{}", meow::to_string(left), meow::to_string(right), meow::to_string(REGISTER(dst)));
             DISPATCH();
         }
 

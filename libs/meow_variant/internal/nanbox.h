@@ -7,12 +7,11 @@
 #include <type_traits>
 #include <utility>
 #include <variant> 
-#include <stdexcept> // bad_variant_access
+#include <stdexcept>
 #include "internal/utils.h"
 
 namespace meow::utils {
 
-// Check platform
 #if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && \
     (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) && \
     (defined(__x86_64__) || defined(_M_X64) || defined(__aarch64__))
@@ -21,13 +20,11 @@ namespace meow::utils {
     #define MEOW_LITTLE_64 0
 #endif
 
-// Classifiers
 template <typename T> concept PointerLike = std::is_pointer_v<std::decay_t<T>>;
 template <typename T> concept IntegralLike = std::is_integral_v<std::decay_t<T>> && !std::is_same_v<std::decay_t<T>, bool>;
 template <typename T> concept DoubleLike = std::is_floating_point_v<std::decay_t<T>>;
 template <typename T> concept BoolLike = std::is_same_v<std::decay_t<T>, bool>;
 
-// Nanbox check
 template <typename List> struct all_nanboxable_impl;
 template <typename... Ts>
 struct all_nanboxable_impl<detail::type_list<Ts...>> {
@@ -37,24 +34,24 @@ struct all_nanboxable_impl<detail::type_list<Ts...>> {
 };
 
 static constexpr uint64_t MEOW_EXP_MASK     = 0x7FF0000000000000ULL;
-static constexpr uint64_t MEOW_QNAN_PREFIX  = 0x7FF8000000000000ULL;
+static constexpr uint64_t MEOW_QNAN_POS     = 0x7FF8000000000000ULL; 
+static constexpr uint64_t MEOW_QNAN_NEG     = 0xFFF8000000000000ULL; 
 static constexpr uint64_t MEOW_TAG_MASK     = 0x0007000000000000ULL;
 static constexpr uint64_t MEOW_PAYLOAD_MASK = 0x0000FFFFFFFFFFFFULL;
 static constexpr unsigned MEOW_TAG_SHIFT    = 48;
 static constexpr uint64_t MEOW_VALUELESS    = 0xFFFFFFFFFFFFFFFFULL;
-
 inline uint64_t to_bits(double d) { return std::bit_cast<uint64_t>(d); }
 inline double from_bits(uint64_t u) { return std::bit_cast<double>(u); }
-inline bool is_double(uint64_t b) { return (b & MEOW_EXP_MASK) != MEOW_EXP_MASK; }
+inline bool is_double(uint64_t b) { 
+    return (b & MEOW_EXP_MASK) != MEOW_EXP_MASK; 
+}
 
-// ============================================================================
-// NaNBoxedVariant
-// ============================================================================
 template <typename... Args>
 class NaNBoxedVariant {
     using flat_list = meow::utils::flattened_unique_t<Args...>;
     static constexpr std::size_t count = detail::type_list_length<flat_list>::value;
     static constexpr std::size_t dbl_idx = detail::type_list_index_of<double, flat_list>::value;
+    static constexpr bool use_extended_tag = (count > 8);
 
 public:
     using inner_types = flat_list;
@@ -62,7 +59,7 @@ public:
 
     NaNBoxedVariant() noexcept {
         if constexpr (std::is_same_v<typename detail::nth_type<0, flat_list>::type, std::monostate>) {
-            bits_ = MEOW_QNAN_PREFIX;
+            bits_ = MEOW_QNAN_POS;
         } else {
             bits_ = MEOW_VALUELESS;
         }
@@ -93,8 +90,20 @@ public:
         return *this;
     }
 
-    [[nodiscard]] std::size_t index() const noexcept {
-        if (bits_ == MEOW_VALUELESS) return npos;
+    // [[nodiscard]] std::size_t index() const noexcept {
+    //     if (bits_ == MEOW_VALUELESS) return npos;
+    //     if (is_double(bits_)) return dbl_idx;
+        
+    //     if constexpr (use_extended_tag) {
+    //         std::size_t high_bit = (bits_ >> 63); 
+    //         std::size_t low_bits = (bits_ >> MEOW_TAG_SHIFT) & 0x7;
+    //         return (high_bit * 8) + low_bits;
+    //     } else {
+    //         return static_cast<std::size_t>((bits_ >> MEOW_TAG_SHIFT) & 0x7);
+    //     }
+    // }
+
+    [[nodiscard]] std::size_t index() const noexcept {        
         if (is_double(bits_)) return dbl_idx;
         return static_cast<std::size_t>((bits_ >> MEOW_TAG_SHIFT) & 0x7);
     }
@@ -107,25 +116,25 @@ public:
         return index() == idx;
     }
 
-    // --- Fix: Thêm hàm safe_get mà code cũ gọi ---
     template <typename T>
     [[nodiscard]] std::decay_t<T> safe_get() const {
         if (!holds<T>()) throw std::bad_variant_access();
         return decode<std::decay_t<T>>(bits_);
     }
 
-    // --- Fix: Thêm hàm get (unsafe) ---
     template <typename T>
-    [[nodiscard]] std::decay_t<T> get() const noexcept {
+    [[nodiscard]] std::decay_t<T> unsafe_get() const noexcept {
         return decode<std::decay_t<T>>(bits_);
     }
 
-    // --- Fix: get_if trả về pointer ---
+    template <typename T>
+    [[nodiscard]] std::decay_t<T> get() const noexcept {
+        return unsafe_get<T>();
+    }
+
     template <typename T>
     [[nodiscard]] std::decay_t<T>* get_if() noexcept {
         if (!holds<T>()) return nullptr;
-        // Hack: Vì primitive types ko có địa chỉ trong nanbox, 
-        // trả về địa chỉ của biến static thread_local để thỏa mãn API.
         thread_local static std::decay_t<T> temp; 
         temp = decode<std::decay_t<T>>(bits_);
         return &temp;
@@ -155,7 +164,7 @@ private:
         using U = std::decay_t<T>;
         if constexpr (DoubleLike<U>) {
             uint64_t b = to_bits(static_cast<double>(v));
-            if (!is_double(b)) return b; 
+            if (!is_double(b)) return b ^ 1; 
             if (b == MEOW_VALUELESS) return b ^ 1;
             return b;
         } else {
@@ -163,7 +172,16 @@ private:
             if constexpr (PointerLike<U>) payload = reinterpret_cast<uintptr_t>(static_cast<const void*>(v));
             else if constexpr (IntegralLike<U>) payload = static_cast<uint64_t>(static_cast<int64_t>(v));
             else if constexpr (BoolLike<U>) payload = v ? 1 : 0;
-            return MEOW_QNAN_PREFIX | (static_cast<uint64_t>(idx) << MEOW_TAG_SHIFT) | (payload & MEOW_PAYLOAD_MASK);
+            
+            if constexpr (use_extended_tag) {
+                if (idx < 8) {
+                    return MEOW_QNAN_POS | (static_cast<uint64_t>(idx) << MEOW_TAG_SHIFT) | (payload & MEOW_PAYLOAD_MASK);
+                } else {
+                    return MEOW_QNAN_NEG | (static_cast<uint64_t>(idx - 8) << MEOW_TAG_SHIFT) | (payload & MEOW_PAYLOAD_MASK);
+                }
+            } else {
+                return MEOW_QNAN_POS | (static_cast<uint64_t>(idx) << MEOW_TAG_SHIFT) | (payload & MEOW_PAYLOAD_MASK);
+            }
         }
     }
 
@@ -171,7 +189,13 @@ private:
     static T decode(uint64_t bits) noexcept {
         using U = std::decay_t<T>;
         if constexpr (DoubleLike<U>) return from_bits(bits);
-        else if constexpr (IntegralLike<U>) return static_cast<U>(static_cast<int64_t>(bits << 16) >> 16);
+        else if constexpr (IntegralLike<U>) {
+            if constexpr (sizeof(U) <= 4) {
+                return static_cast<U>(bits); 
+            } else {
+                return static_cast<U>(static_cast<int64_t>(bits << 16) >> 16);
+            }
+        }
         else if constexpr (PointerLike<U>) return reinterpret_cast<U>(static_cast<uintptr_t>(bits & MEOW_PAYLOAD_MASK));
         else if constexpr (BoolLike<U>) return static_cast<U>((bits & MEOW_PAYLOAD_MASK) != 0);
         else return U{};
@@ -188,9 +212,29 @@ private:
         return table[idx](bits_, std::forward<Visitor>(vis));
     }
 
+    template <std::size_t I, typename Visitor>
+    __attribute__((always_inline))
+    decltype(auto) visit_recursive(Visitor&& vis, std::size_t idx) const {
+        if (idx == I) {
+            using T = typename detail::nth_type<I, flat_list>::type;
+            return std::forward<Visitor>(vis)(decode<T>(bits_));
+        }
+
+        if constexpr (I + 1 < count) {
+            return visit_recursive<I + 1>(std::forward<Visitor>(vis), idx);
+        } else {
+            #if defined(__GNUC__) || defined(__clang__)
+                        __builtin_unreachable();
+            #elif defined(_MSC_VER)
+                        __assume(0);
+            #endif
+        }
+    }
+
     template <typename Visitor>
     decltype(auto) visit_impl(Visitor&& vis, std::size_t idx) const {
-        return visit_table(std::forward<Visitor>(vis), idx, std::make_index_sequence<count>{});
+        // return visit_table(std::forward<Visitor>(vis), idx, std::make_index_sequence<count>{});
+        return visit_recursive<0>(std::forward<Visitor>(vis), idx);
     }
 };
 

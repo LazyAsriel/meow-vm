@@ -17,13 +17,13 @@ static return_t trap_unary(MemoryManager*, param_t rhs) {
 
 #define BINARY(OP, T1, T2, ...) \
     register_binary(OpCode::OP, ValueType::T1, ValueType::T2, \
-    [](MemoryManager* heap, param_t lhs, param_t rhs) -> return_t { \
+    []([[maybe_unused]] MemoryManager* heap, param_t lhs, param_t rhs) -> return_t { \
         __VA_ARGS__ \
     })
 
 #define UNARY(OP, T1, ...) \
     register_unary(OpCode::OP, ValueType::T1, \
-    [](MemoryManager* heap, param_t rhs) -> return_t { \
+    []([[maybe_unused]] MemoryManager* heap, param_t rhs) -> return_t { \
         __VA_ARGS__ \
     })
 

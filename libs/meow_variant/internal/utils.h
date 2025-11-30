@@ -6,12 +6,11 @@
 #include <concepts>
 
 namespace meow {
-template <typename...> class variant;
+template <typename Layout, typename... Args> class basic_variant;
 }
 
 namespace meow::utils {
 
-// Concept kiểm tra xem T có phải là meow::variant không
 template <typename T>
 concept MeowVariant = requires {
     typename T::inner_types;
@@ -19,20 +18,16 @@ concept MeowVariant = requires {
 
 namespace detail {
 
-// ---------------- tiny typelist ----------------
 template <typename... Ts> struct type_list {};
 
-// Append
 template <typename List, typename T> struct type_list_append;
 template <typename... Ts, typename T>
 struct type_list_append<type_list<Ts...>, T> { using type = type_list<Ts..., T>; };
 
-// Contains
 template <typename T, typename List> struct type_list_contains;
 template <typename T, typename... Ts>
 struct type_list_contains<T, type_list<Ts...>> : std::bool_constant<(std::is_same_v<T, Ts> || ...)> {};
 
-// Append unique
 template <typename List, typename T>
 using type_list_append_unique_t = std::conditional_t<
     type_list_contains<T, List>::value, 
@@ -40,21 +35,18 @@ using type_list_append_unique_t = std::conditional_t<
     typename type_list_append<List, T>::type
 >;
 
-// Nth Type
 template <std::size_t I, typename List> struct nth_type;
 template <std::size_t I, typename Head, typename... Tail>
 struct nth_type<I, type_list<Head, Tail...>> : nth_type<I - 1, type_list<Tail...>> {};
 template <typename Head, typename... Tail>
 struct nth_type<0, type_list<Head, Tail...>> { using type = Head; };
 
-// Index Of (Fix warning unused value bằng cách dùng thuật toán clean hơn)
 template <typename T, typename List> struct type_list_index_of;
 template <typename T, typename... Ts>
 struct type_list_index_of<T, type_list<Ts...>> {
     static constexpr std::size_t value = []() consteval {
         std::size_t idx = 0;
         bool found = false;
-        // Dùng lambda để tránh warning expression result unused
         auto check = [&](bool is_same) {
             if (found) return;
             if (is_same) found = true;
@@ -66,17 +58,15 @@ struct type_list_index_of<T, type_list<Ts...>> {
 };
 static constexpr std::size_t invalid_index = static_cast<std::size_t>(-1);
 
-// Length
 template <typename List> struct type_list_length;
 template <typename... Ts>
 struct type_list_length<type_list<Ts...>> : std::integral_constant<std::size_t, sizeof...(Ts)> {};
 
-// ---------------- Flatten logic ----------------
 template <typename T>
 struct variant_inner_list { using type = type_list<T>; };
 
-template <typename... Inner>
-struct variant_inner_list<meow::variant<Inner...>> { using type = type_list<Inner...>; };
+template <typename Layout, typename... Inner>
+struct variant_inner_list<meow::basic_variant<Layout, Inner...>> { using type = type_list<Inner...>; };
 
 template <typename...> struct flatten_list_implement;
 template <> struct flatten_list_implement<> { using type = type_list<>; };
@@ -88,7 +78,7 @@ private:
     
     template <typename H> struct extract { using type = type_list<H>; };
     template <typename... Is> struct extract<type_list<Is...>> { using type = type_list<Is...>; };
-    template <typename... Is> struct extract<meow::variant<Is...>> { using type = type_list<Is...>; }; 
+    template <typename Layout, typename... Is> struct extract<meow::basic_variant<Layout, Is...>> { using type = type_list<Is...>; }; 
 
     using head_list = typename extract<std::remove_cvref_t<Head>>::type;
 
@@ -107,13 +97,24 @@ public:
     using type = merged_all;
 };
 
-} // namespace detail
+template <typename Src, typename Acc> struct unique_only_impl;
+template <typename Acc> struct unique_only_impl<type_list<>, Acc> { using type = Acc; };
 
-// Public API: Expose flattened_unique_t directly in utils namespace to fix your error
+template <typename H, typename... T, typename Acc>
+struct unique_only_impl<type_list<H, T...>, Acc> {
+    using next_acc = type_list_append_unique_t<Acc, H>;
+    using type = typename unique_only_impl<type_list<T...>, next_acc>::type;
+};
+
+}
+
 template <typename... Ts>
 using flattened_unique_t = typename detail::flatten_list_implement<Ts...>::type;
+
+template <typename... Ts>
+using unique_t = typename detail::unique_only_impl<detail::type_list<Ts...>, detail::type_list<>>::type;
 
 template <class... Fs> struct overload : Fs... { using Fs::operator()...; };
 template <class... Fs> overload(Fs...) -> overload<Fs...>;
 
-} // namespace meow::utils
+}

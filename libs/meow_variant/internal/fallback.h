@@ -10,7 +10,6 @@
 
 namespace meow::utils {
 
-// Check ops trivial
 template <typename T> concept TrivialCopy = std::is_trivially_copy_constructible_v<T>;
 template <typename T> concept TrivialDestruct = std::is_trivially_destructible_v<T>;
 
@@ -120,7 +119,6 @@ public:
         return nullptr;
     }
 
-    // --- Fix: Thêm hàm safe_get ---
     template <typename T>
     decltype(auto) safe_get() const {
         if (!holds<T>()) throw std::bad_variant_access();
@@ -132,10 +130,18 @@ public:
         if (!holds<T>()) throw std::bad_variant_access();
         return *reinterpret_cast<T*>(storage_);
     }
+
+    template <typename T>
+    decltype(auto) unsafe_get() const noexcept {
+        return *reinterpret_cast<const T*>(storage_);
+    }
+    template <typename T>
+    decltype(auto) unsafe_get() noexcept {
+        return *reinterpret_cast<T*>(storage_);
+    }
     
-    // Unsafe get
-    template <typename T> decltype(auto) get() const { return *reinterpret_cast<const T*>(storage_); }
-    template <typename T> decltype(auto) get() { return *reinterpret_cast<T*>(storage_); }
+    template <typename T> decltype(auto) get() const noexcept { return unsafe_get<T>(); }
+    template <typename T> decltype(auto) get() noexcept { return unsafe_get<T>(); }
 
     void swap(FallbackVariant& other) noexcept {
         FallbackVariant temp = std::move(*this);
@@ -173,21 +179,49 @@ private:
         }
     }
 
-    template <typename Self, typename Visitor, std::size_t... Is>
-    decltype(auto) visit_impl(this Self&& self, Visitor&& vis, std::index_sequence<Is...>) {
-        using Ret = std::invoke_result_t<Visitor, decltype(*reinterpret_cast<typename detail::nth_type<0, flat_list>::type*>(self.storage_))>;
-        using fn_t = Ret (*)(void*, Visitor&&);
-        static constexpr std::array<fn_t, count> table = {{
-            [](void* ptr, Visitor&& v) -> Ret {
-                using T = typename detail::nth_type<Is, flat_list>::type;
-                if constexpr (std::is_const_v<std::remove_reference_t<Self>>) {
-                    return std::invoke(std::forward<Visitor>(v), *reinterpret_cast<const T*>(ptr));
-                } else {
-                    return std::invoke(std::forward<Visitor>(v), *reinterpret_cast<T*>(ptr));
-                }
-            }...
-        }};
-        return table[self.index_](const_cast<unsigned char*>(self.storage_), std::forward<Visitor>(vis));
+    // template <typename Self, typename Visitor, std::size_t... Is>
+    // decltype(auto) visit_impl(this Self&& self, Visitor&& vis, std::index_sequence<Is...>) {
+    //     using Ret = std::invoke_result_t<Visitor, decltype(*reinterpret_cast<typename detail::nth_type<0, flat_list>::type*>(self.storage_))>;
+    //     using fn_t = Ret (*)(void*, Visitor&&);
+    //     static constexpr std::array<fn_t, count> table = {{
+    //         [](void* ptr, Visitor&& v) -> Ret {
+    //             using T = typename detail::nth_type<Is, flat_list>::type;
+    //             if constexpr (std::is_const_v<std::remove_reference_t<Self>>) {
+    //                 return std::invoke(std::forward<Visitor>(v), *reinterpret_cast<const T*>(ptr));
+    //             } else {
+    //                 return std::invoke(std::forward<Visitor>(v), *reinterpret_cast<T*>(ptr));
+    //             }
+    //         }...
+    //     }};
+    //     return table[self.index_](const_cast<unsigned char*>(self.storage_), std::forward<Visitor>(vis));
+    // }
+
+    template <std::size_t I, typename Visitor>
+    __attribute__((always_inline))
+    decltype(auto) visit_recursive(Visitor&& vis) const {
+        if (index_ == I) {
+            using T = typename detail::nth_type<I, flat_list>::type;
+            if constexpr (std::is_const_v<std::remove_reference_t<decltype(*this)>>) {
+                return std::invoke(std::forward<Visitor>(vis), *reinterpret_cast<const T*>(storage_));
+            } else {
+                return std::invoke(std::forward<Visitor>(vis), *reinterpret_cast<T*>(const_cast<unsigned char*>(storage_)));
+            }
+        }
+
+        if constexpr (I + 1 < count) {
+            return visit_recursive<I + 1>(std::forward<Visitor>(vis));
+        } else {
+            #if defined(__GNUC__) || defined(__clang__)
+                __builtin_unreachable();
+            #elif defined(_MSC_VER)
+                __assume(0);
+            #endif
+        }
+    }
+
+    template <typename Self, typename Visitor>
+    decltype(auto) visit_impl(this Self&& self, Visitor&& vis, auto&&...) {
+        return self.template visit_recursive<0>(std::forward<Visitor>(vis));
     }
 };
 

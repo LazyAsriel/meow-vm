@@ -15,12 +15,13 @@ private:
     using storage_t = std::string;
     using visitor_t = GCVisitor;
     storage_t data_;
+    size_t hash_;
 public:
     // --- Constructors & destructor ---
     ObjString() = default;
-    explicit ObjString(const storage_t& data) : data_(data) {}
-    explicit ObjString(storage_t&& data) noexcept : data_(std::move(data)) {}
-    explicit ObjString(const char* data) : data_(data) {}
+    explicit ObjString(const storage_t& data) : data_(data), hash_(std::hash<storage_t>{}(data_)) {}
+    explicit ObjString(storage_t&& data) noexcept : data_(std::move(data)), hash_(std::hash<storage_t>{}(data_)) {}
+    explicit ObjString(const char* data) : data_(data), hash_(std::hash<storage_t>{}(data_)) {}
 
     // --- Rule of 5 ---
     ObjString(const ObjString&) = delete;
@@ -65,6 +66,7 @@ public:
 
     // --- String access ---
     inline const char* c_str() const noexcept { return data_.c_str(); }
+    inline constexpr size_t hash() const noexcept { return hash_; }
 
     // --- Capacity ---
     inline size_t size() const noexcept { return data_.size(); }
