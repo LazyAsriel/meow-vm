@@ -2,9 +2,6 @@
 
 #include "common/pch.h"
 
-namespace meow {
-}
-
 
 namespace meow {
 struct MeowObject;
@@ -21,8 +18,9 @@ class ObjFunctionProto;
 class ObjNativeFunction;
 class ObjClosure;
 class ObjModule;
+}
 
-
+namespace meow {
 using value_t = Value;
 using param_t = value_t;
 using return_t = value_t;
