@@ -109,7 +109,9 @@ int main() {
                 [&sum](meow::int_t v)   { sum += v; },
                 [&sum](meow::float_t v) { sum += v; },
                 [&sum](meow::bool_t v)  { sum += (v ? 1.0 : 0.0); },
-                [](auto) {}
+                [](auto) {
+                    std::unreachable();
+                }
             );
         }
         return sum;
@@ -128,8 +130,8 @@ int main() {
     double t_nanbox = measure("Raw NanBox (Bitwise)", [&]() -> double {
         double sum = 0;
         for(const auto& v : vec_nanbox) {
-            if (v.is_double()) sum += v.as_double();
-            else if (v.is_int()) sum += v.as_int();
+            if (v.is_int()) sum += v.as_int();
+            else if (v.is_double()) sum += v.as_double();
             else if (v.is_bool()) sum += (v.as_bool() ? 1.0 : 0.0);
         }
         return sum;
