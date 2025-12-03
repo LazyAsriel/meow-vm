@@ -104,7 +104,7 @@ int main() {
     double t_variant_visit = measure("meow::Value (Visit)", [&]() -> double {
         double sum = 0;
 
-        for (const auto& v : vec_variant) {
+        for (auto v : vec_variant) {
             v.visit(
                 [&sum](meow::int_t v)   { sum += v; },
                 [&sum](meow::float_t v) { sum += v; },
@@ -119,7 +119,7 @@ int main() {
 
     double t_variant_if = measure("meow::Value (If-Else)", [&]() -> double {
         double sum = 0;
-        for(const auto& v : vec_variant) {
+        for(auto v : vec_variant) {
             if (v.is_int()) sum += v.as_int();
             else if (v.is_float()) sum += v.as_float(); // Giả định float_t = double
             else if (v.is_bool()) sum += (v.as_bool() ? 1.0 : 0.0);

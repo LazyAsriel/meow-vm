@@ -6,7 +6,6 @@
 
 namespace meow {
 struct ExecutionContext;
-class OperatorDispatcher;
 class MemoryManager;
 class ModuleManager;
 
@@ -33,7 +32,6 @@ private:
     std::unique_ptr<ExecutionContext> context_;
     std::unique_ptr<MemoryManager> heap_;
     std::unique_ptr<ModuleManager> mod_manager_;
-    std::unique_ptr<OperatorDispatcher> op_dispatcher_;
 
     // --- Runtime arguments ---
     VMArgs args_;

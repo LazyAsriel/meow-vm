@@ -180,7 +180,7 @@ dispatch_start:
             } else if (left.is_float() && right.is_float()) {
                 REGISTER(dst) = value_t(left.as_float() + right.as_float());
             } else {                
-                auto func = (*op_dispatcher_)[OpCode::ADD, left, right];
+                auto func = OperatorDispatcher::find(OpCode::ADD, left, right);
                 REGISTER(dst) = func(heap_.get(), left, right);
             }
 

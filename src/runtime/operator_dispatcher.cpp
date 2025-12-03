@@ -1,141 +1,123 @@
 #include "runtime/operator_dispatcher.h"
 #include "memory/memory_manager.h"
+#include <iostream>
 
 namespace meow {
 
-static return_t trap_binary(MemoryManager*, param_t lhs, param_t rhs) {
+// --- Trap Handlers (Xử lý lỗi) ---
+static return_t trap_binary(MemoryManager*, param_t, param_t) {
     std::cerr << "[VM Panic] Invalid binary operand types.\n";
     std::terminate(); 
     return {}; 
 }
 
-static return_t trap_unary(MemoryManager*, param_t rhs) {
+static return_t trap_unary(MemoryManager*, param_t) {
     std::cerr << "[VM Panic] Invalid unary operand type.\n";
     std::terminate();
     return {};
 }
 
-#define BINARY(OP, T1, T2, ...) \
-    register_binary(OpCode::OP, ValueType::T1, ValueType::T2, \
-    []([[maybe_unused]] MemoryManager* heap, param_t lhs, param_t rhs) -> return_t { \
-        __VA_ARGS__ \
-    })
+// --- Compile-time Helpers ---
 
-#define UNARY(OP, T1, ...) \
-    register_unary(OpCode::OP, ValueType::T1, \
-    []([[maybe_unused]] MemoryManager* heap, param_t rhs) -> return_t { \
-        __VA_ARGS__ \
-    })
-
-void OperatorDispatcher::register_binary(OpCode op, ValueType lhs, ValueType rhs, binary_function_t func) noexcept {
+consteval size_t calc_bin_idx(OpCode op, ValueType lhs, ValueType rhs) {
     const size_t op_idx = std::to_underlying(op) - OP_OFFSET;
-    
-    if (op_idx >= (1 << OP_BITS_COMPACT)) {
-        std::cerr << "[VM Error] OpCode " << (int)std::to_underlying(op) 
-                  << " is outside the dispatcher range!\n";
-        return; 
-    }
-
-    const size_t idx = (op_idx << (TYPE_BITS * 2)) | 
-                       (std::to_underlying(lhs) << TYPE_BITS) | 
-                       std::to_underlying(rhs);
-                       
-    if (idx < BINARY_TABLE_SIZE) binary_dispatch_table_[idx] = func;
+    return (op_idx << (TYPE_BITS * 2)) | 
+           (std::to_underlying(lhs) << TYPE_BITS) | 
+           std::to_underlying(rhs);
 }
 
-void OperatorDispatcher::register_unary(OpCode op, ValueType rhs, unary_function_t func) noexcept {
+consteval size_t calc_un_idx(OpCode op, ValueType rhs) {
     const size_t op_idx = std::to_underlying(op) - OP_OFFSET;
-
-    if (op_idx >= (1 << OP_BITS_COMPACT)) {
-        std::cerr << "[VM Error] Unary OpCode " << (int)std::to_underlying(op) << " out of range!\n";
-        return;
-    }
-
-    const size_t idx = (op_idx << TYPE_BITS) | std::to_underlying(rhs);
-    
-    if (idx < UNARY_TABLE_SIZE) {
-        unary_dispatch_table_[idx] = func;
-    }
+    return (op_idx << TYPE_BITS) | std::to_underlying(rhs);
 }
 
-OperatorDispatcher::OperatorDispatcher(MemoryManager* heap) noexcept : heap_(heap) {
-    binary_dispatch_table_.fill(trap_binary);
-    unary_dispatch_table_.fill(trap_unary);
+consteval auto make_binary_table() {
+    std::array<binary_function_t, BINARY_TABLE_SIZE> table;
+    
+    table.fill(trap_binary); 
+
+    auto reg = [&](OpCode op, ValueType t1, ValueType t2, binary_function_t f) {
+        table[calc_bin_idx(op, t1, t2)] = f;
+    };
 
     using enum OpCode;
     using enum ValueType;
 
-    BINARY(ADD, Int, Int,     return Value(lhs.as_int() + rhs.as_int()); );
-    BINARY(ADD, Float, Float, return Value(lhs.as_float() + rhs.as_float()); );
-    BINARY(ADD, Int, Float,   return Value(static_cast<double>(lhs.as_int()) + rhs.as_float()); );
-    BINARY(ADD, Float, Int,   return Value(lhs.as_float() + static_cast<double>(rhs.as_int())); );
-
-    BINARY(ADD, String, String, 
-        auto s1 = lhs.as_string();
-        auto s2 = rhs.as_string();
+    // ADD
+    reg(ADD, Int, Int,     [](auto*, param_t a, param_t b) { return Value(a.as_int() + b.as_int()); });
+    reg(ADD, Float, Float, [](auto*, param_t a, param_t b) { return Value(a.as_float() + b.as_float()); });
+    reg(ADD, Int, Float,   [](auto*, param_t a, param_t b) { return Value(static_cast<double>(a.as_int()) + b.as_float()); });
+    reg(ADD, Float, Int,   [](auto*, param_t a, param_t b) { return Value(a.as_float() + static_cast<double>(b.as_int())); });
+    
+    reg(ADD, String, String, [](MemoryManager* heap, param_t a, param_t b) -> return_t {
+        auto s1 = a.as_string();
+        auto s2 = b.as_string();
         std::string res;
         res.reserve(s1->size() + s2->size());
         res.append(s1->c_str(), s1->size());
         res.append(s2->c_str(), s2->size());
         return Value(heap->new_string(res));
-    );
+    });
 
-    // --- SUB (-) ---
-    BINARY(SUB, Int, Int,     return Value(lhs.as_int() - rhs.as_int()); );
-    BINARY(SUB, Float, Float, return Value(lhs.as_float() - rhs.as_float()); );
+    // SUB
+    reg(SUB, Int, Int,     [](auto*, param_t a, param_t b) { return Value(a.as_int() - b.as_int()); });
+    reg(SUB, Float, Float, [](auto*, param_t a, param_t b) { return Value(a.as_float() - b.as_float()); });
 
-    // --- MUL (*) ---
-    BINARY(MUL, Int, Int,     return Value(lhs.as_int() * rhs.as_int()); );
-    BINARY(MUL, Float, Float, return Value(lhs.as_float() * rhs.as_float()); );
+    // MUL
+    reg(MUL, Int, Int,     [](auto*, param_t a, param_t b) { return Value(a.as_int() * b.as_int()); });
+    reg(MUL, Float, Float, [](auto*, param_t a, param_t b) { return Value(a.as_float() * b.as_float()); });
 
-    // --- DIV (/) & MOD (%) - Cần check chia cho 0 ---
-    BINARY(DIV, Int, Int,
-        if (rhs.as_int() == 0) [[unlikely]] {
-            // Panic("Division by zero");
-            return Value{}; 
-        }
-        return Value(lhs.as_int() / rhs.as_int());
-    );
-    
-    BINARY(DIV, Float, Float, return Value(lhs.as_float() / rhs.as_float()); );
+    // DIV
+    reg(DIV, Int, Int, [](auto*, param_t a, param_t b) {
+        if (b.as_int() == 0) [[unlikely]] return Value{}; // TODO: Error handling
+        return Value(a.as_int() / b.as_int());
+    });
+    reg(DIV, Float, Float, [](auto*, param_t a, param_t b) { return Value(a.as_float() / b.as_float()); });
 
-    BINARY(MOD, Int, Int,
-        if (rhs.as_int() == 0) [[unlikely]] return Value{};
-        return Value(lhs.as_int() % rhs.as_int());
-    );
+    // MOD
+    reg(MOD, Int, Int, [](auto*, param_t a, param_t b) {
+        if (b.as_int() == 0) [[unlikely]] return Value{};
+        return Value(a.as_int() % b.as_int());
+    });
 
-    // ------------------------------------------------------------------------
-    // BITWISE (Int only)
-    // ------------------------------------------------------------------------
-    BINARY(BIT_AND, Int, Int, return Value(lhs.as_int() & rhs.as_int()); );
-    BINARY(BIT_OR,  Int, Int, return Value(lhs.as_int() | rhs.as_int()); );
-    BINARY(BIT_XOR, Int, Int, return Value(lhs.as_int() ^ rhs.as_int()); );
-    
-    BINARY(LSHIFT, Int, Int, return Value(lhs.as_int() << rhs.as_int()); );
-    BINARY(RSHIFT, Int, Int, return Value(lhs.as_int() >> rhs.as_int()); );
+    // BITWISE
+    reg(BIT_AND, Int, Int, [](auto*, param_t a, param_t b) { return Value(a.as_int() & b.as_int()); });
+    reg(BIT_OR,  Int, Int, [](auto*, param_t a, param_t b) { return Value(a.as_int() | b.as_int()); });
+    reg(BIT_XOR, Int, Int, [](auto*, param_t a, param_t b) { return Value(a.as_int() ^ b.as_int()); });
+    reg(LSHIFT,  Int, Int, [](auto*, param_t a, param_t b) { return Value(a.as_int() << b.as_int()); });
+    reg(RSHIFT,  Int, Int, [](auto*, param_t a, param_t b) { return Value(a.as_int() >> b.as_int()); });
 
-    // ------------------------------------------------------------------------
-    // COMPARISON (EQ, GT, LT...) -> Trả về Bool
-    // ------------------------------------------------------------------------
-    BINARY(EQ, Int, Int,     return Value(lhs.as_int() == rhs.as_int()); );
-    BINARY(EQ, Float, Float, return Value(lhs.as_float() == rhs.as_float()); );
-    // So sánh string bằng con trỏ (nếu đã interning) hoặc strcmp
-    BINARY(EQ, String, String, return Value(lhs.as_string() == rhs.as_string()); );
+    // COMPARISON
+    reg(EQ, Int, Int,       [](auto*, param_t a, param_t b) { return Value(a.as_int() == b.as_int()); });
+    reg(EQ, Float, Float,   [](auto*, param_t a, param_t b) { return Value(a.as_float() == b.as_float()); });
+    reg(EQ, String, String, [](auto*, param_t a, param_t b) { return Value(a.as_string() == b.as_string()); });
 
-    BINARY(LT, Int, Int,     return Value(lhs.as_int() < rhs.as_int()); );
-    BINARY(GT, Int, Int,     return Value(lhs.as_int() > rhs.as_int()); );
+    reg(LT, Int, Int,       [](auto*, param_t a, param_t b) { return Value(a.as_int() < b.as_int()); });
+    reg(GT, Int, Int,       [](auto*, param_t a, param_t b) { return Value(a.as_int() > b.as_int()); });
 
-    // ------------------------------------------------------------------------
-    // UNARY (NEG, NOT, BIT_NOT)
-    // ------------------------------------------------------------------------
-    UNARY(NEG, Int,   return Value(-rhs.as_int()); );
-    UNARY(NEG, Float, return Value(-rhs.as_float()); );
-    
-    UNARY(NOT, Bool,  return Value(!rhs.as_bool()); );
-    UNARY(BIT_NOT, Int, return Value(~rhs.as_int()); );
+    return table;
 }
 
-#undef BINARY
-#undef UNARY
+consteval auto make_unary_table() {
+    std::array<unary_function_t, UNARY_TABLE_SIZE> table;
+    table.fill(trap_unary);
+
+    auto reg = [&](OpCode op, ValueType t, unary_function_t f) {
+        table[calc_un_idx(op, t)] = f;
+    };
+
+    using enum OpCode;
+    using enum ValueType;
+
+    reg(NEG, Int,   [](auto*, param_t v) { return Value(-v.as_int()); });
+    reg(NEG, Float, [](auto*, param_t v) { return Value(-v.as_float()); });
+    reg(NOT, Bool,  [](auto*, param_t v) { return Value(!v.as_bool()); });
+    reg(BIT_NOT, Int, [](auto*, param_t v) { return Value(~v.as_int()); });
+
+    return table;
+}
+
+constinit const std::array<binary_function_t, BINARY_TABLE_SIZE> OperatorDispatcher::binary_dispatch_table_ = make_binary_table();
+constinit const std::array<unary_function_t, UNARY_TABLE_SIZE> OperatorDispatcher::unary_dispatch_table_  = make_unary_table();
 
 } // namespace meow

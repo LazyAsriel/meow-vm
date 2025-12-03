@@ -23,7 +23,6 @@ Machine::Machine(const std::string& entry_point_directory, const std::string& en
     heap_ = std::make_unique<MemoryManager>(std::move(gc));
 
     mod_manager_ = std::make_unique<ModuleManager>(heap_.get(), this);
-    op_dispatcher_ = std::make_unique<OperatorDispatcher>(heap_.get());
 
     printl("Machine initialized successfully!");
     printl("Detected size of value is: {} bytes", sizeof(value_t));

@@ -7,6 +7,7 @@
 #include <new>
 #include <stdexcept>
 #include <utility>
+#include <type_traits>
 
 namespace meow::utils {
 
@@ -34,8 +35,31 @@ struct ops {
     static constexpr auto move_table    = std::array{ &move<Ts>... };
 };
 
+// --- [Meow Fix] Destructor Mixin ---
+// Giúp FallbackVariant tự động "biến mất" hàm hủy nếu các type con là trivial
+template <typename Derived, bool IsTrivial>
+struct DestructorMixin {};
+
+// Trường hợp Trivial: Dùng default destructor (No-op)
+template <typename Derived>
+struct DestructorMixin<Derived, true> {
+    ~DestructorMixin() = default;
+};
+
+// Trường hợp Non-Trivial: Gọi hàm destroy() của class con
+template <typename Derived>
+struct DestructorMixin<Derived, false> {
+    ~DestructorMixin() {
+        static_cast<Derived*>(this)->destroy();
+    }
+};
+// -----------------------------------
+
 template <typename... Args>
-class FallbackVariant {
+class FallbackVariant : public DestructorMixin<FallbackVariant<Args...>, (std::is_trivially_destructible_v<Args> && ...)> {
+    // Cho phép Mixin gọi hàm destroy() private
+    friend struct DestructorMixin<FallbackVariant<Args...>, false>;
+
     using flat_list = meow::utils::flattened_unique_t<Args...>;
     static constexpr std::size_t count = detail::type_list_length<flat_list>::value;
     
@@ -46,7 +70,8 @@ public:
     using inner_types = flat_list;
 
     FallbackVariant() noexcept : index_(npos) {}
-    ~FallbackVariant() { destroy(); }
+    
+    // [Meow Fix] Đã xóa ~FallbackVariant() ở đây vì Mixin sẽ lo việc đó!
 
     FallbackVariant(const FallbackVariant& o) : index_(npos) {
         if (o.index_ != npos) {
@@ -74,7 +99,7 @@ public:
 
     FallbackVariant& operator=(const FallbackVariant& o) {
         if (this == &o) return *this;
-        destroy();
+        this->destroy(); // Gọi qua this-> vì destroy() giờ được gọi từ base hoặc chính nó
         if (o.index_ != npos) {
             full_ops::copy_table[o.index_](storage_, o.storage_);
             index_ = o.index_;
@@ -84,7 +109,7 @@ public:
 
     FallbackVariant& operator=(FallbackVariant&& o) noexcept {
         if (this == &o) return *this;
-        destroy();
+        this->destroy();
         if (o.index_ != npos) {
             full_ops::move_table[o.index_](storage_, o.storage_);
             index_ = o.index_;
@@ -178,23 +203,6 @@ private:
             index_ = npos;
         }
     }
-
-    // template <typename Self, typename Visitor, std::size_t... Is>
-    // decltype(auto) visit_impl(this Self&& self, Visitor&& vis, std::index_sequence<Is...>) {
-    //     using Ret = std::invoke_result_t<Visitor, decltype(*reinterpret_cast<typename detail::nth_type<0, flat_list>::type*>(self.storage_))>;
-    //     using fn_t = Ret (*)(void*, Visitor&&);
-    //     static constexpr std::array<fn_t, count> table = {{
-    //         [](void* ptr, Visitor&& v) -> Ret {
-    //             using T = typename detail::nth_type<Is, flat_list>::type;
-    //             if constexpr (std::is_const_v<std::remove_reference_t<Self>>) {
-    //                 return std::invoke(std::forward<Visitor>(v), *reinterpret_cast<const T*>(ptr));
-    //             } else {
-    //                 return std::invoke(std::forward<Visitor>(v), *reinterpret_cast<T*>(ptr));
-    //             }
-    //         }...
-    //     }};
-    //     return table[self.index_](const_cast<unsigned char*>(self.storage_), std::forward<Visitor>(vis));
-    // }
 
     template <std::size_t I, typename Visitor>
     __attribute__((always_inline))
