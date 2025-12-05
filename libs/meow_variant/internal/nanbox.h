@@ -149,11 +149,32 @@ public:
     bool operator==(const NaNBoxedVariant& o) const { return bits_ == o.bits_; }
     bool operator!=(const NaNBoxedVariant& o) const { return bits_ != o.bits_; }
 
+    // template <typename Self, typename Visitor>
+    // decltype(auto) visit(this Self&& self, Visitor&& vis) {
+    //     std::size_t idx = self.index();
+    //     if (idx == npos) throw std::bad_variant_access();
+    //     return self.visit_impl(std::forward<Visitor>(vis), idx);
+    // }
+
     template <typename Self, typename Visitor>
     decltype(auto) visit(this Self&& self, Visitor&& vis) {
-        std::size_t idx = self.index();
-        if (idx == npos) throw std::bad_variant_access();
-        return self.visit_impl(std::forward<Visitor>(vis), idx);
+        if (self.bits_ == MEOW_VALUELESS) [[unlikely]] {
+            throw std::bad_variant_access();
+        }
+        if constexpr (dbl_idx != detail::invalid_index) {
+            if (is_double(self.bits_)) [[likely]] {
+                return std::forward<Visitor>(vis)(self.template unsafe_get<double>());
+            }
+        }
+        std::size_t tag = (self.bits_ >> MEOW_TAG_SHIFT) & 0x7;
+
+        if constexpr (use_extended_tag) {
+            if (self.bits_ & 0x8000000000000000ULL) {
+                tag += 8;
+            }
+        }
+        
+        return self.visit_tag_dispatch(std::forward<Visitor>(vis), tag);
     }
 
 private:
@@ -223,18 +244,132 @@ private:
         if constexpr (I + 1 < count) {
             return visit_recursive<I + 1>(std::forward<Visitor>(vis), idx);
         } else {
-            #if defined(__GNUC__) || defined(__clang__)
-                        __builtin_unreachable();
-            #elif defined(_MSC_VER)
-                        __assume(0);
-            #endif
+            std::unreachable();
         }
     }
 
+    template <std::size_t Begin, std::size_t End, typename Visitor>
+    __attribute__((always_inline))
+    decltype(auto) visit_binary(Visitor&& vis, std::size_t idx) const {
+        if constexpr (Begin + 1 == End) {
+            using T = typename detail::nth_type<Begin, flat_list>::type;
+            return std::forward<Visitor>(vis)(decode<T>(bits_)); 
+        } else {
+            constexpr std::size_t Middle = Begin + (End - Begin) / 2;
+            if (idx < Middle) {
+                return visit_binary<Begin, Middle>(std::forward<Visitor>(vis), idx);
+            } else {
+                return visit_binary<Middle, End>(std::forward<Visitor>(vis), idx);
+            }
+        }
+    }
+
+    // template <typename Visitor>
+    // decltype(auto) visit_impl(Visitor&& vis, std::size_t idx) const {
+    //     // return visit_table(std::forward<Visitor>(vis), idx, std::make_index_sequence<count>{});
+    //     // return visit_recursive<0>(std::forward<Visitor>(vis), idx);
+    //     return visit_binary<0, count>(std::forward<Visitor>(vis), idx);
+    // }
+
     template <typename Visitor>
+    __attribute__((always_inline)) // Ép Compiler phải Inline hàm này bằng mọi giá!
     decltype(auto) visit_impl(Visitor&& vis, std::size_t idx) const {
-        // return visit_table(std::forward<Visitor>(vis), idx, std::make_index_sequence<count>{});
+        
+        switch (idx) {
+            case 0: return std::invoke(std::forward<Visitor>(vis), unsafe_get<typename detail::nth_type<0, flat_list>::type>());
+            
+            case 1: 
+                if constexpr (count > 1) return std::invoke(std::forward<Visitor>(vis), unsafe_get<typename detail::nth_type<1, flat_list>::type>());
+                else std::unreachable();
+            case 2: 
+                if constexpr (count > 2) return std::invoke(std::forward<Visitor>(vis), unsafe_get<typename detail::nth_type<2, flat_list>::type>());
+                else std::unreachable();
+            case 3: 
+                if constexpr (count > 3) return std::invoke(std::forward<Visitor>(vis), unsafe_get<typename detail::nth_type<3, flat_list>::type>());
+                else std::unreachable();
+            case 4: 
+                if constexpr (count > 4) return std::invoke(std::forward<Visitor>(vis), unsafe_get<typename detail::nth_type<4, flat_list>::type>());
+                else std::unreachable();
+            case 5: 
+                if constexpr (count > 5) return std::invoke(std::forward<Visitor>(vis), unsafe_get<typename detail::nth_type<5, flat_list>::type>());
+                else std::unreachable();
+            case 6: 
+                if constexpr (count > 6) return std::invoke(std::forward<Visitor>(vis), unsafe_get<typename detail::nth_type<6, flat_list>::type>());
+                else std::unreachable();
+            case 7: 
+                if constexpr (count > 7) return std::invoke(std::forward<Visitor>(vis), unsafe_get<typename detail::nth_type<7, flat_list>::type>());
+                else std::unreachable();
+            case 8: 
+                if constexpr (count > 8) return std::invoke(std::forward<Visitor>(vis), unsafe_get<typename detail::nth_type<8, flat_list>::type>());
+                else std::unreachable();
+            case 9: 
+                if constexpr (count > 9) return std::invoke(std::forward<Visitor>(vis), unsafe_get<typename detail::nth_type<9, flat_list>::type>());
+                else std::unreachable();
+            case 10: 
+                if constexpr (count > 10) return std::invoke(std::forward<Visitor>(vis), unsafe_get<typename detail::nth_type<10, flat_list>::type>());
+                else std::unreachable();
+            case 11: 
+                if constexpr (count > 11) return std::invoke(std::forward<Visitor>(vis), unsafe_get<typename detail::nth_type<11, flat_list>::type>());
+                else std::unreachable();
+            case 12: 
+                if constexpr (count > 12) return std::invoke(std::forward<Visitor>(vis), unsafe_get<typename detail::nth_type<12, flat_list>::type>());
+                else std::unreachable();
+            case 13: 
+                if constexpr (count > 13) return std::invoke(std::forward<Visitor>(vis), unsafe_get<typename detail::nth_type<13, flat_list>::type>());
+                else std::unreachable();
+            case 14: 
+                if constexpr (count > 14) return std::invoke(std::forward<Visitor>(vis), unsafe_get<typename detail::nth_type<14, flat_list>::type>());
+                else std::unreachable();
+            case 15: 
+                if constexpr (count > 15) return std::invoke(std::forward<Visitor>(vis), unsafe_get<typename detail::nth_type<15, flat_list>::type>());
+                else std::unreachable();
+            
+            default: std::unreachable();
+        }
+
+        std::unreachable();
         return visit_recursive<0>(std::forward<Visitor>(vis), idx);
+    }
+
+    template <typename Visitor>
+    __attribute__((always_inline)) 
+    decltype(auto) visit_tag_dispatch(Visitor&& vis, std::size_t tag) const {
+        if constexpr (count <= 16) {
+            switch (tag) {
+                #define MEOW_VISIT_CASE(N) \
+                case N: { \
+                    if constexpr (dbl_idx == N) std::unreachable(); \
+                    else { \
+                        if constexpr (N < count) \
+                            return std::invoke(std::forward<Visitor>(vis), unsafe_get<typename detail::nth_type<N, flat_list>::type>()); \
+                        else std::unreachable(); \
+                    } \
+                }
+
+                MEOW_VISIT_CASE(0)
+                MEOW_VISIT_CASE(1)
+                MEOW_VISIT_CASE(2)
+                MEOW_VISIT_CASE(3)
+                MEOW_VISIT_CASE(4)
+                MEOW_VISIT_CASE(5)
+                MEOW_VISIT_CASE(6)
+                MEOW_VISIT_CASE(7)
+                MEOW_VISIT_CASE(8)
+                MEOW_VISIT_CASE(9)
+                MEOW_VISIT_CASE(10)
+                MEOW_VISIT_CASE(11)
+                MEOW_VISIT_CASE(12)
+                MEOW_VISIT_CASE(13)
+                MEOW_VISIT_CASE(14)
+                MEOW_VISIT_CASE(15)
+
+                #undef MEOW_VISIT_CASE
+                
+                default: std::unreachable();
+            }
+        }
+        
+        return visit_recursive<0>(std::forward<Visitor>(vis), tag);
     }
 };
 

@@ -140,14 +140,14 @@ public:
             return npos;
         }
 
-        auto it = std::lower_bound(keys_.begin(), keys_.end(), key, comp_);
+        auto it = std::ranges::lower_bound(keys_, key, comp_);
+        
         if (it != keys_.end() && !comp_(key, *it)) {
             return std::distance(keys_.begin(), it);
         }
         return npos;
     }
     
-    // Transparent lookup support (ví dụ tìm std::string bằng const char*)
     template <typename K>
     requires (!std::is_same_v<K, Key> && requires(const Compare& c, const Key& k, const K& ok) { c(k, ok); c(ok, k); })
     [[nodiscard]] size_type index_of(const K& x) const noexcept {

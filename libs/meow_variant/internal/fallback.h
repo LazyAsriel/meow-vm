@@ -219,11 +219,7 @@ private:
         if constexpr (I + 1 < count) {
             return visit_recursive<I + 1>(std::forward<Visitor>(vis));
         } else {
-            #if defined(__GNUC__) || defined(__clang__)
-                __builtin_unreachable();
-            #elif defined(_MSC_VER)
-                __assume(0);
-            #endif
+            std::unreachable();
         }
     }
 

@@ -84,29 +84,30 @@ public:
         return static_cast<T>(std::forward<U>(default_value));
     }
 
-    template <typename F>
-    constexpr auto and_then(F&& f) const & {
-        if (has_value()) {
-            return std::invoke(std::forward<F>(f), **this);
+template <typename Self, typename F>
+    constexpr auto and_then(this Self&& self, F&& f) {
+        if (self.has_value()) {
+            return std::invoke(std::forward<F>(f), *std::forward<Self>(self));
         } else {
-            return std::remove_cvref_t<std::invoke_result_t<F, const T&>>{};
+            using U = std::remove_cvref_t<std::invoke_result_t<F, decltype(*std::forward<Self>(self))>>;
+            return U{};
         }
     }
 
-    template <typename F>
-    constexpr auto transform(F&& f) const & {
-        using U = std::remove_cvref_t<std::invoke_result_t<F, const T&>>;
-        if (has_value()) {
-            return optional<U>(std::invoke(std::forward<F>(f), **this));
+    template <typename Self, typename F>
+    constexpr auto transform(this Self&& self, F&& f) {
+        using U = std::remove_cvref_t<std::invoke_result_t<F, decltype(*std::forward<Self>(self))>>;
+        if (self.has_value()) {
+            return optional<U>(std::invoke(std::forward<F>(f), *std::forward<Self>(self)));
         } else {
             return optional<U>{};
         }
     }
 
-    template <typename F>
-    constexpr auto or_else(F&& f) const & {
-        if (has_value()) {
-            return *this;
+    template <typename Self, typename F>
+    constexpr auto or_else(this Self&& self, F&& f) {
+        if (self.has_value()) {
+            return std::forward<Self>(self);
         } else {
             return std::invoke(std::forward<F>(f));
         }
