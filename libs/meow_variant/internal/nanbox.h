@@ -150,32 +150,41 @@ public:
     bool operator!=(const NaNBoxedVariant& o) const { return bits_ != o.bits_; }
 
     // template <typename Self, typename Visitor>
-    // decltype(auto) visit(this Self&& self, Visitor&& vis) {
+    // decltype(auto) visit(this Self&& self, Visitor&& vis) noexcept(std::is_nothrow_invocable_v<Visitor, decltype(self.unsafe_get<...>()...)>) {
     //     std::size_t idx = self.index();
-    //     if (idx == npos) throw std::bad_variant_access();
+    //     // if (idx == npos) throw std::bad_variant_access();
     //     return self.visit_impl(std::forward<Visitor>(vis), idx);
     // }
 
     template <typename Self, typename Visitor>
     decltype(auto) visit(this Self&& self, Visitor&& vis) {
-        if (self.bits_ == MEOW_VALUELESS) [[unlikely]] {
-            throw std::bad_variant_access();
-        }
-        if constexpr (dbl_idx != detail::invalid_index) {
-            if (is_double(self.bits_)) [[likely]] {
-                return std::forward<Visitor>(vis)(self.template unsafe_get<double>());
-            }
-        }
-        std::size_t tag = (self.bits_ >> MEOW_TAG_SHIFT) & 0x7;
+        std::size_t idx = self.index();
 
-        if constexpr (use_extended_tag) {
-            if (self.bits_ & 0x8000000000000000ULL) {
-                tag += 8;
-            }
-        }
-        
-        return self.visit_tag_dispatch(std::forward<Visitor>(vis), tag);
+        if (idx == npos) [[unlikely]] std::unreachable();
+
+        return self.visit_impl(std::forward<Visitor>(vis), idx);
     }
+
+    // template <typename Self, typename Visitor>
+    // decltype(auto) visit(this Self&& self, Visitor&& vis) {
+    //     if (self.bits_ == MEOW_VALUELESS) [[unlikely]] {
+    //         throw std::bad_variant_access();
+    //     }
+    //     if constexpr (dbl_idx != detail::invalid_index) {
+    //         if (is_double(self.bits_)) [[likely]] {
+    //             return std::forward<Visitor>(vis)(self.template unsafe_get<double>());
+    //         }
+    //     }
+    //     std::size_t tag = (self.bits_ >> MEOW_TAG_SHIFT) & 0x7;
+
+    //     if constexpr (use_extended_tag) {
+    //         if (self.bits_ & 0x8000000000000000ULL) {
+    //             tag += 8;
+    //         }
+    //     }
+        
+    //     return self.visit_tag_dispatch(std::forward<Visitor>(vis), tag);
+    // }
 
 private:
     uint64_t bits_;
@@ -272,7 +281,7 @@ private:
     // }
 
     template <typename Visitor>
-    __attribute__((always_inline)) // Ép Compiler phải Inline hàm này bằng mọi giá!
+    __attribute__((always_inline))
     decltype(auto) visit_impl(Visitor&& vis, std::size_t idx) const {
         
         switch (idx) {

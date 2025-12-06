@@ -37,7 +37,7 @@ struct NanBoxValue {
 
 // --- DEFINITIONS ---
 using StdVariant  = std::variant<int64_t, double, bool>;
-using MeowVariant = meow::variant<int64_t, double, bool>; // Định nghĩa kiểu variant của cậu
+using MeowVariant = meow::fallback_variant<int64_t, double, bool>; // Định nghĩa kiểu variant của cậu
 
 // Helper cho std::visit
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
@@ -155,7 +155,7 @@ int main() {
     // 4. STD::VARIANT
     double t_std = measure("std::variant (std::visit)", [&]() -> double {
         double sum = 0;
-        for (const auto& v : vec_std) {
+        for (auto v : vec_std) {
             std::visit(overloaded {
                 [&sum](int64_t x) { sum += x; },
                 [&sum](double x)  { sum += x; },
