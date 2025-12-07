@@ -5,6 +5,7 @@
 #include <cassert>
 #include <exception>
 #include <type_traits>
+#include <functional>
 
 #include "internal/nanbox.h"
 #include "internal/fallback.h"

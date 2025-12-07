@@ -6,316 +6,196 @@
 #include <bit>
 #include <iomanip>
 #include <variant>
+#include <algorithm>
 
-// --- INCLUDES ---
-#include "core/value.h"      // NanBoxed Value (8 bytes)
-#include "meow_variant.h"    // <--- TÂN BINH MỚI (Generic Variant)
+// --- INCLUDES CỦA CẬU ---
+#include "meow_variant.h"
 
 using namespace meow;
 
-// --- NANBOX RAW (Dùng làm mốc so sánh) ---
-struct NanBoxValue {
+// --- 1. RAW NANBOX (Thủ công) ---
+struct RawNanBox {
     uint64_t _data;
     static constexpr uint64_t QNAN_MASK = 0x7FF8000000000000;
     static constexpr uint64_t TAG_INT   = 0x0001000000000000;
-    static constexpr uint64_t TAG_BOOL  = 0x0002000000000000;
     static constexpr uint64_t SIG_INT   = QNAN_MASK | TAG_INT;
-    static constexpr uint64_t SIG_BOOL  = QNAN_MASK | TAG_BOOL;
 
-    NanBoxValue(double v)  { _data = std::bit_cast<uint64_t>(v); }
-    NanBoxValue(int64_t v) { _data = SIG_INT | (static_cast<uint32_t>(v)); }
-    NanBoxValue(bool v)    { _data = SIG_BOOL | (v ? 1 : 0); }
+    // Demo Int & Double thôi cho gọn
+    RawNanBox(double v)  { _data = std::bit_cast<uint64_t>(v); }
+    RawNanBox(int64_t v) { _data = SIG_INT | (static_cast<uint32_t>(v)); } // Truncate to 32bit for simple nanbox
 
     inline bool is_int() const { return (_data & (QNAN_MASK | TAG_INT)) == SIG_INT; }
     inline bool is_double() const { return (_data & QNAN_MASK) != QNAN_MASK; }
-    inline bool is_bool() const { return (_data & (QNAN_MASK | TAG_BOOL)) == SIG_BOOL; }
 
     inline int64_t as_int() const { return static_cast<int32_t>(_data & 0xFFFFFFFF); }
     inline double as_double() const { return std::bit_cast<double>(_data); }
-    inline bool as_bool() const { return (_data & 0x1); }
 };
 
-// --- DEFINITIONS ---
-using StdVariant  = std::variant<int64_t, double, bool>;
-using MeowVariant = meow::fallback_variant<int64_t, double, bool>; // Định nghĩa kiểu variant của cậu
+// --- ĐỊNH NGHĨA CÁC ĐẤU THỦ ---
+// Lưu ý: int64_t trong nanbox thường bị giới hạn 48-52 bit, ở đây ta test hiệu năng truy cập là chính.
+using StdVar      = std::variant<int64_t, double>;
+using MeowFallback = meow::fallback_variant<int64_t, double>;
+using MeowNanbox   = meow::nanboxed_variant<int64_t, double>;
 
 // Helper cho std::visit
 template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
 template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
-// --- MEASURE FUNCTION ---
+// --- HÀM ĐO GIỜ ---
 template <typename Func>
 double measure(const char* name, Func func) {
     auto start = std::chrono::high_resolution_clock::now();
-    auto result = func(); 
+    volatile double result = func(); // Volatile để tránh compiler optimize mất loop
     auto end = std::chrono::high_resolution_clock::now();
     double ms = std::chrono::duration<double, std::milli>(end - start).count();
     
-    // In màu mè tí cho dễ nhìn
     std::cout << "  👉 " << std::left << std::setw(30) << name << ": " 
               << "\033[1;32m" << std::fixed << std::setprecision(2) << ms << " ms\033[0m" 
-              << " (Sum: " << (long long)result << ")\n";
+              << " (Check: " << (long long)result << ")\n";
     return ms;
 }
 
 int main() {
-    constexpr size_t N = 10'000'000; 
-    std::cout << "\n🐱 === MEOW BATTLE ROYALE: VARIANT WAR === 🐱\n";
-    std::cout << "Data Size: " << N << " elements\n\n";
+    // Tăng size lên để phá vỡ L3 Cache (thường là vài chục MB)
+    constexpr size_t N = 20'000'000; 
     
-    // --- 1. ROUND 1: CÂN KÝ (SIZEOF) ---
-    std::cout << "--- 📏 ROUND 1: SIZE MATTERS ---\n";
-    std::cout << "sizeof(NanBoxValue)  : " << sizeof(NanBoxValue) << " bytes (Raw Pointer)\n";
-    std::cout << "sizeof(meow::Value)  : " << sizeof(meow::Value) << " bytes (Optimized VM Value)\n";
-    std::cout << "sizeof(meow::variant): " << sizeof(MeowVariant) << " bytes (Generic Custom)\n";
-    std::cout << "sizeof(std::variant) : " << sizeof(StdVariant) << " bytes (Standard Lib)\n";
-    std::cout << "-------------------------------------------\n\n";
+    std::cout << "\n🐱 === MEOW BATTLE ROYALE: THE CACHE WARS === 🐱\n";
+    std::cout << "Data Size: " << N << " elements\n";
+    
+    // --- CHECK SIZEOF ---
+    std::cout << "\n--- 📏 CÂN KÝ (SIZEOF) ---\n";
+    std::cout << "Raw NanBox       : " << sizeof(RawNanBox) << " bytes\n";
+    std::cout << "meow::nanboxed   : " << sizeof(MeowNanbox) << " bytes (Mèo Gầy)\n";
+    std::cout << "meow::fallback   : " << sizeof(MeowFallback) << " bytes (Mèo Béo)\n";
+    std::cout << "std::variant     : " << sizeof(StdVar) << " bytes\n";
+    
+    // --- PREPARE DATA ---
+    std::cout << "\n🔄 Đang nạp đạn (Generating Data)... ";
+    std::vector<int64_t> inputs; inputs.reserve(N);
+    std::vector<int>     indices(N); // Mảng index để nhảy cóc
+    
+    std::mt19937 rng(42);
+    std::uniform_int_distribution<int64_t> val_dist(0, 100);
+    
+    for(size_t i=0; i<N; ++i) {
+        inputs.push_back(val_dist(rng));
+        indices[i] = i;
+    }
+    
+    // Xáo trộn index để tạo Random Access
+    std::shuffle(indices.begin(), indices.end(), rng);
 
-    // --- SETUP DATA ---
-    std::cout << "🔄 Loading ammo (Generating data)... ";
-    std::vector<int> types;     
-    std::vector<double> values; 
-    types.reserve(N); values.reserve(N);
-    std::mt19937 rng(42); 
-    std::uniform_int_distribution<int> type_dist(0, 2);
-    std::uniform_real_distribution<double> val_dist(0.0, 100.0);
-    for(size_t i=0; i<N; ++i) { types.push_back(type_dist(rng)); values.push_back(val_dist(rng)); }
+    // Tạo 4 vector riêng biệt
+    std::vector<RawNanBox>    vec_raw; vec_raw.reserve(N);
+    std::vector<StdVar>       vec_std; vec_std.reserve(N);
+    std::vector<MeowFallback> vec_fb;  vec_fb.reserve(N);
+    std::vector<MeowNanbox>   vec_nb;  vec_nb.reserve(N);
 
-    std::vector<NanBoxValue> vec_nan;
-    std::vector<meow::Value> vec_val;
-    std::vector<StdVariant>  vec_std;
-    std::vector<MeowVariant> vec_cst; // Custom variant vector
-
-    vec_nan.reserve(N); vec_val.reserve(N); vec_std.reserve(N); vec_cst.reserve(N);
-
-    for(size_t i = 0; i < N; ++i) {
-        if (types[i] == 0) { // Int
-            int64_t v = (int64_t)values[i];
-            vec_nan.emplace_back(v);
-            vec_val.emplace_back((meow::int_t)v);
-            vec_std.emplace_back(v);
-            vec_cst.emplace_back(v);
-        } else if (types[i] == 1) { // Double
-            double v = values[i];
-            vec_nan.emplace_back(v);
-            vec_val.emplace_back(v);
-            vec_std.emplace_back(v);
-            vec_cst.emplace_back(v);
-        } else { // Bool
-            bool v = values[i] > 50.0;
-            vec_nan.emplace_back(v);
-            vec_val.emplace_back(v);
-            vec_std.emplace_back(v);
-            vec_cst.emplace_back(v);
+    for(auto v : inputs) {
+        // Xen kẽ int và double để branch predictor không đoán mò được type
+        if (v % 2 == 0) {
+            vec_raw.emplace_back((int64_t)v);
+            vec_std.emplace_back((int64_t)v);
+            vec_fb.emplace_back((int64_t)v);
+            vec_nb.emplace_back((int64_t)v);
+        } else {
+            double d = (double)v + 0.5;
+            vec_raw.emplace_back(d);
+            vec_std.emplace_back(d);
+            vec_fb.emplace_back(d);
+            vec_nb.emplace_back(d);
         }
     }
-    std::cout << "Done! 🥊\n\n";
+    std::cout << "Done! 🥊\n";
 
-    // --- 2. ROUND 2: SPEED RUN ---
-    std::cout << "--- 🚀 ROUND 2: FIGHT! ---\n";
+    // ==========================================================
+    // ROUND 1: SEQUENTIAL ACCESS (Duyệt tuần tự)
+    // ==========================================================
+    std::cout << "\n--- 🏎️  ROUND 1: SEQUENTIAL ACCESS (Linear Scan) ---\n";
+    std::cout << "Mục tiêu: Test tốc độ giải mã (Decode Overhead).\n";
 
-    // 1. RAW NANBOX
-    double t_nan = measure("Raw NanBox (Baseline)", [&]() -> double {
+    measure("Raw NanBox", [&]() {
         double sum = 0;
-        for(const auto& v : vec_nan) {
-            if (v.is_int()) sum += v.as_int();
-            else if (v.is_double()) sum += v.as_double();
-            else sum += (v.as_bool() ? 1.0 : 0.0);
+        for(const auto& v : vec_raw) {
+            if(v.is_int()) sum += v.as_int(); else sum += v.as_double();
         }
         return sum;
     });
 
-    // 2. MEOW::VALUE (NanBoxed Class)
-    double t_val = measure("meow::Value (Visit)", [&]() -> double {
+    measure("meow::nanboxed (Visit)", [&]() {
         double sum = 0;
-        for (auto v : vec_val) {
-            v.visit(
-                [&sum](meow::int_t x)   { sum += x; },
-                [&sum](meow::float_t x) { sum += x; },
-                [&sum](meow::bool_t x)  { sum += (x ? 1.0 : 0.0); },
-                [](auto) { std::unreachable(); }
-            );
+        for(auto v : vec_nb) { // Pass by value cho Nanbox (8 bytes) là tối ưu
+            v.visit([&](auto x) { sum += x; });
         }
         return sum;
     });
 
-    // 3. MEOW::VARIANT (Custom Generic)
-    double t_cst = measure("meow::variant (Visit)", [&]() -> double {
+    measure("meow::fallback (Visit)", [&]() {
         double sum = 0;
-        for (auto v : vec_cst) {
-            v.visit(
-                [&sum](int64_t x) { sum += x; },
-                [&sum](double x)  { sum += x; },
-                [&sum](bool x)    { sum += (x ? 1.0 : 0.0); }
-            );
+        for(auto v : vec_fb) { // Pass by value (16 bytes)
+            v.visit([&](auto x) { sum += x; });
         }
         return sum;
     });
-
-    // 4. STD::VARIANT
-    double t_std = measure("std::variant (std::visit)", [&]() -> double {
-        double sum = 0;
-        for (auto v : vec_std) {
-            std::visit(overloaded {
-                [&sum](int64_t x) { sum += x; },
-                [&sum](double x)  { sum += x; },
-                [&sum](bool x)    { sum += (x ? 1.0 : 0.0); }
-            }, v);
-        }
-        return sum;
-    });
-
-    // --- ANALYTICS ---
-    std::cout << "\n--------------------------------------------------\n";
-    std::cout << "📊 TỔNG KẾT:\n";
     
-    auto compare = [](const char* name, double base, double target) {
-        double r = target / base;
-        std::cout << name << ": " << "\033[1;33m" << std::fixed << std::setprecision(2) << r << "x \033[0m";
-        if (r < 1.0) std::cout << "⚡ (Nhanh hơn!)\n";
-        else std::cout << "🐢 (Chậm hơn)\n";
-    };
+    measure("std::variant (Visit)", [&]() {
+        double sum = 0;
+        for(const auto& v : vec_std) {
+            std::visit([&](auto x) { sum += x; }, v);
+        }
+        return sum;
+    });
 
-    compare("meow::variant vs std::variant", t_std, t_cst);
-    compare("meow::variant vs meow::Value", t_val, t_cst);
-    compare("meow::variant vs Raw NanBox", t_nan, t_cst);
+    // ==========================================================
+    // ROUND 2: RANDOM ACCESS (Truy cập ngẫu nhiên)
+    // ==========================================================
+    std::cout << "\n--- 🌪️  ROUND 2: RANDOM ACCESS (Cache Miss Hell) ---\n";
+    std::cout << "Mục tiêu: Test Cache Locality (8 bytes vs 16 bytes).\n";
+    std::cout << "Duyệt qua mảng indices đã bị xáo trộn...\n";
+
+    double t_raw = measure("Raw NanBox", [&]() {
+        double sum = 0;
+        for(size_t idx : indices) {
+            const auto& v = vec_raw[idx];
+            if(v.is_int()) sum += v.as_int(); else sum += v.as_double();
+        }
+        return sum;
+    });
+
+    double t_nb = measure("meow::nanboxed (8 bytes)", [&]() {
+        double sum = 0;
+        for(size_t idx : indices) {
+            vec_nb[idx].visit([&](auto x) { sum += x; });
+        }
+        return sum;
+    });
+
+    double t_fb = measure("meow::fallback (16 bytes)", [&]() {
+        double sum = 0;
+        for(size_t idx : indices) {
+            vec_fb[idx].visit([&](auto x) { sum += x; });
+        }
+        return sum;
+    });
+    
+    measure("std::variant (16 bytes)", [&]() {
+        double sum = 0;
+        for(size_t idx : indices) {
+            std::visit([&](auto x) { sum += x; }, vec_std[idx]);
+        }
+        return sum;
+    });
+
+    std::cout << "\n--------------------------------------------------\n";
+    std::cout << "📊 TỔNG KẾT ROUND 2:\n";
+    double ratio = t_fb / t_nb;
+    std::cout << "Mèo Gầy (Nanbox) vs Mèo Béo (Fallback): ";
+    if (t_nb < t_fb) {
+        std::cout << "\033[1;33m" << std::fixed << std::setprecision(2) << ratio << "x faster\033[0m ⚡\n";
+        std::cout << "(Nanbox thắng nhờ nhét được nhiều item vào Cache hơn!)\n";
+    } else {
+        std::cout << "Hòa hoặc thua (Có thể do bộ nhớ chưa bị nghẽn).\n";
+    }
 
     return 0;
 }
-
-
-// #include <iostream>
-// #include <vector>
-// #include <chrono>
-// #include <numeric>
-// #include <iomanip>
-// #include <variant>
-// #include <bit>
-
-// // --- INCLUDES ---
-// #include "core/value.h"      
-// #include "meow_variant.h"    
-
-// using namespace meow;
-
-// // --- NANBOX RAW (Như cũ) ---
-// struct NanBoxValue {
-//     uint64_t _data;
-//     static constexpr uint64_t TAG_INT = 0x0001000000000000;
-//     static constexpr uint64_t SIG_INT = 0x7FF8000000000000 | TAG_INT;
-
-//     // Lưu ý: NanBox này chỉ chứa được 32-bit int trong 48-bit payload
-//     // Nhưng để test tốc độ decode thì vẫn ok.
-//     NanBoxValue(int64_t v) { _data = SIG_INT | (static_cast<uint32_t>(v)); }
-    
-//     inline bool is_int() const { return (_data & 0xFFFF000000000000) == SIG_INT; }
-//     inline int64_t as_int() const { return static_cast<int32_t>(_data & 0xFFFFFFFF); }
-// };
-
-// using StdVariant = std::variant<int64_t, double, bool>;
-// using MeowVariant = meow::variant<int64_t, double, bool>;
-
-// // Helper
-// template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-// template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
-
-// template <typename Func>
-// double measure(const char* name, Func func) {
-//     auto start = std::chrono::high_resolution_clock::now();
-//     auto result = func(); 
-//     auto end = std::chrono::high_resolution_clock::now();
-//     double ms = std::chrono::duration<double, std::milli>(end - start).count();
-    
-//     std::cout << "  👉 " << std::left << std::setw(30) << name << ": " 
-//               << "\033[1;32m" << std::fixed << std::setprecision(2) << ms << " ms\033[0m" 
-//               << " (Sum: " << (long long)result << ")\n";
-//     return ms;
-// }
-
-// int main() {
-//     constexpr size_t N = 10'000'000; 
-//     std::cout << "\n🐱 === MONO TYPE BENCHMARK (ONLY INT64) === 🐱\n";
-//     std::cout << "Data Size: " << N << " integers\n\n";
-
-//     // --- SETUP DATA (Toàn là INT) ---
-//     std::vector<int64_t> vec_native;
-//     std::vector<NanBoxValue> vec_nan;
-//     std::vector<meow::Value> vec_val;
-//     std::vector<MeowVariant> vec_cst; 
-//     std::vector<StdVariant>  vec_std;
-
-//     vec_native.reserve(N);
-//     vec_nan.reserve(N);
-//     vec_val.reserve(N);
-//     vec_cst.reserve(N);
-//     vec_std.reserve(N);
-
-//     std::cout << "🔄 Generatng 10M Integers... ";
-//     for(size_t i = 0; i < N; ++i) {
-//         int64_t v = i % 1000; // Giá trị nhỏ để tránh overflow sum
-//         vec_native.push_back(v);
-//         vec_nan.emplace_back(v);
-//         vec_val.emplace_back((meow::int_t)v);
-//         vec_cst.emplace_back(v);
-//         vec_std.emplace_back(v);
-//     }
-//     std::cout << "Done!\n\n";
-
-//     std::cout << "--- 🚀 START RACING ---\n";
-
-//     // 0. BASELINE (Tốc độ ánh sáng)
-//     double t_native = measure("Native vector<int64>", [&]() -> double {
-//         double sum = 0;
-//         for (auto v : vec_native) sum += v;
-//         return sum;
-//     });
-
-//     // 1. RAW NANBOX (Direct Access - Không check type)
-//     // Giả lập trường hợp VM đã biết chắc đây là Int (thông qua phân tích bytecode)
-//     double t_nan_raw = measure("NanBox (Direct Access)", [&]() -> double {
-//         double sum = 0;
-//         for(const auto& v : vec_nan) {
-//             sum += v.as_int(); // Chỉ tốn công bitwise AND
-//         }
-//         return sum;
-//     });
-
-//     // 2. MEOW::VARIANT (Visit)
-//     double t_cst = measure("meow::variant (Visit)", [&]() -> double {
-//         double sum = 0;
-//         for (auto v : vec_cst) sum += v.get<int64_t>();
-//         return sum;
-//     });
-
-//     // 3. MEOW::VALUE (Visit)
-//     double t_val = measure("meow::Value (Visit)", [&]() -> double {
-//         double sum = 0;
-//         for (auto v : vec_val) sum += v.as_int();
-//         return sum;
-//     });
-
-//     // 4. STD::VARIANT
-//     double t_std = measure("std::variant (Visit)", [&]() -> double {
-//         double sum = 0;
-//         for (const auto& v : vec_std) sum += std::get<int64_t>(v);
-//         return sum;
-//     });
-
-//     // --- PHÂN TÍCH ---
-//     std::cout << "\n--------------------------------------------------\n";
-//     std::cout << "📊 OVERHEAD ANALYSIS (So với Native C++):\n";
-    
-//     auto overhead = [&](const char* name, double t) {
-//         double extra = t - t_native;
-//         double ratio = t / t_native;
-//         std::cout << name << ": " 
-//                   << std::fixed << std::setprecision(1) << ratio << "x slower "
-//                   << "(Overhead: " << extra << " ms)\n";
-//     };
-
-//     overhead("Raw NanBox", t_nan_raw);
-//     overhead("meow::variant", t_cst);
-//     overhead("std::variant", t_std);
-
-//     return 0;
-// }

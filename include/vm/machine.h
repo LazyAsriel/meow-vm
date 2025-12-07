@@ -27,6 +27,7 @@ public:
 
     // --- Public API ---
     void interpret() noexcept;
+    inline MemoryManager* get_heap() const noexcept { return heap_.get(); }
 private:
     // --- Subsystems ---
     std::unique_ptr<ExecutionContext> context_;
@@ -41,9 +42,9 @@ private:
     void run();
 
     // --- Error helpers ---
-    [[noreturn]] inline void throw_vm_error(const std::string& message) {
-        throw VMError(message);
-    }
+    [[noreturn]] inline void throw_vm_error(const std::string& message) { throw VMError(message); }
+
+    void load_builtins();
 
     // --- OpCode Handlers (Helpers) ---
     inline void op_load_const(const uint8_t*& ip);
