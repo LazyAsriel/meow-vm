@@ -1,7 +1,7 @@
 #include "assembler.h"
 #include <iostream>
 #include <fstream>
-#include <charconv> // C++17/23
+#include <charconv> 
 #include <bit>
 #include <cstring>
 #include <stdexcept>
@@ -15,19 +15,7 @@ Token Assembler::advance() { if (!is_at_end()) current_++; return previous(); }
 
 Token Assembler::consume(TokenType type, const std::string& msg) {
     if (peek().type == type) return advance();
-    throw std::runtime_error(msg + " (Line " + std::to_string(peek().line) + ")");
-}
-
-// [NEW] Logic quan trọng: Biến đổi tên Global thành Index
-uint32_t Assembler::resolve_global(std::string_view name) {
-    std::string s(name); // Chuyển view sang string để lưu key
-    if (global_symbols_.count(s)) {
-        return global_symbols_[s];
-    }
-    // Nếu chưa có, tạo index mới
-    uint32_t index = static_cast<uint32_t>(global_symbols_.size());
-    global_symbols_[s] = index;
-    return index;
+    throw std::runtime_error(msg + " (Found: " + std::string(peek().lexeme) + " at line " + std::to_string(peek().line) + ")");
 }
 
 void Assembler::parse_statement() {
@@ -50,6 +38,7 @@ void Assembler::parse_func() {
     advance(); 
     Token name = consume(TokenType::IDENTIFIER, "Expected func name");
     std::string func_name(name.lexeme);
+    // Compiler legacy dùng @main, masm xử lý bỏ @ là đúng
     if (func_name.starts_with("@")) func_name = func_name.substr(1);
     protos_.push_back(Prototype{.name = func_name});
     curr_proto_ = &protos_.back();
@@ -75,6 +64,7 @@ void Assembler::parse_upvalue_def() {
     if (!curr_proto_) throw std::runtime_error("Outside .func");
     advance();
     uint32_t idx = std::stoi(std::string(consume(TokenType::NUMBER_INT, "Idx").lexeme));
+    // Compiler output: .upvalue 0 local 1
     std::string type(consume(TokenType::IDENTIFIER, "Type").lexeme);
     uint32_t slot = std::stoi(std::string(consume(TokenType::NUMBER_INT, "Slot").lexeme));
     if (idx < curr_proto_->upvalues.size()) curr_proto_->upvalues[idx] = { (type == "local"), slot };
@@ -96,7 +86,6 @@ void Assembler::parse_const() {
         if (sv.starts_with("0x") || sv.starts_with("0X")) {
             c.val_i64 = std::stoll(std::string(sv), nullptr, 16);
         } else {
-            // C++23: std::from_chars (rất nhanh)
             std::from_chars(sv.data(), sv.data() + sv.size(), c.val_i64);
         }
         advance();
@@ -106,11 +95,13 @@ void Assembler::parse_const() {
         advance();
     } else if (tk.type == TokenType::IDENTIFIER) {
         if (tk.lexeme == "null") { c.type = ConstType::NULL_T; advance(); }
+        else if (tk.lexeme == "true") { c.type = ConstType::INT_T; c.val_i64 = 1; advance(); } // Fallback logic
+        else if (tk.lexeme == "false") { c.type = ConstType::INT_T; c.val_i64 = 0; advance(); }
         else if (tk.lexeme.starts_with("@")) {
             c.type = ConstType::PROTO_REF_T;
             c.val_str = tk.lexeme.substr(1);
             advance();
-        } else throw std::runtime_error("Unknown constant identifier");
+        } else throw std::runtime_error("Unknown constant identifier: " + std::string(tk.lexeme));
     } else throw std::runtime_error("Invalid constant");
     curr_proto_->constants.push_back(c);
 }
@@ -132,6 +123,11 @@ void Assembler::emit_u64(uint64_t v) { for(int i=0; i<8; ++i) emit_byte((v >> (i
 void Assembler::parse_instruction() {
     if (!curr_proto_) throw std::runtime_error("Instruction outside .func");
     Token op_tok = advance();
+    
+    // Check if OP exists
+    if (OP_MAP.find(op_tok.lexeme) == OP_MAP.end()) {
+        throw std::runtime_error("Unknown opcode: " + std::string(op_tok.lexeme));
+    }
     OpCode op = OP_MAP[op_tok.lexeme];
     emit_byte(static_cast<uint8_t>(op));
 
@@ -140,17 +136,9 @@ void Assembler::parse_instruction() {
         emit_u16(static_cast<uint16_t>(std::stoi(std::string(t.lexeme))));
     };
 
-    // [OPTIMIZATION] Xử lý riêng cho Global: Dùng Index thay vì Constant Pool
-    if (op == OpCode::GET_GLOBAL || op == OpCode::SET_GLOBAL) {
-        Token t = consume(TokenType::IDENTIFIER, "Expected global variable name");
-        // Giải quyết tên -> index ngay tại compile time
-        uint32_t global_idx = resolve_global(t.lexeme);
-        // Emit u32 index (để hỗ trợ > 65k globals nếu cần, hoặc dùng u16 cũng được, ở đây dùng u32 cho an toàn)
-        emit_u32(global_idx);
-        return;
-    }
+    // [MODIFIED] Xóa bỏ block xử lý riêng cho GET_GLOBAL/SET_GLOBAL
+    // Để nó rơi xuống default case và parse const_index (u16) như Compiler mong đợi.
 
-    // Các instruction khác
     switch (op) {
         case OpCode::LOAD_INT: {
             parse_u16(); // dst
@@ -172,7 +160,11 @@ void Assembler::parse_instruction() {
                 Token target = advance();
                 curr_proto_->try_patches.push_back({curr_proto_->bytecode.size(), std::string(target.lexeme)});
                 emit_u16(0xFFFF);
-            } else parse_u16();
+                if (op == OpCode::SETUP_TRY) parse_u16(); // SETUP_TRY có thêm arg error_reg
+            } else {
+                parse_u16();
+                if (op == OpCode::SETUP_TRY) parse_u16();
+            }
             break;
         }
         case OpCode::JUMP_IF_FALSE: case OpCode::JUMP_IF_TRUE: {
@@ -193,24 +185,38 @@ void Assembler::parse_instruction() {
 }
 
 int Assembler::get_arity(OpCode op) {
-    // Helper đơn giản
     switch (op) {
-        case OpCode::CLOSE_UPVALUES: case OpCode::IMPORT_ALL: case OpCode::THROW: case OpCode::RETURN: return 1;
-        case OpCode::LOAD_CONST: case OpCode::MOVE: case OpCode::NEG: case OpCode::NOT:
-        case OpCode::BIT_NOT: case OpCode::GET_UPVALUE: case OpCode::SET_UPVALUE: case OpCode::CLOSURE:
-        case OpCode::NEW_CLASS: case OpCode::NEW_INSTANCE: case OpCode::IMPORT_MODULE:
-        case OpCode::EXPORT: case OpCode::GET_KEYS: case OpCode::GET_VALUES:
-        case OpCode::GET_SUPER: case OpCode::GET_EXPORT: return 2;
-        // GET/SET_GLOBAL đã được handle riêng ở trên
+        case OpCode::CLOSE_UPVALUES: case OpCode::IMPORT_ALL: case OpCode::THROW: 
+        case OpCode::RETURN: 
+            return 1;
+            
+        case OpCode::LOAD_CONST: case OpCode::MOVE: 
+        case OpCode::NEG: case OpCode::NOT: case OpCode::BIT_NOT: 
+        case OpCode::GET_UPVALUE: case OpCode::SET_UPVALUE: 
+        case OpCode::CLOSURE:
+        case OpCode::NEW_CLASS: case OpCode::NEW_INSTANCE: 
+        case OpCode::IMPORT_MODULE:
+        case OpCode::EXPORT: 
+        case OpCode::GET_KEYS: case OpCode::GET_VALUES:
+        case OpCode::GET_SUPER: 
+        // [IMPORTANT] GET/SET GLOBAL take 2 args: (dst, idx) or (idx, src)
+        case OpCode::GET_GLOBAL: case OpCode::SET_GLOBAL:
+        case OpCode::LOAD_NULL: case OpCode::LOAD_TRUE: case OpCode::LOAD_FALSE:
+            return 2;
+
+        case OpCode::GET_EXPORT: 
         case OpCode::ADD: case OpCode::SUB: case OpCode::MUL: case OpCode::DIV:
         case OpCode::MOD: case OpCode::POW: case OpCode::EQ: case OpCode::NEQ:
         case OpCode::GT: case OpCode::GE: case OpCode::LT: case OpCode::LE:
         case OpCode::BIT_AND: case OpCode::BIT_OR: case OpCode::BIT_XOR:
         case OpCode::LSHIFT: case OpCode::RSHIFT: 
-        case OpCode::NEW_ARRAY: case OpCode::NEW_HASH: case OpCode::GET_INDEX:
-        case OpCode::SET_INDEX: case OpCode::GET_PROP: case OpCode::SET_PROP:
+        case OpCode::NEW_ARRAY: case OpCode::NEW_HASH: 
+        case OpCode::GET_INDEX: case OpCode::SET_INDEX: 
+        case OpCode::GET_PROP: case OpCode::SET_PROP:
         case OpCode::SET_METHOD: case OpCode::CALL_VOID:
+        case OpCode::INHERIT:
             return 3;
+            
         case OpCode::CALL: return 4;
         default: return 0;
     }
@@ -255,10 +261,6 @@ void Assembler::write_binary(const std::string& filename) {
     write_u32(0x4D454F57); // Magic
     write_u32(1);          // Version
 
-    // [NEW] Ghi số lượng biến Global vào Header để VM allocate vector
-    write_u32(static_cast<uint32_t>(global_symbols_.size()));
-    std::cout << "[Info] Total Globals: " << global_symbols_.size() << "\n";
-
     if (proto_name_map_.count("main")) write_u32(proto_name_map_["main"]);
     else write_u32(0);
 
@@ -268,7 +270,6 @@ void Assembler::write_binary(const std::string& filename) {
         write_u32(p.num_regs);
         write_u32(p.num_upvalues);
         
-        // Ghi hằng số (Thêm tên func vào cuối pool để debug)
         std::vector<Constant> write_consts = p.constants;
         write_consts.push_back({ConstType::STRING_T, 0, 0, p.name, 0});
         

@@ -6,6 +6,7 @@ std::unordered_map<std::string_view, OpCode> OP_MAP;
 void init_op_map() {
     if (!OP_MAP.empty()) return;
     #define O(x) OP_MAP[#x] = OpCode::x;
+    
     O(LOAD_CONST) O(LOAD_NULL) O(LOAD_TRUE) O(LOAD_FALSE) O(LOAD_INT) O(LOAD_FLOAT) O(MOVE)
     O(ADD) O(SUB) O(MUL) O(DIV) O(MOD) O(POW)
     O(EQ) O(NEQ) O(GT) O(GE) O(LT) O(LE)
