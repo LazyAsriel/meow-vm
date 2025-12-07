@@ -31,4 +31,12 @@ inline void close_upvalues(ExecutionContext* context, size_t last_index) noexcep
         context->open_upvalues_.pop_back();
     }
 }
+
+inline upvalue_t capture_upvalue(ExecutionContext& context, MemoryManager& heap, size_t register_index) noexcept {
+    return capture_upvalue(&context, &heap, register_index);
+}
+
+inline void close_upvalues(ExecutionContext& context, size_t last_index) noexcept {
+    return close_upvalues(&context, last_index);
+}
 }

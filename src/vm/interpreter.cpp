@@ -1,150 +1,166 @@
-// #include "vm/interpreter.h"
-// #include "bytecode/op_codes.h"
-// #include "core/value.h"
-// #include "runtime/call_frame.h"
-// #include "core/objects/function.h"
+#include "vm/interpreter.h"
+#include "bytecode/op_codes.h"
+#include "core/value.h"
+#include "runtime/call_frame.h"
+#include "core/objects/function.h"
+#include "memory/memory_manager.h"
+#include "runtime/execution_context.h"
+#include "runtime/operator_dispatcher.h"
+#include "runtime/upvalue.h"
+#include "debug/print.h"
 
-// #include "runtime/execution_context.h"
-// #include "runtime/operator_dispatcher.h"
+namespace meow {
 
-// namespace meow {
+namespace {
 
-// // Helper access nhanh
-// [[gnu::always_inline]]
-// static inline Value& reg(VMState& state, uint16_t idx) noexcept {
-//     return state.ctx.registers_[state.ctx.current_base_ + idx];
-// }
+    [[gnu::always_inline]]
+    static void dispatch(const uint8_t* ip, VMState state) noexcept;
 
-// [[gnu::always_inline]]
-// static inline const Value& constant(VMState& state, uint16_t idx) const noexcept {
-//     return state.ctx.current_frame_->function_->get_proto()->get_chunk().get_constant(idx);
-// }
+    [[gnu::always_inline]]
+    static uint16_t read_u16(const uint8_t*& ip) noexcept {
+        uint16_t val = static_cast<uint16_t>(ip[0]) | (static_cast<uint16_t>(ip[1]) << 8);
+        ip += 2;
+        return val;
+    }
 
-// void Interpreter::op_LOAD_CONST(const uint8_t* ip, VMState state) noexcept {
-//     uint16_t dst = read_u16(ip);
-//     uint16_t idx = read_u16(ip);
-    
-//     reg(state, dst) = constant(state, idx);
-    
-//     [[clang::musttail]] return dispatch(ip, state);
-// }
+    // [REMOVED] static void close_upvalues(...) đã được xóa để dùng từ runtime/upvalue.h
 
-// void Interpreter::op_ADD(const uint8_t* ip, VMState state) noexcept {
-//     uint16_t dst = read_u16(ip);
-//     uint16_t r1  = read_u16(ip);
-//     uint16_t r2  = read_u16(ip);
+    static void op_PANIC(const uint8_t* ip, VMState state) noexcept;
 
-//     Value& left  = reg(state, r1);
-//     Value& right = reg(state, r2);
+    static void op_UNIMPL(const uint8_t* ip, VMState state) noexcept {
+        state.error("Opcode chưa được hỗ trợ trong Interpreter Mode");
+        [[clang::musttail]] return op_PANIC(ip, state);
+    }
 
-//     // Gọi logic xử lý (giả sử OperatorDispatcher đã static và noexcept)
-//     // Nếu OperatorDispatcher phát hiện lỗi (chia 0, sai kiểu), nó không throw nữa 
-//     // mà trả về Value lỗi hoặc set state.error()
-    
-//     // Giả sử ta check kiểu thủ công ở đây (Fast path)
-//     if (left.is_int() && right.is_int()) [[likely]] {
-//         reg(state, dst) = Value(left.as_int() + right.as_int());
-//     } 
-//     else {
-//         // Slow path / Error check
-//         auto func = OperatorDispatcher::get_binary(OpCode::ADD, left, right);
-//         if (func) {
-//             reg(state, dst) = func(state.heap, left, right);
-//         } else {
-//             state.error("Invalid operands for ADD");
-//             [[clang::musttail]] return op_PANIC(ip, state); // Chuyển sang xử lý lỗi
-//         }
-//     }
+    // --- Opcode Handlers ---
 
-//     [[clang::musttail]] return dispatch(ip, state);
-// }
+    static void op_LOAD_CONST(const uint8_t* ip, VMState state) noexcept {
+        uint16_t dst = read_u16(ip);
+        uint16_t idx = read_u16(ip);
+        state.reg(dst) = state.constant(idx);
+        [[clang::musttail]] return dispatch(ip, state);
+    }
 
-// void Interpreter::op_RETURN(const uint8_t* ip, VMState state) noexcept {
-//     uint16_t ret_reg = read_u16(ip);
-//     Value result = (ret_reg == 0xFFFF) ? Value(null_t{}) : reg(state, ret_reg);
+    static void op_ADD(const uint8_t* ip, VMState state) noexcept {
+        uint16_t dst = read_u16(ip);
+        uint16_t r1  = read_u16(ip);
+        uint16_t r2  = read_u16(ip);
 
-//     auto& stack = state.ctx->call_stack_;
-    
-//     // 1. Đóng upvalues
-//     // close_upvalues(state.ctx, stack.back().start_reg_);
+        Value& left  = state.reg(r1);
+        Value& right = state.reg(r2);
 
-//     // 2. Pop frame
-//     stack.pop_back();
+        if (left.is_int() && right.is_int()) [[likely]] {
+            state.reg(dst) = Value(left.as_int() + right.as_int());
+        } 
+        else if (left.is_float() && right.is_float()) {
+            state.reg(dst) = Value(left.as_float() + right.as_float());
+        }
+        else {
+            auto func = OperatorDispatcher::find(OpCode::ADD, left, right);
+            if (func) {
+                state.reg(dst) = func(&state.heap, left, right);
+            } else {
+                state.error("Toán hạng không hợp lệ cho phép cộng (+)");
+                [[clang::musttail]] return op_PANIC(ip, state);
+            }
+        }
+        [[clang::musttail]] return dispatch(ip, state);
+    }
 
-//     if (stack.empty()) {
-//         // Hết chương trình -> Halt
-//         [[clang::musttail]] return op_HALT(ip, state);
-//     }
+    static void op_RETURN(const uint8_t* ip, VMState state) noexcept {
+        uint16_t ret_reg_idx = read_u16(ip);
+        Value result = (ret_reg_idx == 0xFFFF) ? Value(null_t{}) : state.reg(ret_reg_idx);
 
-//     // 3. Khôi phục state
-//     state.ctx->current_frame_ = &stack.back();
-//     state.ctx->current_base_  = state.ctx->current_frame_->start_reg_;
-    
-//     // 4. Lấy địa chỉ return từ frame cha
-//     const uint8_t* return_ip = state.ctx->current_frame_->ip_;
-    
-//     // 5. Ghi kết quả trả về
-//     size_t target_reg = stack.back().ret_reg_; // Cần lưu cái này ở frame trước khi call
-//     if (target_reg != static_cast<size_t>(-1)) {
-//         state.ctx->registers_[state.ctx->current_base_ + target_reg] = result;
-//     }
+        auto& stack = state.ctx.call_stack_;
+        CallFrame* current = state.ctx.current_frame_;
 
-//     [[clang::musttail]] return dispatch(return_ip, state);
-// }
+        // Sử dụng hàm chung từ upvalue.h (nhận tham chiếu)
+        meow::close_upvalues(state.ctx, current->start_reg_);
 
-// void Interpreter::op_PANIC(const uint8_t* ip, VMState state) noexcept {
-//     // Logic "Try-Catch" của VM nằm ở đây
-    
-//     // 1. Check xem có Exception Handler nào đang active không
-//     if (!state.ctx->exception_handlers_.empty()) {
-//         auto& handler = state.ctx->exception_handlers_.back();
+        size_t target_reg = current->ret_reg_;
+        size_t old_base = current->start_reg_;
+
+        stack.pop_back();
+
+        if (stack.empty()) {
+            return; 
+        }
+
+        state.ctx.current_frame_ = &stack.back();
+        state.ctx.current_base_  = state.ctx.current_frame_->start_reg_;
         
-//         // Unwind stack về đúng mức handler
-//         state.ctx->call_stack_.resize(handler.frame_depth_ + 1);
-//         state.ctx->current_frame_ = &state.ctx->call_stack_.back();
-//         state.ctx->current_base_ = state.ctx->current_frame_->start_reg_;
+        if (target_reg != static_cast<size_t>(-1)) {
+            state.ctx.registers_[state.ctx.current_base_ + target_reg] = result;
+        }
+
+        state.ctx.registers_.resize(old_base);
+        const uint8_t* return_ip = state.ctx.current_frame_->ip_;
+
+        [[clang::musttail]] return dispatch(return_ip, state);
+    }
+
+    static void op_HALT(const uint8_t* ip, VMState state) noexcept {
+        return;
+    }
+
+    static void op_PANIC(const uint8_t* ip, VMState state) noexcept {
+        if (!state.ctx.exception_handlers_.empty()) {
+            auto& handler = state.ctx.exception_handlers_.back();
+            
+            while (state.ctx.call_stack_.size() - 1 > handler.frame_depth_) {
+                // Sử dụng hàm chung từ upvalue.h
+                meow::close_upvalues(state.ctx, state.ctx.call_stack_.back().start_reg_);
+                state.ctx.call_stack_.pop_back();
+            }
+            
+            state.ctx.registers_.resize(handler.stack_depth_);
+            state.ctx.current_frame_ = &state.ctx.call_stack_.back();
+            state.ctx.current_base_ = state.ctx.current_frame_->start_reg_;
+            
+            const uint8_t* code_start = state.ctx.current_frame_->function_->get_proto()->get_chunk().get_code();
+            const uint8_t* catch_ip = code_start + handler.catch_ip_;
+            
+            if (handler.error_reg_ != static_cast<size_t>(-1)) {
+                auto err_str = state.heap.new_string(state.get_error_message());
+                state.reg(handler.error_reg_) = Value(err_str);
+            }
+            
+            state.clear_error();
+            state.ctx.exception_handlers_.pop_back();
+
+            [[clang::musttail]] return dispatch(catch_ip, state);
+        }
+
+        printl("VM Panic: {}", state.get_error_message());
+        return;
+    }
+
+    using OpHandler = void (*)(const uint8_t*, VMState);
+
+    static const std::array<OpHandler, 256> dispatch_table = []{
+        std::array<OpHandler, 256> t;
+        t.fill(op_UNIMPL);
         
-//         // Nhảy tới IP của catch block
-//         const uint8_t* catch_ip = state.ctx->current_frame_->function_->get_proto()->get_chunk().get_code() + handler.catch_ip_;
+        t[static_cast<size_t>(OpCode::LOAD_CONST)] = op_LOAD_CONST;
+        t[static_cast<size_t>(OpCode::ADD)]        = op_ADD;
+        t[static_cast<size_t>(OpCode::RETURN)]     = op_RETURN;
+        t[static_cast<size_t>(OpCode::HALT)]       = op_HALT;
         
-//         // Ghi lỗi vào register (nếu cần)
-//         if (handler.error_reg_ != 0xFFFF) {
-//              // state.ctx->registers_[...] = state.ctx->get_error_object();
-//         }
-        
-//         state.ctx->clear_error();
-//         state.ctx->exception_handlers_.pop_back();
+        return t;
+    }();
 
-//         // Resume execution
-//         [[clang::musttail]] return dispatch(catch_ip, state);
-//     }
+    [[gnu::always_inline]]
+    static void dispatch(const uint8_t* ip, VMState state) noexcept {
+        uint8_t opcode = *ip++;
+        [[clang::musttail]] return dispatch_table[opcode](ip, state);
+    }
 
-//     // 2. Nếu không có handler -> Chết vinh quang (In lỗi và thoát)
-//     printl("VM Panic: {}", state.ctx->get_error_message());
-//     [[clang::musttail]] return op_HALT(ip, state);
-// }
+} 
 
-// void Interpreter::op_HALT(const uint8_t* ip, VMState state) noexcept {
-//     return; // Kết thúc chuỗi gọi hàm, quay về run() -> main()
-// }
+void Interpreter::run(VMState state) noexcept {
+    if (!state.ctx.current_frame_) return;
+    const uint8_t* ip = state.ctx.current_frame_->ip_;
+    dispatch(ip, state);
+}
 
-// // --- Dispatch Table Setup ---
-// const std::array<Interpreter::OpHandler, 256> Interpreter::dispatch_table = []{
-//     std::array<Interpreter::OpHandler, 256> t;
-//     t.fill(op_HALT); // Mặc định HALT cho an toàn
-    
-//     t[+OpCode::LOAD_CONST] = op_LOAD_CONST;
-//     t[+OpCode::ADD]        = op_ADD;
-//     t[+OpCode::RETURN]     = op_RETURN;
-//     t[+OpCode::HALT]       = op_HALT;
-//     // ... Fill more ...
-//     return t;
-// }();
-
-// void Interpreter::run(VMState state) noexcept {
-//     if (!state.ctx->current_frame_) return;
-//     const uint8_t* ip = state.ctx->current_frame_->ip_;
-//     dispatch(ip, state);
-// }
-
-// }
+}
