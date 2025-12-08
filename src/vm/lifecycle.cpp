@@ -24,12 +24,12 @@ Machine::Machine(const std::string& entry_point_directory, const std::string& en
 
     mod_manager_ = std::make_unique<ModuleManager>(heap_.get(), this);
 
-    printl("Machine initialized successfully!");
-    printl("Detected size of value is: {} bytes", sizeof(value_t));
+    // printl("Machine initialized successfully!");
+    // printl("Detected size of value is: {} bytes", sizeof(value_t));
 }
 
 Machine::~Machine() noexcept {
-    printl("Machine shutting down.");
+    // printl("Machine shutting down.");
 }
 
 void Machine::interpret() noexcept {
@@ -37,14 +37,14 @@ void Machine::interpret() noexcept {
         prepare();
         run();
     } catch (const std::exception& e) {
-        printl("An execption was threw: {}", e.what());
+        // printl("An execption was threw: {}", e.what());
     }
 }
 
 void Machine::prepare() noexcept {
     std::filesystem::path full_path = std::filesystem::path(args_.entry_point_directory_) / args_.entry_path_;
     
-    printl("Preparing execution for: {}", full_path.string());
+    // printl("Preparing execution for: {}", full_path.string());
 
     auto path_str = heap_->new_string(full_path.string());
     
@@ -73,10 +73,10 @@ void Machine::prepare() noexcept {
         context_->current_frame_ = &context_->call_stack_.back();
         context_->current_base_ = context_->current_frame_->start_reg_;
         
-        printl("Module loaded successfully. Starting VM loop...");
+        // printl("Module loaded successfully. Starting VM loop...");
 
     } catch (const std::exception& e) {
-        printl("Fatal error during preparation: {}", e.what());
+        // printl("Fatal error during preparation: {}", e.what());
         exit(1); 
     }
 }

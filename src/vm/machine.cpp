@@ -32,7 +32,7 @@ using namespace meow;
 #include "handlers/exception.inl"
 
 void Machine::run() {
-    printl("Starting Machine execution loop (Computed Goto)...");
+    // printl("Starting Machine execution loop (Computed Goto)...");
 
 #if !defined(__GNUC__) && !defined(__clang__)
     throw_vm_error("Computed goto dispatch loop requires GCC or Clang.");
@@ -107,7 +107,7 @@ void Machine::run() {
 dispatch_start:
     try {
         if (ip >= (CURRENT_CHUNK().get_code() + CURRENT_CHUNK().get_code_size())) {
-            printl("End of chunk reached, performing implicit return.");
+            // printl("End of chunk reached, performing implicit return.");
 
             Value return_value = Value(null_t{});
             CallFrame popped_frame = *context_->current_frame_;
@@ -121,7 +121,7 @@ dispatch_start:
             context_->call_stack_.pop_back();
 
             if (context_->call_stack_.empty()) {
-                printl("Call stack empty. Halting.");
+                // printl("Call stack empty. Halting.");
                 return; // Thoát hàm run()
             }
 
@@ -184,8 +184,8 @@ dispatch_start:
                 REGISTER(dst) = func(heap_.get(), left, right);
             }
 
-            printl("Final value in R0: {}", REGISTER(0).as_int());
-            printl("add r{}, r{}, r{}", meow::to_string(left), meow::to_string(right), meow::to_string(REGISTER(dst)));
+            // printl("Final value in R0: {}", REGISTER(0).as_int());
+            // printl("add r{}, r{}, r{}", meow::to_string(left), meow::to_string(right), meow::to_string(REGISTER(dst)));
             DISPATCH();
         }
 
@@ -357,7 +357,7 @@ dispatch_start:
             context_->call_stack_.pop_back();
 
             if (context_->call_stack_.empty()) {
-                printl("Call stack empty. Halting.");
+                // printl("Call stack empty. Halting.");
                 if (!context_->registers_.empty()) context_->registers_[0] = return_value;
                 return; // Thoát hàm run()
             }
@@ -481,10 +481,10 @@ dispatch_start:
         }
 
         op_HALT: {
-            printl("halt");
+            // printl("halt");
             if (!context_->registers_.empty()) {
                 if (REGISTER(0).is_int()) {
-                    printl("Final value in R0: {}", REGISTER(0).as_int());
+                    // printl("Final value in R0: {}", REGISTER(0).as_int());
                 }
             }
             return;

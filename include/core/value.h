@@ -8,7 +8,7 @@
 
 namespace meow {
 
-using base_t = meow::variant<null_t, bool_t, int_t, float_t, native_t, object_t>;
+using base_t = meow::fallback_variant<null_t, bool_t, int_t, float_t, native_t, object_t>;
 
 class Value {
 private:
