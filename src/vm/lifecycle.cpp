@@ -17,44 +17,41 @@ Machine::Machine(const std::string& entry_point_directory, const std::string& en
     }
 
     context_ = std::make_unique<ExecutionContext>();
-
     auto gc = std::make_unique<MarkSweepGC>(context_.get());
-
     heap_ = std::make_unique<MemoryManager>(std::move(gc));
-
     mod_manager_ = std::make_unique<ModuleManager>(heap_.get(), this);
-
-    // printl("Machine initialized successfully!");
-    // printl("Detected size of value is: {} bytes", sizeof(value_t));
 }
 
 Machine::~Machine() noexcept {
-    // printl("Machine shutting down.");
 }
 
 void Machine::interpret() noexcept {
-    try {
-        prepare();
+    // Logic mới: Kiểm tra prepare() trả về true/false
+    if (prepare()) {
         run();
-    } catch (const std::exception& e) {
-        // printl("An execption was threw: {}", e.what());
+    } else {
+        // Nếu prepare thất bại (do lỗi load module, etc.)
+        if (has_error()) {
+            std::println(stderr, "VM Init Error: {}", get_error_message());
+        }
     }
 }
 
-void Machine::prepare() noexcept {
+// Đổi từ void -> bool để báo trạng thái thành công/thất bại
+bool Machine::prepare() noexcept {
     std::filesystem::path full_path = std::filesystem::path(args_.entry_point_directory_) / args_.entry_path_;
     
-    // printl("Preparing execution for: {}", full_path.string());
-
     auto path_str = heap_->new_string(full_path.string());
-    
     auto importer_str = heap_->new_string(""); 
 
     try {
+        // Load module (Hàm này vẫn có thể ném exception C++ từ I/O hoặc Loader)
         module_t main_module = mod_manager_->load_module(path_str, importer_str);
 
         if (!main_module) {
-            throw_vm_error("Could not load entry module.");
+            // THAY ĐỔI Ở ĐÂY: Dùng error() + return false thay vì throw
+            error("Could not load entry module (module is null).");
+            return false; 
         }
 
         proto_t main_proto = main_module->get_main_proto();
@@ -73,10 +70,10 @@ void Machine::prepare() noexcept {
         context_->current_frame_ = &context_->call_stack_.back();
         context_->current_base_ = context_->current_frame_->start_reg_;
         
-        // printl("Module loaded successfully. Starting VM loop...");
+        return true; // Thành công!
 
     } catch (const std::exception& e) {
-        // printl("Fatal error during preparation: {}", e.what());
-        exit(1); 
+        error(std::format("Fatal error during preparation: {}", e.what()));
+        return false; // Thất bại
     }
 }

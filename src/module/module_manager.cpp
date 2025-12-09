@@ -141,28 +141,6 @@ module_t ModuleManager::load_module(string_t module_path_obj, string_t importer_
     string_t filename_obj = heap_->new_string(binary_file_path_fs.filename().string());
     module_t meow_module = heap_->new_module(filename_obj, binary_file_path_obj, main_proto);
 
-    // Loader loader(heap_, buffer);
-    // auto load_result = loader.load();
-
-    // if (!load_result) {
-    //     const auto& err = load_result.error();
-    //     throw std::runtime_error(std::format(
-    //         "Tệp bytecode hỏng: {} \nTại offset: {} \nLỗi: {}", 
-    //         binary_file_path, err.offset, err.message
-    //     ));
-    // }
-
-    // ModuleData data = *load_result;
-
-    // string_t filename_obj = heap_->new_string(binary_file_path_fs.filename().string());
-    
-    // module_t meow_module = heap_->new_module(
-    //     filename_obj, 
-    //     binary_file_path_obj, 
-    //     data.main_function, 
-    //     data.globals_count
-    // );
-
     module_cache_[module_path_obj] = meow_module;
     module_cache_[binary_file_path_obj] = meow_module;
     
