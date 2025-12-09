@@ -170,10 +170,8 @@ static Value clock_fn(Machine* vm, int argc, Value* argv) {
 
 void Machine::load_builtins() {
     auto name_native = heap_->new_string("native");
-    // Tạo module "native" để chứa các hàm
     auto mod = heap_->new_module(name_native, name_native);
 
-    // Helper lambda để đăng ký hàm gọn hơn
     auto reg = [&](const char* name, native_t fn) {
         mod->set_global(heap_->new_string(name), Value(fn));
     };
@@ -192,11 +190,8 @@ void Machine::load_builtins() {
     reg("range", natives::range);
     reg("clock", natives::clock_fn);
 
-    // Lưu module vào cache để các lệnh import "native" hoạt động
     mod_manager_->add_cache(name_native, mod);
-    
-    // In ra log debug
-    printl("Loaded built-in 'native' module"); // Giả sử có hàm đếm hoặc thôi
+    printl("Loaded built-in 'native' module");
 }
 
 } // namespace meow
