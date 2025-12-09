@@ -2,15 +2,14 @@
 #include "vm/handlers/utils.h"
 #include "core/objects.h"
 
-namespace meow {
-namespace handlers {
+namespace meow::handlers {
 
-    // --- PANIC (Xử lý lỗi & Exception) ---
-    [[always_inline]]
-    static const uint8_t* impl_PANIC(const uint8_t* ip, VMState* state) {
-        // Fix unused warning
+    // --- PANIC (Xử lý lỗi runtime Meow) ---
+    [[gnu::always_inline]]
+    inline static const uint8_t* impl_PANIC(const uint8_t* ip, VMState* state) {
         (void)ip;
-
+        
+        // 1. Tìm Exception Handler gần nhất
         if (!state->ctx.exception_handlers_.empty()) {
             auto& handler = state->ctx.exception_handlers_.back();
             
@@ -20,16 +19,16 @@ namespace handlers {
                 state->ctx.call_stack_.pop_back();
             }
             
-            // Restore registers
+            // Restore registers & frame
             state->ctx.registers_.resize(handler.stack_depth_);
             state->ctx.current_frame_ = &state->ctx.call_stack_.back();
             state->ctx.current_base_ = state->ctx.current_frame_->start_reg_;
             
-            // Calculate catch IP
+            // Tính địa chỉ Catch
             const uint8_t* code_start = state->ctx.current_frame_->function_->get_proto()->get_chunk().get_code();
             const uint8_t* catch_ip = code_start + handler.catch_ip_;
             
-            // Set error object
+            // Lưu lỗi
             if (handler.error_reg_ != static_cast<size_t>(-1)) {
                 auto err_str = state->heap.new_string(state->get_error_message());
                 state->reg(handler.error_reg_) = Value(err_str);
@@ -37,62 +36,64 @@ namespace handlers {
             
             state->clear_error();
             state->ctx.exception_handlers_.pop_back();
-            return catch_ip; // Nhảy đến catch block
+            return catch_ip;
         } 
         
+        // 2. Không bắt được lỗi -> Dừng VM (return nullptr)
+        // Interpreter::run sẽ thoát vòng lặp
         printl("VM Panic: {}", state->get_error_message());
-        return nullptr; // Dừng VM
+        return nullptr; 
     }
 
     // --- UNIMPL ---
-    [[always_inline]]
-    static const uint8_t* impl_UNIMPL(const uint8_t* ip, VMState* state) {
-        state->error("Opcode chưa được hỗ trợ");
+    [[gnu::always_inline]]
+    inline static const uint8_t* impl_UNIMPL(const uint8_t* ip, VMState* state) {
+        state->error("Opcode chưa được hỗ trợ (UNIMPL)");
         return impl_PANIC(ip, state);
     }
 
     // --- HALT ---
-    [[always_inline]]
-    static const uint8_t* impl_HALT(const uint8_t* /*ip*/, VMState* /*state*/) {
-        return nullptr; // Trả về nullptr để wrapper dừng dispatch loop
+    [[gnu::always_inline]]
+    inline static const uint8_t* impl_HALT(const uint8_t* /*ip*/, VMState* /*state*/) {
+        return nullptr; // Dừng dispatcher
     }
 
     // --- RETURN ---
-    [[always_inline]]
-    static const uint8_t* impl_RETURN(const uint8_t* ip, VMState* state) {
+    [[gnu::always_inline]]
+    inline static const uint8_t* impl_RETURN(const uint8_t* ip, VMState* state) {
         uint16_t ret_reg_idx = read_u16(ip);
+        
+        // Lấy kết quả trước khi pop stack (vì stack sẽ bị thu hồi)
         Value result = (ret_reg_idx == 0xFFFF) ? Value(null_t{}) : state->reg(ret_reg_idx);
 
-        auto& stack = state->ctx.call_stack_;
         CallFrame* current = state->ctx.current_frame_;
-
-        // Đóng các upvalue mở tại frame hiện tại trước khi pop
         meow::close_upvalues(state->ctx, current->start_reg_);
 
+        // Lưu thông tin để khôi phục
         size_t target_reg = current->ret_reg_;
         size_t old_base = current->start_reg_;
 
-        stack.pop_back();
+        state->ctx.call_stack_.pop_back();
 
-        if (stack.empty()) return nullptr; // Hết stack -> Dừng VM
+        // Nếu hết stack -> Kết thúc chương trình chính
+        if (state->ctx.call_stack_.empty()) return nullptr;
 
-        // Khôi phục ngữ cảnh caller
-        state->ctx.current_frame_ = &stack.back();
+        // Khôi phục ngữ cảnh Caller
+        state->ctx.current_frame_ = &state->ctx.call_stack_.back();
         state->ctx.current_base_  = state->ctx.current_frame_->start_reg_;
         
-        // Ghi kết quả trả về (nếu caller cần)
+        // Ghi kết quả trả về
         if (target_reg != static_cast<size_t>(-1)) {
             state->ctx.registers_[state->ctx.current_base_ + target_reg] = result;
         }
 
-        // Thu gọn stack thanh ghi
+        // Thu hồi thanh ghi
         state->ctx.registers_.resize(old_base);
         
-        // Trả về IP của caller để tiếp tục thực thi
         return state->ctx.current_frame_->ip_;
     }
 
-    // --- Helper template cho CALL (Native & Function) ---
+    // --- CALL Helper ---
     template <bool IsVoid>
     [[gnu::always_inline]] 
     static inline const uint8_t* do_call(const uint8_t* ip, VMState* state) {
@@ -113,7 +114,7 @@ namespace handlers {
         // 1. Native Call
         if (callee.is_native()) [[unlikely]] {
             native_t fn = callee.as_native();
-            // Vì state->machine là tham chiếu (Machine&), ta lấy địa chỉ (&) để truyền pointer cho native_t
+            // CHÚ Ý: state->machine là tham chiếu (Machine&), cần lấy địa chỉ (&) để truyền pointer
             Value result = fn(&state->machine, argc, &state->reg(arg_start));
             
             if constexpr (!IsVoid) {
@@ -124,7 +125,8 @@ namespace handlers {
             return ip;
         }
 
-        // 2. Meow Function / Method / Class Call
+        // 2. Meow Call (Function / Method / Class)
+        // Code đoạn này giữ nguyên logic như cũ, chỉ tối ưu memory access nếu cần
         instance_t self = nullptr;
         function_t closure = nullptr;
         bool is_init = false;
@@ -142,50 +144,45 @@ namespace handlers {
             self = state->heap.new_instance(klass);
             
             if constexpr (!IsVoid) {
-                if (ret_reg != static_cast<size_t>(-1)) {
-                    state->reg(ret_reg) = Value(self);
-                }
+                if (ret_reg != static_cast<size_t>(-1)) state->reg(ret_reg) = Value(self);
             }
             
-            // Tìm constructor "init"
+            // TODO: Cache chuỗi "init" vào VMState để tránh new_string liên tục
             Value init_method = klass->get_method(state->heap.new_string("init"));
             if (init_method.is_function()) {
                 closure = init_method.as_function();
                 is_init = true;
             } else {
-                return ip; // Không có init -> khởi tạo xong
+                return ip;
             }
         } 
         else {
-            state->error("Giá trị không thể gọi được (Not callable).");
+            state->error("Not callable");
             return impl_PANIC(ip, state);
         }
 
-        // Setup Stack Frame mới
+        // Setup Frame
         proto_t proto = closure->get_proto();
         size_t num_params = proto->get_num_registers();
         size_t current_top = state->ctx.registers_.size();
         
+        // Resize 1 lần duy nhất
         state->ctx.registers_.resize(current_top + num_params);
 
         size_t arg_offset = 0;
-        // Nếu có self (method/constructor), tham số đầu tiên (R0) là self
         if (self != nullptr && num_params > 0) {
             state->ctx.registers_[current_top] = Value(self);
             arg_offset = 1;
         }
 
-        // Copy tham số
+        // Copy args (Loop unrolling có thể được compiler tự làm)
         for (size_t i = 0; i < argc; ++i) {
             if (arg_offset + i < num_params) {
                 state->ctx.registers_[current_top + arg_offset + i] = state->reg(arg_start + i);
             }
         }
 
-        // Lưu IP hiện tại vào frame cũ
-        state->ctx.current_frame_->ip_ = ip;
-        
-        // Nếu gọi constructor, ta không quan tâm kết quả hàm init trả về (vì đã có instance rồi)
+        state->ctx.current_frame_->ip_ = ip; // Save return address
         size_t frame_ret_reg = is_init ? static_cast<size_t>(-1) : ret_reg;
 
         state->ctx.call_stack_.emplace_back(
@@ -199,47 +196,53 @@ namespace handlers {
         state->ctx.current_frame_ = &state->ctx.call_stack_.back();
         state->ctx.current_base_  = current_top;
 
-        // Nhảy tới code của hàm mới
         return state->ctx.current_frame_->ip_;
     }
 
-    // --- CALL Handlers (Wrappers) ---
-    [[always_inline]] 
-    static const uint8_t* impl_CALL(const uint8_t* ip, VMState* state) {
+    [[gnu::always_inline]] inline static const uint8_t* impl_CALL(const uint8_t* ip, VMState* state) {
         return do_call<false>(ip, state);
     }
 
-    [[always_inline]] 
-    static const uint8_t* impl_CALL_VOID(const uint8_t* ip, VMState* state) {
+    [[gnu::always_inline]] inline static const uint8_t* impl_CALL_VOID(const uint8_t* ip, VMState* state) {
         return do_call<true>(ip, state);
     }
 
-    // --- JUMP Handlers ---
-    [[always_inline]]
-    static const uint8_t* impl_JUMP(const uint8_t* ip, VMState* state) {
+    // --- JUMP ---
+    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP(const uint8_t* ip, VMState* state) {
         uint16_t offset = read_u16(ip);
         const uint8_t* code_start = state->ctx.current_frame_->function_->get_proto()->get_chunk().get_code();
         return code_start + offset;
     }
 
-    [[always_inline]]
-    static const uint8_t* impl_JUMP_IF_TRUE(const uint8_t* ip, VMState* state) {
+    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_TRUE(const uint8_t* ip, VMState* state) {
         uint16_t cond_reg = read_u16(ip);
         uint16_t offset   = read_u16(ip);
+        Value& cond = state->reg(cond_reg);
 
-        if (meow::to_bool(state->reg(cond_reg))) {
+        // Fast path check bool/int
+        bool truthy = false;
+        if (cond.is_bool()) [[likely]] truthy = cond.as_bool();
+        else if (cond.is_int()) truthy = (cond.as_int() != 0);
+        else truthy = meow::to_bool(cond);
+
+        if (truthy) {
             const uint8_t* code_start = state->ctx.current_frame_->function_->get_proto()->get_chunk().get_code();
             return code_start + offset;
         }
         return ip;
     }
 
-    [[always_inline]]
-    static const uint8_t* impl_JUMP_IF_FALSE(const uint8_t* ip, VMState* state) {
+    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_FALSE(const uint8_t* ip, VMState* state) {
         uint16_t cond_reg = read_u16(ip);
         uint16_t offset   = read_u16(ip);
+        Value& cond = state->reg(cond_reg);
 
-        if (!meow::to_bool(state->reg(cond_reg))) {
+        bool truthy = false;
+        if (cond.is_bool()) [[likely]] truthy = cond.as_bool();
+        else if (cond.is_int()) truthy = (cond.as_int() != 0);
+        else truthy = meow::to_bool(cond);
+
+        if (!truthy) {
             const uint8_t* code_start = state->ctx.current_frame_->function_->get_proto()->get_chunk().get_code();
             return code_start + offset;
         }
@@ -247,4 +250,3 @@ namespace handlers {
     }
 
 } // namespace handlers
-} // namespace meow
