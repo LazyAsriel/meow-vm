@@ -132,6 +132,7 @@ int main(int argc, char* argv[]) {
 
         // Tạo State wrapper
         VMState state{
+            machine,
             *machine.context_,
             *machine.heap_,
             *machine.mod_manager_,

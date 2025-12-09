@@ -11,8 +11,12 @@ namespace meow {
 struct ExecutionContext;
 class MemoryManager;
 class ModuleManager;
+class Machine;
+}
 
+namespace meow {
 struct VMState {
+    Machine& machine;
     ExecutionContext& ctx;
     MemoryManager& heap;
     ModuleManager& modules;

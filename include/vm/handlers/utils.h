@@ -11,6 +11,7 @@
 #include "memory/memory_manager.h"
 #include "runtime/upvalue.h"
 #include "debug/print.h"
+#include "common/cast.h"
 
 namespace meow {
 namespace handlers {
