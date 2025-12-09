@@ -4,7 +4,7 @@
 
 namespace meow::handlers {
 
-[[always_inline]] static const uint8_t* impl_THROW(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_THROW(const uint8_t* ip, VMState* state) {
     uint16_t reg = read_u16(ip);
     Value& val = state->reg(reg);
     
@@ -16,7 +16,7 @@ namespace meow::handlers {
     return impl_PANIC(ip, state);
 }
 
-[[always_inline]] static const uint8_t* impl_SETUP_TRY(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_SETUP_TRY(const uint8_t* ip, VMState* state) {
     uint16_t offset = read_u16(ip);
     uint16_t err_reg = read_u16(ip); // Register để lưu lỗi nếu catch được
     
@@ -37,7 +37,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[always_inline]] static const uint8_t* impl_POP_TRY(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_POP_TRY(const uint8_t* ip, VMState* state) {
     if (!state->ctx.exception_handlers_.empty()) {
         state->ctx.exception_handlers_.pop_back();
     }

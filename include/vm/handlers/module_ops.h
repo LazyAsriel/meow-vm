@@ -5,7 +5,7 @@
 
 namespace meow::handlers {
 
-[[always_inline]] static const uint8_t* impl_EXPORT(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_EXPORT(const uint8_t* ip, VMState* state) {
     uint16_t name_idx = read_u16(ip);
     uint16_t src_reg = read_u16(ip);
     string_t name = state->constant(name_idx).as_string();
@@ -14,7 +14,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[always_inline]] static const uint8_t* impl_GET_EXPORT(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_GET_EXPORT(const uint8_t* ip, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t mod_reg = read_u16(ip);
     uint16_t name_idx = read_u16(ip);
@@ -35,7 +35,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[always_inline]] static const uint8_t* impl_IMPORT_ALL(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_IMPORT_ALL(const uint8_t* ip, VMState* state) {
     uint16_t src_idx = read_u16(ip);
     const Value& mod_val = state->reg(src_idx);
     
@@ -49,7 +49,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[always_inline]] static const uint8_t* impl_IMPORT_MODULE(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_IMPORT_MODULE(const uint8_t* ip, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t path_idx = read_u16(ip);
     

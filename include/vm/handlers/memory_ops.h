@@ -4,7 +4,7 @@
 
 namespace meow::handlers {
 
-[[always_inline]] static const uint8_t* impl_GET_GLOBAL(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_GET_GLOBAL(const uint8_t* ip, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t name_idx = read_u16(ip);
     string_t name = state->constant(name_idx).as_string();
@@ -18,7 +18,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[always_inline]] static const uint8_t* impl_SET_GLOBAL(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_SET_GLOBAL(const uint8_t* ip, VMState* state) {
     uint16_t name_idx = read_u16(ip);
     uint16_t src = read_u16(ip);
     string_t name = state->constant(name_idx).as_string();
@@ -27,7 +27,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[always_inline]] static const uint8_t* impl_GET_UPVALUE(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_GET_UPVALUE(const uint8_t* ip, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t uv_idx = read_u16(ip);
     
@@ -41,7 +41,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[always_inline]] static const uint8_t* impl_SET_UPVALUE(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_SET_UPVALUE(const uint8_t* ip, VMState* state) {
     uint16_t uv_idx = read_u16(ip);
     uint16_t src = read_u16(ip);
     
@@ -54,7 +54,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[always_inline]] static const uint8_t* impl_CLOSURE(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_CLOSURE(const uint8_t* ip, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t proto_idx = read_u16(ip);
     
@@ -75,7 +75,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[always_inline]] static const uint8_t* impl_CLOSE_UPVALUES(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_CLOSE_UPVALUES(const uint8_t* ip, VMState* state) {
     uint16_t last_reg = read_u16(ip);
     close_upvalues(&state->ctx, state->ctx.current_base_ + last_reg);
     return ip;

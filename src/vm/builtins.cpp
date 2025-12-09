@@ -19,7 +19,7 @@ namespace meow {
 
 // --- Helper Macros ---
 #define CHECK_ARGS(n) \
-    if (argc < n) throw VMError("Native function expects at least " #n " arguments.");
+    if (argc < n) vm->error("Native function expects at least " #n " arguments.");
 
 namespace natives {
 
@@ -75,7 +75,7 @@ static Value assert_fn(Machine* vm, int argc, Value* argv) {
         if (argc > 1 && argv[1].is_string()) {
             msg = argv[1].as_string()->c_str();
         }
-        throw VMError(msg);
+        vm->error(msg);
     }
     return Value(null_t{});
 }
@@ -107,18 +107,18 @@ static Value to_str_fn(Machine* vm, int argc, Value* argv) {
 // ord(char_string)
 static Value ord(Machine* vm, int argc, Value* argv) {
     CHECK_ARGS(1);
-    if (!argv[0].is_string()) throw VMError("ord() expects a string.");
+    if (!argv[0].is_string()) vm->error("ord() expects a string.");
     string_t s = argv[0].as_string();
-    if (s->size() != 1) throw VMError("ord() expects a single character.");
+    if (s->size() != 1) vm->error("ord() expects a single character.");
     return Value(static_cast<int64_t>(static_cast<unsigned char>(s->get(0))));
 }
 
 // char(code)
 static Value chr(Machine* vm, int argc, Value* argv) {
     CHECK_ARGS(1);
-    if (!argv[0].is_int()) throw VMError("char() expects an integer.");
+    if (!argv[0].is_int()) vm->error("char() expects an integer.");
     int64_t code = argv[0].as_int();
-    if (code < 0 || code > 255) throw VMError("char() code out of range [0-255].");
+    if (code < 0 || code > 255) vm->error("char() code out of range [0-255].");
     char c = static_cast<char>(code);
     return Value(vm->get_heap()->new_string(std::string(1, c)));
 }
@@ -141,7 +141,7 @@ static Value range(Machine* vm, int argc, Value* argv) {
         step = to_int(argv[2]);
     }
 
-    if (step == 0) throw VMError("range() step cannot be 0.");
+    if (step == 0) vm->error("range() step cannot be 0.");
 
     auto arr = vm->get_heap()->new_array();
     

@@ -4,7 +4,7 @@
 
 namespace meow::handlers {
 
-[[always_inline]] static const uint8_t* impl_NEW_CLASS(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_NEW_CLASS(const uint8_t* ip, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t name_idx = read_u16(ip);
     
@@ -13,7 +13,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[always_inline]] static const uint8_t* impl_NEW_INSTANCE(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_NEW_INSTANCE(const uint8_t* ip, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t class_reg = read_u16(ip);
     
@@ -26,7 +26,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[always_inline]] static const uint8_t* impl_GET_PROP(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_GET_PROP(const uint8_t* ip, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t obj_reg = read_u16(ip);
     uint16_t name_idx = read_u16(ip);
@@ -63,7 +63,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[always_inline]] static const uint8_t* impl_SET_PROP(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_SET_PROP(const uint8_t* ip, VMState* state) {
     uint16_t obj_reg = read_u16(ip);
     uint16_t name_idx = read_u16(ip);
     uint16_t val_reg = read_u16(ip);
@@ -81,7 +81,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[always_inline]] static const uint8_t* impl_SET_METHOD(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_SET_METHOD(const uint8_t* ip, VMState* state) {
     uint16_t class_reg = read_u16(ip);
     uint16_t name_idx = read_u16(ip);
     uint16_t method_reg = read_u16(ip);
@@ -102,7 +102,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[always_inline]] static const uint8_t* impl_INHERIT(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_INHERIT(const uint8_t* ip, VMState* state) {
     uint16_t sub_reg = read_u16(ip);
     uint16_t super_reg = read_u16(ip);
     
@@ -117,7 +117,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[always_inline]] static const uint8_t* impl_GET_SUPER(const uint8_t* ip, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_GET_SUPER(const uint8_t* ip, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t name_idx = read_u16(ip);
     string_t name = state->constant(name_idx).as_string();

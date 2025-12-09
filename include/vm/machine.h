@@ -28,6 +28,16 @@ public:
     // --- Public API ---
     void interpret() noexcept;
     inline MemoryManager* get_heap() const noexcept { return heap_.get(); }
+    inline void error(std::string message) noexcept {
+        has_error_ = true;
+        error_message_ = std::move(message);
+    }
+
+    inline bool has_error() const noexcept { return has_error_; }
+    
+    inline std::string_view get_error_message() const noexcept { return error_message_; }
+    
+    inline void clear_error() noexcept { has_error_ = false; error_message_.clear(); }
 private:
     // --- Subsystems ---
     std::unique_ptr<ExecutionContext> context_;
@@ -36,6 +46,8 @@ private:
 
     // --- Runtime arguments ---
     VMArgs args_;
+    bool has_error_ = false;
+    std::string error_message_;
 
     // --- Execution internals ---
     void prepare() noexcept;
