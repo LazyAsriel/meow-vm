@@ -161,12 +161,10 @@ namespace meow::handlers {
             return impl_PANIC(ip, state);
         }
 
-        // Setup Frame
         proto_t proto = closure->get_proto();
         size_t num_params = proto->get_num_registers();
         size_t current_top = state->ctx.registers_.size();
         
-        // Resize 1 lần duy nhất
         state->ctx.registers_.resize(current_top + num_params);
 
         size_t arg_offset = 0;
@@ -175,7 +173,6 @@ namespace meow::handlers {
             arg_offset = 1;
         }
 
-        // Copy args (Loop unrolling có thể được compiler tự làm)
         for (size_t i = 0; i < argc; ++i) {
             if (arg_offset + i < num_params) {
                 state->ctx.registers_[current_top + arg_offset + i] = state->reg(arg_start + i);

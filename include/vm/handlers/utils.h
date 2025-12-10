@@ -16,12 +16,12 @@
 namespace meow {
 namespace handlers {
 
-    [[gnu::always_inline]]
-    inline uint16_t read_u16(const uint8_t*& ip) noexcept {
-        uint16_t val = static_cast<uint16_t>(ip[0]) | (static_cast<uint16_t>(ip[1]) << 8);
-        ip += 2;
-        return val;
-    }
+[[gnu::always_inline]]
+inline uint16_t read_u16(const uint8_t*& ip) noexcept {
+    uint16_t val = static_cast<uint16_t>(ip[0]) | (static_cast<uint16_t>(ip[1]) << 8);
+    ip += 2;
+    return val;
+}
 
 } // namespace handlers
 } // namespace meow

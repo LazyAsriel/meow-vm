@@ -38,19 +38,21 @@ struct VMState {
 
     // --- Fast Accessors ---
 
-    // Truy cập thanh ghi (Register) dựa trên base của frame hiện tại
     [[gnu::always_inline]] 
-    inline Value& reg(uint16_t idx) const noexcept {
+    inline Value& reg(uint16_t idx) noexcept {
         return ctx.registers_[ctx.current_base_ + idx];
     }
 
-    // Truy cập hằng số (Constant) từ Chunk hiện tại
+    [[gnu::always_inline]] 
+    inline Value reg(uint16_t idx) const noexcept {
+        return ctx.registers_[ctx.current_base_ + idx];
+    }
+
     [[gnu::always_inline]] 
     inline Value constant(uint16_t idx) const noexcept {
         return ctx.current_frame_->function_->get_proto()->get_chunk().get_constant(idx);
     }
 
-    // Truy cập CallFrame hiện tại
     [[gnu::always_inline]]
     inline CallFrame* frame() const noexcept {
         return ctx.current_frame_;
