@@ -6,7 +6,7 @@
 namespace meow {
 
 MarkSweepGC::~MarkSweepGC() noexcept {
-    std::cout << "[destroy] Đang xử lí các object khi hủy GC" << std::endl;
+    // std::cout << "[destroy] Đang xử lí các object khi hủy GC" << std::endl;
 
     // speed doesn't matter for debug here
     // std::println("[destroy] Đang xử lí các object khi hủy GC");
@@ -16,7 +16,7 @@ MarkSweepGC::~MarkSweepGC() noexcept {
 }
 
 void MarkSweepGC::register_object(const MeowObject* object) {
-    std::println("[register] Đang đăng kí object: {:p}", static_cast<const void*>(object));
+    // std::println("[register] Đang đăng kí object: {:p}", static_cast<const void*>(object));
     metadata_.emplace(object, GCMetadata{});
 }
 

@@ -95,3 +95,15 @@ if(NOT MSVC)
     # Build release/optimized cho benchmark (nhưng bỏ -flto để debug cho dễ nếu cần)
     target_compile_options(meow_dispatch_bench PRIVATE -O3 -march=native)
 endif()
+
+# Benchmark so sánh VM vs Native
+add_executable(meow_bench_vs_native "benchmarks/vm_vs_native.cpp")
+target_compile_features(meow_bench_vs_native PRIVATE cxx_std_23)
+
+# Link với Core để chạy được VM
+target_link_libraries(meow_bench_vs_native PRIVATE meow_vm_core meow::libs)
+
+if(NOT MSVC)
+    # Tối ưu hết mức để Native C++ chạy nhanh nhất có thể
+    target_compile_options(meow_bench_vs_native PRIVATE -O3 -march=native)
+endif()
