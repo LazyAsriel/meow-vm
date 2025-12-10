@@ -21,7 +21,7 @@ class ObjModule;
 class Shape;
 }
 
-namespace meow {
+namespace meow {    
 using value_t = Value;
 using param_t = value_t;
 using return_t = value_t;

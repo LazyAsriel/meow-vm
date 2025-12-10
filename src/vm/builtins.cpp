@@ -21,7 +21,7 @@ namespace meow {
 namespace natives {
 
 // print(val1, val2, ...)
-static Value print(Machine* vm, int argc, Value* argv) {
+static Value print([[maybe_unused]] Machine* vm, int argc, Value* argv) {
     for (int i = 0; i < argc; ++i) {
         if (i > 0) std::cout << " ";
         std::print("{}", to_string(argv[i]));
@@ -156,7 +156,7 @@ static Value range(Machine* vm, int argc, Value* argv) {
 }
 
 // clock()
-static Value clock_fn(Machine* vm, int argc, Value* argv) {
+static Value clock_fn([[maybe_unused]] Machine* vm, int argc, Value* argv) {
     auto now = std::chrono::steady_clock::now();
     auto duration = now.time_since_epoch();
     double millis = std::chrono::duration<double, std::milli>(duration).count();
@@ -188,7 +188,7 @@ void Machine::load_builtins() {
     reg("clock", natives::clock_fn);
 
     mod_manager_->add_cache(name_native, mod);
-    printl("Loaded built-in 'native' module");
+    // printl("Loaded built-in 'native' module");
 }
 
 } // namespace meow

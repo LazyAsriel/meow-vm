@@ -171,9 +171,9 @@ consteval auto make_binary_table() {
     reg(RSHIFT,  Int, Int, [](MemoryManager*, param_t a, param_t b) { return Value(a.as_int() >> b.as_int()); });
     
     // Explicit casts to bool or int to resolve ambiguity
-    reg(BIT_AND, Bool, Bool, [](MemoryManager*, param_t a, param_t b) { return Value(static_cast<bool>(a.as_bool() & b.as_bool())); });
-    reg(BIT_OR,  Bool, Bool, [](MemoryManager*, param_t a, param_t b) { return Value(static_cast<bool>(a.as_bool() | b.as_bool())); });
-    reg(BIT_XOR, Bool, Bool, [](MemoryManager*, param_t a, param_t b) { return Value(static_cast<bool>(a.as_bool() ^ b.as_bool())); });
+    reg(BIT_AND, Bool, Bool, [](MemoryManager*, param_t a, param_t b) { return Value(static_cast<bool>(static_cast<int>(a.as_bool()) & static_cast<int>(b.as_bool()))); });
+    reg(BIT_OR,  Bool, Bool, [](MemoryManager*, param_t a, param_t b) { return Value(static_cast<bool>(static_cast<int>(a.as_bool()) | static_cast<int>(b.as_bool()))); });
+    reg(BIT_XOR, Bool, Bool, [](MemoryManager*, param_t a, param_t b) { return Value(static_cast<bool>(static_cast<int>(a.as_bool()) ^ static_cast<int>(b.as_bool()))); });
 
     reg(BIT_AND, Int, Bool, [](MemoryManager*, param_t a, param_t b) { return Value(a.as_int() & bool_to_int(b.as_bool())); });
     reg(BIT_AND, Bool, Int, [](MemoryManager*, param_t a, param_t b) { return Value(bool_to_int(a.as_bool()) & b.as_int()); });

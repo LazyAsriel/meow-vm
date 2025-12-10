@@ -9,7 +9,8 @@ namespace meow::handlers {
     uint16_t name_idx = read_u16(ip);
     string_t name = state->constant(name_idx).as_string();
     
-    module_t mod = state->ctx.current_frame_->module_;
+    // [FIX] Dùng frame_ptr_ thay vì current_frame_
+    module_t mod = state->ctx.frame_ptr_->module_;
     if (mod->has_global(name)) {
         state->reg(dst) = mod->get_global(name);
     } else {
@@ -23,7 +24,8 @@ namespace meow::handlers {
     uint16_t src = read_u16(ip);
     string_t name = state->constant(name_idx).as_string();
     
-    state->ctx.current_frame_->module_->set_global(name, state->reg(src));
+    // [FIX] Dùng frame_ptr_
+    state->ctx.frame_ptr_->module_->set_global(name, state->reg(src));
     return ip;
 }
 
@@ -31,12 +33,13 @@ namespace meow::handlers {
     uint16_t dst = read_u16(ip);
     uint16_t uv_idx = read_u16(ip);
     
-    upvalue_t uv = state->ctx.current_frame_->function_->get_upvalue(uv_idx);
+    // [FIX] Dùng frame_ptr_
+    upvalue_t uv = state->ctx.frame_ptr_->function_->get_upvalue(uv_idx);
     if (uv->is_closed()) {
         state->reg(dst) = uv->get_value();
     } else {
-        // Lấy giá trị từ stack (vẫn còn sống)
-        state->reg(dst) = state->ctx.registers_[uv->get_index()];
+        // [FIX] Truy cập stack_ thay vì registers_
+        state->reg(dst) = state->ctx.stack_[uv->get_index()];
     }
     return ip;
 }
@@ -45,11 +48,12 @@ namespace meow::handlers {
     uint16_t uv_idx = read_u16(ip);
     uint16_t src = read_u16(ip);
     
-    upvalue_t uv = state->ctx.current_frame_->function_->get_upvalue(uv_idx);
+    upvalue_t uv = state->ctx.frame_ptr_->function_->get_upvalue(uv_idx);
     if (uv->is_closed()) {
         uv->close(state->reg(src));
     } else {
-        state->ctx.registers_[uv->get_index()] = state->reg(src);
+        // [FIX] Truy cập stack_
+        state->ctx.stack_[uv->get_index()] = state->reg(src);
     }
     return ip;
 }
@@ -61,14 +65,16 @@ namespace meow::handlers {
     proto_t proto = state->constant(proto_idx).as_proto();
     function_t closure = state->heap.new_function(proto);
     
+    // [FIX] Tính index cơ sở của frame hiện tại
+    size_t current_base_idx = state->ctx.current_regs_ - state->ctx.stack_;
+
     for (size_t i = 0; i < proto->get_num_upvalues(); ++i) {
         const auto& desc = proto->get_desc(i);
         if (desc.is_local_) {
-            // Capture biến local từ frame hiện tại
-            closure->set_upvalue(i, capture_upvalue(&state->ctx, &state->heap, state->ctx.current_base_ + desc.index_));
+            // [FIX] Dùng index tính toán được
+            closure->set_upvalue(i, capture_upvalue(&state->ctx, &state->heap, current_base_idx + desc.index_));
         } else {
-            // Capture lại từ upvalue của hàm cha
-            closure->set_upvalue(i, state->ctx.current_frame_->function_->get_upvalue(desc.index_));
+            closure->set_upvalue(i, state->ctx.frame_ptr_->function_->get_upvalue(desc.index_));
         }
     }
     state->reg(dst) = Value(closure);
@@ -77,7 +83,9 @@ namespace meow::handlers {
 
 [[gnu::always_inline]] static const uint8_t* impl_CLOSE_UPVALUES(const uint8_t* ip, VMState* state) {
     uint16_t last_reg = read_u16(ip);
-    close_upvalues(&state->ctx, state->ctx.current_base_ + last_reg);
+    // [FIX] Tính index tuyệt đối
+    size_t current_base_idx = state->ctx.current_regs_ - state->ctx.stack_;
+    close_upvalues(&state->ctx, current_base_idx + last_reg);
     return ip;
 }
 

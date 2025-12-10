@@ -4,12 +4,16 @@
 namespace meow {
 
 void Machine::run() noexcept {
+    const uint8_t* initial_code = context_->frame_ptr_->function_->get_proto()->get_chunk().get_code();
+
     VMState state {
-        *this,           // Machine&
-        *context_,       // ExecutionContext&
-        *heap_,          // MemoryManager&
-        *mod_manager_,   // ModuleManager&
-        "", false        // Error state
+        *this,           
+        *context_,       
+        *heap_,          
+        *mod_manager_,   
+        context_->current_regs_, 
+        initial_code,    // [NEW] Truyền tham số instruction_base
+        "", false        
     };
 
     Interpreter::run(state);

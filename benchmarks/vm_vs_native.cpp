@@ -37,53 +37,23 @@ int64_t run_native_cpp() {
 Chunk create_vm_chunk(MemoryManager& /*heap*/) {
     Chunk chunk;
     std::vector<Value> constants; 
-    // --- SETUP ---
     
-    // LOAD_INT R0, 0 (sum = 0)
-    chunk.write_byte(static_cast<uint8_t>(OpCode::LOAD_INT));
-    chunk.write_u16(0); // dst = R0
-    chunk.write_u64(0); // value = 0
+    chunk.write_byte(static_cast<uint8_t>(OpCode::LOAD_INT)); chunk.write_u16(0); chunk.write_u64(0);
+    chunk.write_byte(static_cast<uint8_t>(OpCode::LOAD_INT)); chunk.write_u16(1); chunk.write_u64(0);
+    chunk.write_byte(static_cast<uint8_t>(OpCode::LOAD_INT)); chunk.write_u16(2); chunk.write_u64(1);
+    chunk.write_byte(static_cast<uint8_t>(OpCode::LOAD_INT)); chunk.write_u16(3); chunk.write_u64(static_cast<uint64_t>(LIMIT)); 
 
-    // LOAD_INT R1, 0 (counter = 0)
-    chunk.write_byte(static_cast<uint8_t>(OpCode::LOAD_INT));
-    chunk.write_u16(1); // dst = R1
-    chunk.write_u64(0); // value = 0
-
-    // LOAD_INT R2, 1 (step = 1)
-    chunk.write_byte(static_cast<uint8_t>(OpCode::LOAD_INT));
-    chunk.write_u16(2); // dst = R2
-    chunk.write_u64(1); // value = 1
-
-    // LOAD_INT R3, LIMIT (limit)
-    chunk.write_byte(static_cast<uint8_t>(OpCode::LOAD_INT));
-    chunk.write_u16(3); // dst = R3
-    chunk.write_u64(static_cast<uint64_t>(LIMIT)); 
-
-    // --- LOOP BODY ---
     size_t loop_start = chunk.get_code_size();
-
-    // ADD R0, R0, R2 (sum += step)
-    chunk.write_byte(static_cast<uint8_t>(OpCode::ADD));
-    chunk.write_u16(0); chunk.write_u16(0); chunk.write_u16(2);
-
-    // ADD R1, R1, R2 (counter += step)
-    chunk.write_byte(static_cast<uint8_t>(OpCode::ADD));
-    chunk.write_u16(1); chunk.write_u16(1); chunk.write_u16(2);
-
-    // LT R4, R1, R3 (counter < limit ?)
-    chunk.write_byte(static_cast<uint8_t>(OpCode::LT));
-    chunk.write_u16(4); chunk.write_u16(1); chunk.write_u16(3);
-
-    // JUMP_IF_TRUE R4, loop_start
-    chunk.write_byte(static_cast<uint8_t>(OpCode::JUMP_IF_TRUE));
-    chunk.write_u16(4); chunk.write_u16(static_cast<uint16_t>(loop_start));
-
-    // HALT
+    chunk.write_byte(static_cast<uint8_t>(OpCode::ADD)); chunk.write_u16(0); chunk.write_u16(0); chunk.write_u16(2);
+    chunk.write_byte(static_cast<uint8_t>(OpCode::ADD)); chunk.write_u16(1); chunk.write_u16(1); chunk.write_u16(2);
+    chunk.write_byte(static_cast<uint8_t>(OpCode::LT));  chunk.write_u16(4); chunk.write_u16(1); chunk.write_u16(3);
+    chunk.write_byte(static_cast<uint8_t>(OpCode::JUMP_IF_TRUE)); chunk.write_u16(4); chunk.write_u16(static_cast<uint16_t>(loop_start));
     chunk.write_byte(static_cast<uint8_t>(OpCode::HALT));
 
     Chunk final_chunk(std::vector<uint8_t>(chunk.get_code(), chunk.get_code() + chunk.get_code_size()), std::move(constants));
     return final_chunk;
 }
+
 template <typename Func>
 double measure(const std::string& name, Func func) {
     std::cout << "👉 " << std::left << std::setw(30) << name << "... " << std::flush;
@@ -116,21 +86,27 @@ int main(int argc, char* argv[]) {
     });
 
     double t_vm = measure("MeowVM (Interpreter)", [&]() {
+        // [FIX] Reset & Setup Frame manually with pointers
         machine.context_->reset();
-        machine.context_->registers_.resize(5);
         
-        machine.context_->call_stack_.emplace_back(
-            func, mod, 0, -1, 
-            proto->get_chunk().get_code()
+        Value* base = machine.context_->stack_;
+        *machine.context_->frame_ptr_ = CallFrame(
+            func, mod, base, nullptr, proto->get_chunk().get_code()
         );
-        machine.context_->current_frame_ = &machine.context_->call_stack_.back();
-        machine.context_->current_base_ = 0;
+        
+        machine.context_->current_regs_ = base;
+        machine.context_->stack_top_ += 5;
+        machine.context_->current_frame_ = machine.context_->frame_ptr_;
+
+        const uint8_t* code_base = proto->get_chunk().get_code();
 
         VMState state{
             machine,
             *machine.context_,
             *machine.heap_,
             *machine.mod_manager_,
+            machine.context_->current_regs_,
+            code_base, // [NEW]
             "", false
         };
         Interpreter::run(state);
@@ -140,16 +116,10 @@ int main(int argc, char* argv[]) {
     std::cout << "📊 KẾT QUẢ:\n";
     
     if (t_native < 0.001) t_native = 0.001;
-    
     double ratio = t_vm / t_native;
     
     std::cout << "Native C++ : 1x (Baseline)\n";
     std::cout << "MeowVM     : " << std::fixed << std::setprecision(2) << ratio << "x slower\n";
     
-    if (ratio < 50) std::cout << "Chậm\n";
-    else if (ratio < 200) std::cout << "Rất chậm\n";
-    else if (ratio < 1000) std::cout << "Rất rất chậm\n";
-    else std::cout << "Siêu chậm\n";
-
     return 0;
 }
