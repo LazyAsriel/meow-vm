@@ -1,8 +1,34 @@
+# File: benchmark.meow
+# Mô phỏng logic của benchmarks/vm_vs_native.cpp
+# R0 = sum
+# R1 = counter
+# R2 = step
+# R3 = limit
+# R4 = temp comparison
+
 .func @main
-    .registers 3
+    .registers 5
+
+    # Khởi tạo giá trị (Setup)
+    LOAD_INT 0, 0           # sum = 0
+    LOAD_INT 1, 0           # counter = 0
+    LOAD_INT 2, 1           # step = 1
+    LOAD_INT 3, 10000000    # limit = 10,000,000
+
+loop_start:
+    # Logic vòng lặp (Loop Body)
+    # sum = sum + step
+    ADD 0, 0, 2
     
-    LOAD_INT 0, 1
-    LOAD_INT 1, 2
-    ADD 0, 0, 1
+    # counter = counter + step
+    ADD 1, 1, 2
+    
+    # Kiểm tra: counter < limit ?
+    LT 4, 1, 3
+    
+    # Nếu đúng (counter < limit) thì nhảy về loop_start
+    JUMP_IF_TRUE 4, loop_start
+
+    # Kết thúc
     HALT
 .endfunc
