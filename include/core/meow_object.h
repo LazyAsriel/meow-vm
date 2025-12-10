@@ -13,7 +13,8 @@ enum class ObjectType : uint8_t {
     UPVALUE,
     PROTO,
     FUNCTION,
-    MODULE
+    MODULE,
+    SHAPE
 };
 
 struct MeowObject {

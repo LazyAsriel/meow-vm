@@ -18,6 +18,7 @@ class ObjFunctionProto;
 class ObjNativeFunction;
 class ObjClosure;
 class ObjModule;
+class Shape;
 }
 
 namespace meow {
@@ -44,6 +45,7 @@ using upvalue_t = ObjUpvalue*;
 using proto_t = ObjFunctionProto*;
 using function_t = ObjClosure*;
 using module_t = ObjModule*;
+using shape_t = Shape*;
 
 enum class ValueType : uint8_t {
     Null,
@@ -63,6 +65,7 @@ enum class ValueType : uint8_t {
     Proto,        // 8  — PROTO
     Function,     // 9  — FUNCTION
     Module,       // 10 — MODULE
+    Shape,        // 11 - SHAPE
 
     TotalValueTypes
 };
