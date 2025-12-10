@@ -10,8 +10,8 @@ namespace meow::handlers {
         uint16_t dst = read_u16(ip); \
         uint16_t r1  = read_u16(ip); \
         uint16_t r2  = read_u16(ip); \
-        auto& left  = state->reg(r1); \
-        auto& right = state->reg(r2); \
+        auto left  = state->reg(r1); \
+        auto right = state->reg(r2); \
         state->reg(dst) = OperatorDispatcher::find(OpCode::NAME, left, right)(&state->heap, left, right); \
         return ip; \
     }
@@ -22,8 +22,8 @@ HOT_HANDLER impl_ADD(const uint8_t* ip, VMState* state) {
     uint16_t r1 = read_u16(ip);
     uint16_t r2 = read_u16(ip);
     
-    auto& left = state->reg(r1);
-    auto& right = state->reg(r2);
+    auto left = state->reg(r1);
+    auto right = state->reg(r2);
 
     if (left.is_int() && right.is_int()) [[likely]] {
         state->reg(dst) = Value(left.as_int() + right.as_int());
@@ -39,8 +39,8 @@ HOT_HANDLER impl_LT(const uint8_t* ip, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t r1 = read_u16(ip);
     uint16_t r2 = read_u16(ip);
-    auto& left = state->reg(r1);
-    auto& right = state->reg(r2);
+    auto left = state->reg(r1);
+    auto right = state->reg(r2);
 
     if (left.is_int() && right.is_int()) [[likely]] {
         state->reg(dst) = Value(left.as_int() < right.as_int());
@@ -71,7 +71,7 @@ BINARY_OP_IMPL(RSHIFT)
 HOT_HANDLER impl_NEG(const uint8_t* ip, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t src = read_u16(ip);
-    auto& val = state->reg(src);
+    auto val = state->reg(src);
     state->reg(dst) = OperatorDispatcher::find(OpCode::NEG, val)(&state->heap, val);
     return ip;
 }
@@ -79,7 +79,7 @@ HOT_HANDLER impl_NEG(const uint8_t* ip, VMState* state) {
 HOT_HANDLER impl_BIT_NOT(const uint8_t* ip, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t src = read_u16(ip);
-    auto& val = state->reg(src);
+    auto val = state->reg(src);
     state->reg(dst) = OperatorDispatcher::find(OpCode::BIT_NOT, val)(&state->heap, val);
     return ip;
 }

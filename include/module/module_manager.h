@@ -5,14 +5,14 @@
 #include "common/definitions.h"
 
 namespace meow {
-    class MeowEngine;
+    class Machine;
     class MemoryManager;
 }
 
 namespace meow {
 class ModuleManager {
 public:
-    explicit ModuleManager(MemoryManager* heap, MeowEngine* engine) noexcept;
+    explicit ModuleManager(MemoryManager* heap, Machine* vm) noexcept;
     ModuleManager(const ModuleManager&) = delete;
     ModuleManager(ModuleManager&&) = default;
     ModuleManager& operator=(const ModuleManager&) = delete;
@@ -33,6 +33,6 @@ private:
     string_t entry_path_;
 
     MemoryManager* heap_;
-    MeowEngine* engine_;
+    Machine* vm_;
 };
 }

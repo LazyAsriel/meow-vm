@@ -5,13 +5,12 @@
 #include "core/objects/string.h"
 #include "memory/memory_manager.h"
 #include "module/module_utils.h"
-#include "vm/meow_engine.h"
 #include "bytecode/loader.h"
 
 namespace meow {
 
-ModuleManager::ModuleManager(MemoryManager* heap, MeowEngine* engine) noexcept
-    : heap_(heap), engine_(engine) {}
+ModuleManager::ModuleManager(MemoryManager* heap, Machine* vm) noexcept
+    : heap_(heap), vm_(vm) {}
 
 module_t ModuleManager::load_module(string_t module_path_obj, string_t importer_path_obj) {
     if (!module_path_obj || !importer_path_obj) {
@@ -59,12 +58,12 @@ module_t ModuleManager::load_module(string_t module_path_obj, string_t importer_
                                      "': " + err_detail);
         }
 
-        using NativeModuleFactory = module_t (*)(MeowEngine*, MemoryManager*);
+        using NativeModuleFactory = module_t (*)(Machine*, MemoryManager*);
         NativeModuleFactory factory = reinterpret_cast<NativeModuleFactory>(symbol);
 
         module_t native_module = nullptr;
         try {
-            native_module = factory(engine_, heap_);
+            native_module = factory(vm_, heap_);
             if (!native_module) {
                 throw std::runtime_error("Hàm factory của module native '" + resolved_native_path +
                                          "' trả về null.");

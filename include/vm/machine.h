@@ -1,7 +1,6 @@
 #pragma once
 
 #include "common/pch.h"
-#include "vm/meow_engine.h"
 
 namespace meow {
 struct ExecutionContext;
@@ -14,7 +13,7 @@ struct VMArgs {
     std::string entry_path_;
 };
 
-class Machine : public MeowEngine {
+class Machine {
 public:
     // --- Constructors ---
     explicit Machine(const std::string& entry_point_directory, const std::string& entry_path, int argc, char* argv[]);
