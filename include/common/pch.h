@@ -35,6 +35,7 @@
 #include <iostream>
 #include <sstream>
 #include <system_error>
+#include <print>
 
 // Error handling
 #include <cerrno>

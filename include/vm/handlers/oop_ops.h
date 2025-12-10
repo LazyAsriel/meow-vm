@@ -122,8 +122,6 @@ namespace meow::handlers {
     uint16_t name_idx = read_u16(ip);
     string_t name = state->constant(name_idx).as_string();
     
-    // Giả định: 'super' luôn được gọi trong method, và receiver (this) nằm ở R0
-    // (Đây là quy ước của compiler)
     Value& receiver_val = state->reg(0); 
     if (!receiver_val.is_instance()) {
         state->error("GET_SUPER: 'super' chỉ dùng được trong method của instance.");

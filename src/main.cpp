@@ -29,10 +29,6 @@ int main(int argc, char* argv[]) {
         Machine vm(root_dir, entry_file, argc, argv);
         
         vm.interpret();
-
-    } catch (const VMError& e) {
-        std::println(stderr, "VM Runtime Error: {}", e.what());
-        return 1;
     } catch (const std::exception& e) {
         std::println(stderr, "An unexpected error occurred: {}", e.what());
         return 1;

@@ -21,4 +21,4 @@ echo "Optional: create symlinks so ccache intercepts compilers (may require sudo
 echo " sudo ln -sf $(which ccache) /usr/local/bin/clang++"
 echo " sudo ln -sf $(which ccache) /usr/local/bin/g++"
 echo
-echo "Finish. Run ./scripts/build_fast.sh to configure & build (fast-debug)."
+echo "Finish. Run ./scripts/build_fast.sh to configure & build (debug)."

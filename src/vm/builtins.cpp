@@ -3,17 +3,14 @@
  * @brief Implementation of built-in native functions for MeowVM
  */
 
+#include "common/pch.h"
 #include "vm/machine.h"
 #include "core/objects.h"
 #include "core/value.h"
 #include "memory/memory_manager.h"
 #include "module/module_manager.h"
 #include "common/cast.h"
-#include "vm/vm_error.h"
 #include "debug/print.h"
-#include <iostream>
-#include <cmath>
-#include <vector>
 
 namespace meow {
 
@@ -27,9 +24,9 @@ namespace natives {
 static Value print(Machine* vm, int argc, Value* argv) {
     for (int i = 0; i < argc; ++i) {
         if (i > 0) std::cout << " ";
-        std::cout << to_string(argv[i]);
+        std::print("{}", to_string(argv[i]));
     }
-    std::cout << "\n";
+    std::println("");
     return Value(null_t{});
 }
 

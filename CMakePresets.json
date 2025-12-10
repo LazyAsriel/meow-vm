@@ -7,11 +7,11 @@
   },
   "configurePresets": [
     {
-      "name": "fast-debug",
+      "name": "debug",
       "displayName": "Fast Debug (Clang + ccache, no sanitizer)",
       "description": "Fast iterative development preset. Uses ccache, no sanitizers, O0 for fastest compile/startup.",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/fast-debug",
+      "binaryDir": "${sourceDir}/build/debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_CXX_COMPILER": "clang++",
@@ -37,8 +37,8 @@
   ],
   "buildPresets": [
     {
-      "name": "fast-debug",
-      "configurePreset": "fast-debug"
+      "name": "debug",
+      "configurePreset": "debug"
     },
     {
       "name": "release",

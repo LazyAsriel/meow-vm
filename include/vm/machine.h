@@ -2,7 +2,6 @@
 
 #include "common/pch.h"
 #include "vm/meow_engine.h"
-#include "vm/vm_error.h"
 
 namespace meow {
 struct ExecutionContext;
