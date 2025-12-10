@@ -16,21 +16,25 @@ namespace meow::handlers {
         return ip; \
     }
 
+struct Args_ADD { uint16_t dst; uint16_t r1; uint16_t r2; };
 
 HOT_HANDLER impl_ADD(const uint8_t* ip, VMState* state) {
-    uint16_t dst = read_u16(ip);
-    uint16_t r1 = read_u16(ip);
-    uint16_t r2 = read_u16(ip);
+    // uint16_t dst = read_u16(ip);
+    // uint16_t r1 = read_u16(ip);
+    // uint16_t r2 = read_u16(ip);
     
-    auto left = state->reg(r1);
-    auto right = state->reg(r2);
+    const auto& args = *reinterpret_cast<const Args_ADD*>(ip);
+    ip += sizeof(Args_ADD);
+
+    auto left = state->reg(args.r1);
+    auto right = state->reg(args.r2);
 
     if (left.is_int() && right.is_int()) [[likely]] {
-        state->reg(dst) = Value(left.as_int() + right.as_int());
+        state->reg(args.dst) = Value(left.as_int() + right.as_int());
     } else if (left.is_float() && right.is_float()) {
-        state->reg(dst) = Value(left.as_float() + right.as_float());
+        state->reg(args.dst) = Value(left.as_float() + right.as_float());
     } else {
-        state->reg(dst) = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
+        state->reg(args.dst) = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
     }
     return ip;
 }
