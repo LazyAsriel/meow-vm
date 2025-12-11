@@ -16,6 +16,7 @@
 #include "memory/memory_manager.h"
 #include "bytecode/chunk.h"
 #include "bytecode/op_codes.h"
+#include "make_chunk.h"
 
 using namespace meow;
 
@@ -34,48 +35,6 @@ int64_t run_native_cpp(int64_t limit) {
     return sum;
 }
 
-Chunk create_vm_chunk(MemoryManager& /*heap*/) {
-    Chunk chunk;
-    std::vector<Value> constants; 
-    
-    // --- SETUP (Chạy 1 lần, giữ nguyên u16 để an toàn) ---
-    // R0 = sum = 0
-    chunk.write_byte(static_cast<uint8_t>(OpCode::LOAD_INT)); chunk.write_u16(0); chunk.write_u64(0);
-    // R1 = counter = 0
-    chunk.write_byte(static_cast<uint8_t>(OpCode::LOAD_INT)); chunk.write_u16(1); chunk.write_u64(0);
-    // R2 = step = 1
-    chunk.write_byte(static_cast<uint8_t>(OpCode::LOAD_INT)); chunk.write_u16(2); chunk.write_u64(1);
-    // R3 = limit = 10,000,000
-    chunk.write_byte(static_cast<uint8_t>(OpCode::LOAD_INT)); chunk.write_u16(3); chunk.write_u64(static_cast<uint64_t>(LIMIT)); 
-
-    // --- LOOP START (Hot Path - Tối ưu nén lệnh) ---
-    size_t loop_start = chunk.get_code_size();
-
-    // 1. ADD_B R0, R0, R2 (sum += step)
-    // Cấu trúc: [OP_ADD_B] [dst:1] [r1:1] [r2:1] -> Tổng 4 bytes
-    chunk.write_byte(static_cast<uint8_t>(OpCode::ADD_B)); 
-    chunk.write_byte(0); chunk.write_byte(0); chunk.write_byte(2);
-
-    // 2. ADD_B R1, R1, R2 (counter += step)
-    chunk.write_byte(static_cast<uint8_t>(OpCode::ADD_B)); 
-    chunk.write_byte(1); chunk.write_byte(1); chunk.write_byte(2);
-
-    // 3. LT_B R4, R1, R3 (counter < limit ?)
-    chunk.write_byte(static_cast<uint8_t>(OpCode::LT_B));  
-    chunk.write_byte(4); chunk.write_byte(1); chunk.write_byte(3);
-
-    // 4. JUMP_IF_TRUE_B R4, loop_start
-    // Cấu trúc: [OP_JUMP_B] [cond:1] [offset:2] -> Tổng 4 bytes
-    chunk.write_byte(static_cast<uint8_t>(OpCode::JUMP_IF_TRUE_B)); 
-    chunk.write_byte(4); 
-    chunk.write_u16(static_cast<uint16_t>(loop_start));
-
-    // HALT
-    chunk.write_byte(static_cast<uint8_t>(OpCode::HALT));
-
-    Chunk final_chunk(std::vector<uint8_t>(chunk.get_code(), chunk.get_code() + chunk.get_code_size()), std::move(constants));
-    return final_chunk;
-}
 template <typename Func>
 double measure(const std::string& name, Func func) {
     std::cout << "👉 " << std::left << std::setw(30) << name << "... " << std::flush;
@@ -98,7 +57,7 @@ int main(int argc, char* argv[]) {
     char* fake_argv[] = { (char*)"meow", (char*)"bench" };
     Machine machine(".", "bench", 2, fake_argv);
     
-    Chunk code = create_vm_chunk(*machine.heap_);
+    Chunk code = create_vm_chunk(LIMIT);
     auto proto = machine.heap_->new_proto(5, 0, machine.heap_->new_string("bench"), std::move(code));
     auto func = machine.heap_->new_function(proto);
     auto mod = machine.heap_->new_module(machine.heap_->new_string("bench"), machine.heap_->new_string("bench.meow"));
