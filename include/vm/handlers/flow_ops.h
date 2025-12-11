@@ -6,14 +6,28 @@
 namespace meow::handlers {
 
     // --- Cấu trúc giải mã ---
-    struct JumpCondArgs { uint16_t cond; uint16_t offset; };
-    struct JumpCondArgsB { uint8_t cond; uint16_t offset; } __attribute__((packed));
+    struct JumpCondArgs { 
+        uint16_t cond; 
+        uint16_t offset; 
+    } __attribute__((packed)); // <--- Bùa hộ mệnh đây
 
+    // Bản nén
+    struct JumpCondArgsB { 
+        uint8_t cond; 
+        uint16_t offset; 
+    } __attribute__((packed));
     // --- Inline Cache Structure (16 bytes) ---
     struct CallIC {
-        void* check_tag;   // Tag định danh (Proto* hoặc NativeFn*)
-        void* destination; // Dữ liệu tăng tốc (Instruction* hoặc NativeFn*)
-    };
+        void* check_tag;   
+        void* destination; 
+    } __attribute__((packed)); // <--- Thêm cái này nè!
+
+    // pragma pack(push, 1) // Bắt đầu nén
+    // struct CallIC {
+    //     void* check_tag;   
+    //     void* destination; 
+    // };
+    // #pragma pack(pop)     // Kết thúc nén
 
     // Helper đọc IC
     [[gnu::always_inline]]

@@ -11,14 +11,14 @@ struct BinaryArgs {
     uint16_t dst; 
     uint16_t r1; 
     uint16_t r2; 
-};
+} __attribute__((packed)); // <--- Thêm cái này
 
-// Phiên bản nén: 3 bytes (3 x u8)
+// Tương tự cho bản nén (nếu có dùng)
 struct BinaryArgsB { 
     uint8_t dst; 
     uint8_t r1; 
     uint8_t r2; 
-};
+} __attribute__((packed)); // <--- Và cái này
 
 // 2. Unary Ops (dst, src)
 struct UnaryArgs { 

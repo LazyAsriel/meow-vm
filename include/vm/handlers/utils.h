@@ -19,10 +19,18 @@ namespace meow {
 namespace handlers {
 
 // Helper đọc nhanh (Inline decoder)
-[[gnu::always_inline]]
+// [[gnu::always_inline]]
+// inline uint16_t read_u16(const uint8_t*& ip) noexcept {
+//     // Dùng reinterpret_cast trực tiếp (x64 hỗ trợ unaligned load tốt)
+//     uint16_t val = *reinterpret_cast<const uint16_t*>(ip);
+//     ip += 2;
+//     return val;
+// }
+
 inline uint16_t read_u16(const uint8_t*& ip) noexcept {
-    // Dùng reinterpret_cast trực tiếp (x64 hỗ trợ unaligned load tốt)
-    uint16_t val = *reinterpret_cast<const uint16_t*>(ip);
+    uint16_t val;
+    // Copy 2 bytes vào biến val (được align chuẩn)
+    std::memcpy(&val, ip, sizeof(uint16_t)); 
     ip += 2;
     return val;
 }
