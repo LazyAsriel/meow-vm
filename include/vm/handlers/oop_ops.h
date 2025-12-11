@@ -1,13 +1,32 @@
 #pragma once
 #include "vm/handlers/utils.h"
 #include "vm/handlers/flow_ops.h"
+#include "core/objects/shape.h" // Đảm bảo đã include Shape
 
 namespace meow::handlers {
+
+// Cấu trúc Cache nằm ngay trong dòng lệnh Bytecode (Alignment 1 byte)
+#pragma pack(push, 1)
+struct InlineCache {
+    const Shape* shape; // 8 bytes (trên 64-bit)
+    uint32_t offset;    // 4 bytes
+};
+#pragma pack(pop)
+
+// Helper: Đọc/Ghi Cache từ Instruction Pointer
+// Lưu ý: Con trỏ ip đang trỏ tới byte tiếp theo sau các tham số u16
+[[gnu::always_inline]]
+inline static InlineCache* get_inline_cache(const uint8_t*& ip) {
+    auto* ic = reinterpret_cast<InlineCache*>(const_cast<uint8_t*>(ip));
+    ip += sizeof(InlineCache); // Nhảy qua vùng cache để trỏ tới lệnh kế tiếp
+    return ic;
+}
+
+// --- NEW_CLASS & NEW_INSTANCE (Giữ nguyên, chỉ fix format nếu cần) ---
 
 [[gnu::always_inline]] static const uint8_t* impl_NEW_CLASS(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t name_idx = read_u16(ip);
-    
     string_t name = constants[name_idx].as_string();
     regs[dst] = Value(state->heap.new_class(name));
     return ip;
@@ -16,37 +35,55 @@ namespace meow::handlers {
 [[gnu::always_inline]] static const uint8_t* impl_NEW_INSTANCE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t class_reg = read_u16(ip);
-    (void)constants;
     
     Value& class_val = regs[class_reg];
     if (!class_val.is_class()) {
         state->error("NEW_INSTANCE: Toán hạng không phải là Class.");
         return impl_PANIC(ip, regs, constants, state);
     }
-    // [FIX] Khởi tạo Instance với Shape rỗng
+    // Khởi tạo với Shape rỗng
     regs[dst] = Value(state->heap.new_instance(class_val.as_class(), state->heap.get_empty_shape()));
     return ip;
 }
+
+// --- GET_PROP (Có Inline Caching) ---
 
 [[gnu::always_inline]] static const uint8_t* impl_GET_PROP(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t obj_reg = read_u16(ip);
     uint16_t name_idx = read_u16(ip);
     
+    // Lấy con trỏ tới vùng cache (nằm ngay sau lệnh)
+    InlineCache* ic = get_inline_cache(ip);
+
     Value& obj = regs[obj_reg];
-    string_t name = constants[name_idx].as_string();
     
-    if (obj.is_instance()) {
+    if (obj.is_instance()) [[likely]] {
         instance_t inst = obj.as_instance();
-        
-        // [FAST PATH] Tìm offset từ Shape
-        int offset = inst->get_shape()->get_offset(name);
-        if (offset != -1) {
-            regs[dst] = inst->get_field_at(offset); // Array access O(1)
+        Shape* current_shape = inst->get_shape();
+
+        // 1. FAST PATH: Cache Hit?
+        // So sánh Shape hiện tại với Shape đã lưu trong cache
+        if (current_shape == ic->shape) [[likely]] {
+            // BINGO! Không cần hash lookup
+            regs[dst] = inst->get_field_at(ic->offset);
             return ip;
         }
 
-        // [SLOW PATH] Tìm method trong Class
+        // 2. SLOW PATH: Cache Miss -> Phải tra cứu
+        string_t name = constants[name_idx].as_string();
+        int offset = current_shape->get_offset(name);
+
+        if (offset != -1) {
+            // Tìm thấy! Update Cache ngay lập tức
+            ic->shape = current_shape;
+            ic->offset = static_cast<uint32_t>(offset);
+            
+            regs[dst] = inst->get_field_at(offset);
+            return ip;
+        }
+
+        // Fallback: Tìm method (Method không cache vào Shape IC vì nó nằm ở Class)
         class_t k = inst->get_class();
         while (k) {
             if (k->has_method(name)) {
@@ -57,6 +94,7 @@ namespace meow::handlers {
         }
     }
     else if (obj.is_module()) {
+        string_t name = constants[name_idx].as_string();
         module_t mod = obj.as_module();
         if (mod->has_export(name)) {
             regs[dst] = mod->get_export(name);
@@ -68,37 +106,55 @@ namespace meow::handlers {
     return ip;
 }
 
+// --- SET_PROP (Có Inline Caching) ---
+
 [[gnu::always_inline]] static const uint8_t* impl_SET_PROP(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t obj_reg = read_u16(ip);
     uint16_t name_idx = read_u16(ip);
     uint16_t val_reg = read_u16(ip);
     
+    // Lấy cache
+    InlineCache* ic = get_inline_cache(ip);
+
     Value& obj = regs[obj_reg];
-    string_t name = constants[name_idx].as_string();
     Value& val = regs[val_reg];
     
-    if (obj.is_instance()) {
+    if (obj.is_instance()) [[likely]] {
         instance_t inst = obj.as_instance();
-        
-        // 1. Kiểm tra xem property đã có chưa
-        int offset = inst->get_shape()->get_offset(name);
+        Shape* current_shape = inst->get_shape();
+
+        // 1. FAST PATH: Cache Hit (Chỉ áp dụng cho Update, không áp dụng cho Transition)
+        if (current_shape == ic->shape) [[likely]] {
+            inst->set_field_at(ic->offset, val);
+            return ip;
+        }
+
+        // 2. SLOW PATH
+        string_t name = constants[name_idx].as_string();
+        int offset = current_shape->get_offset(name);
 
         if (offset != -1) {
-            // [UPDATE] Property đã tồn tại -> Ghi đè vào mảng (Siêu nhanh)
+            // [UPDATE] Property đã tồn tại -> Update Cache
+            ic->shape = current_shape;
+            ic->offset = static_cast<uint32_t>(offset);
+            
             inst->set_field_at(offset, val);
         } else {
-            // [TRANSITION] Property mới -> Cần đổi Shape
-            Shape* current_shape = inst->get_shape();
+            // [TRANSITION] Thêm mới -> Logic phức tạp hơn
+            // Hiện tại ta KHÔNG cache transition (Polymorphic IC phức tạp hơn nhiều)
+            // Chỉ thực hiện logic chuyển shape bình thường.
+            
             Shape* next_shape = current_shape->get_transition(name);
-
             if (next_shape == nullptr) {
-                // Chưa có đường đi, tạo đường mới
                 next_shape = current_shape->add_transition(name, &state->heap);
             }
 
-            // Chuyển sang Shape mới và mở rộng mảng lưu trữ
             inst->set_shape(next_shape);
             inst->get_fields_raw().push_back(val);
+            
+            // Lưu ý: Sau lệnh này, Shape của instance đã đổi thành next_shape.
+            // Lần tới chạy lệnh này, nếu instance đã có shape mới, nó sẽ lại cache miss
+            // cho đến khi nó ổn định.
         }
     } else {
         state->error("SET_PROP: Chỉ có thể gán thuộc tính cho Instance.");
@@ -106,6 +162,8 @@ namespace meow::handlers {
     }
     return ip;
 }
+
+// --- SET_METHOD, INHERIT, GET_SUPER (Giữ nguyên) ---
 
 [[gnu::always_inline]] static const uint8_t* impl_SET_METHOD(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t class_reg = read_u16(ip);

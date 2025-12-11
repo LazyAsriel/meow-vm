@@ -1,6 +1,7 @@
 #include "vm/machine.h"
 #include "common/pch.h"
-#include "memory/mark_sweep_gc.h"
+// #include "memory/mark_sweep_gc.h"
+#include "memory/generational_gc.h"
 #include "memory/memory_manager.h"
 #include "module/module_manager.h"
 #include "runtime/execution_context.h"
@@ -16,7 +17,8 @@ Machine::Machine(const std::string& entry_point_directory, const std::string& en
     }
 
     context_ = std::make_unique<ExecutionContext>();
-    auto gc = std::make_unique<MarkSweepGC>(context_.get());
+    // auto gc = std::make_unique<MarkSweepGC>(context_.get());
+    auto gc = std::make_unique<GenerationalGC>(context_.get());
     heap_ = std::make_unique<MemoryManager>(std::move(gc));
     mod_manager_ = std::make_unique<ModuleManager>(heap_.get(), this);
     

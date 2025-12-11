@@ -176,6 +176,16 @@ void Assembler::parse_instruction() {
             } else parse_u16();
             break;
         }
+        case OpCode::GET_PROP:
+        case OpCode::SET_PROP: {
+            for(int i=0; i<3; ++i) parse_u16();
+            
+            // Emit Cache Placeholder (12 bytes = 8 bytes ptr + 4 bytes int)
+            // Ta ghi toàn số 0. VM sẽ tự điền lúc chạy.
+            emit_u64(0); // Chỗ để lưu Shape*
+            emit_u32(0); // Chỗ để lưu Offset
+            break;
+        }
         default: {
             int args = get_arity(op);
             for(int i=0; i<args; ++i) parse_u16();
