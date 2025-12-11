@@ -28,6 +28,10 @@ public:
 
     // --- Shape Management ---
     Shape* new_shape() noexcept;
+
+    // void deallocate_raw(void* ptr, size_t size) noexcept {
+    //     ::operator delete(ptr, size);
+    // }
     
     inline Shape* get_empty_shape() noexcept {
         if (!empty_shape_) [[unlikely]] {

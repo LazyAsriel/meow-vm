@@ -22,7 +22,6 @@ private:
 
     enum class State { EXECUTING, EXECUTED };
 
-    // [OPTIMIZATION] Data (Values) và Metadata (Names) tách biệt
     std::vector<Value> globals_store_;
     std::unordered_map<string_t, uint32_t> global_names_;
 
