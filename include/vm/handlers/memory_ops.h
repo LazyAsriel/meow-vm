@@ -8,9 +8,7 @@ namespace meow::handlers {
     uint16_t dst = read_u16(ip);
     uint16_t global_idx = read_u16(ip);
         
-    module_t mod = state->ctx.frame_ptr_->module_;
-    
-    regs[dst] = mod->get_global_by_index(global_idx);
+    regs[dst] = state->current_module->get_global_by_index(global_idx);
     
     return ip;
 }
@@ -19,13 +17,13 @@ namespace meow::handlers {
     uint16_t global_idx = read_u16(ip);
     uint16_t src = read_u16(ip);
         
-    state->ctx.frame_ptr_->module_->set_global_by_index(global_idx, regs[src]);
+    state->current_module->set_global_by_index(global_idx, regs[src]);
     return ip;
 }
 [[gnu::always_inline]] static const uint8_t* impl_GET_UPVALUE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t uv_idx = read_u16(ip);
-    (void)regs; (void)constants; // Regs dùng ở dst, constants không dùng
+    (void)constants;
     
     upvalue_t uv = state->ctx.frame_ptr_->function_->get_upvalue(uv_idx);
     if (uv->is_closed()) {

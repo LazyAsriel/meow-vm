@@ -55,7 +55,7 @@ class ObjUpvalue : public ObjBase<ObjectType::UPVALUE> {
 };
 
 class ObjFunctionProto : public ObjBase<ObjectType::PROTO> {
-   private:
+private:
     using chunk_t = Chunk;
     using string_t = string_t;
     using visitor_t = GCVisitor;
@@ -64,14 +64,18 @@ class ObjFunctionProto : public ObjBase<ObjectType::PROTO> {
     size_t num_upvalues_;
     string_t name_;
     chunk_t chunk_;
+    module_t module_ = nullptr;
     std::vector<UpvalueDesc> upvalue_descs_;
 
-   public:
+public:
     explicit ObjFunctionProto(size_t registers, size_t upvalues, string_t name, chunk_t&& chunk) noexcept : num_registers_(registers), num_upvalues_(upvalues), name_(name), chunk_(std::move(chunk)) {
     }
     explicit ObjFunctionProto(size_t registers, size_t upvalues, string_t name, chunk_t&& chunk, std::vector<UpvalueDesc>&& descs) noexcept
         : num_registers_(registers), num_upvalues_(upvalues), name_(name), chunk_(std::move(chunk)), upvalue_descs_(std::move(descs)) {
     }
+
+    inline void set_module(module_t mod) noexcept { module_ = mod; }
+    inline module_t get_module() const noexcept { return module_; }
 
     /// @brief Unchecked upvalue desc access. For performance-critical code
     inline const UpvalueDesc& get_desc(size_t index) const noexcept {

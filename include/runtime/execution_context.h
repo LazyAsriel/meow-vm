@@ -51,7 +51,6 @@ struct ExecutionContext {
     }
 
     inline void trace(GCVisitor& visitor) const noexcept {
-        // [FIX] Thêm const vào Value* vì hàm này là const
         for (const Value* slot = stack_; slot < stack_top_; ++slot) {
             visitor.visit_value(*slot);
         }

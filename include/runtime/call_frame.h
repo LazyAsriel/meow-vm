@@ -6,7 +6,7 @@ namespace meow {
 struct CallFrame {
     // Con trỏ đến function/module (Metadata)
     function_t function_ = nullptr;
-    module_t module_ = nullptr;
+    // module_t module_ = nullptr;
     
     // --- POINTER MAGIC ---
     // Thay vì lưu index, ta lưu thẳng con trỏ đến vùng nhớ
@@ -24,8 +24,8 @@ struct CallFrame {
     // Bắt buộc phải có default constructor cho mảng tĩnh
     CallFrame() = default;
 
-    CallFrame(function_t func, module_t mod, Value* regs, Value* ret, const uint8_t* ip)
-        : function_(func), module_(mod), regs_base_(regs), ret_dest_(ret), ip_(ip) {
+    CallFrame(function_t func, Value* regs, Value* ret, const uint8_t* ip)
+        : function_(func), regs_base_(regs), ret_dest_(ret), ip_(ip) {
     }
 };
 

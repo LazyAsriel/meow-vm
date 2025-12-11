@@ -1,0 +1,58 @@
+# call_bench.meow
+# Mục tiêu: Test tốc độ gọi hàm (CALL) và truy cập Global (GET_GLOBAL)
+
+.func @add_recursive
+    .registers 3
+    # R0: n, R1: acc, R2: temp
+
+    # Điều kiện dừng: n < 1
+    LOAD_INT 2, 1
+    LT 2, 0, 2          # R2 = (n < 1)
+    JUMP_IF_TRUE 2, stop
+
+    # Đệ quy: add_recursive(n - 1, acc + n)
+    
+    # Tính n - 1
+    LOAD_INT 2, 1
+    SUB 2, 0, 2         # R2 = n - 1 (Tham số 1)
+    
+    # Tính acc + n
+    ADD 1, 1, 0         # R1 = acc + n (Tham số 2)
+    
+    # Chuẩn bị gọi đệ quy
+    # R0 đang giữ hàm 'add_recursive' (được truyền vào hoặc lấy từ Global)
+    GET_GLOBAL 0, 0     # Lấy hàm 'add_recursive' từ Global (Test tối ưu Module)
+    
+    # Gọi hàm: CALL dst, fn, arg_start, argc
+    # Lưu ý: Assembler sẽ tự chèn 16 bytes padding vào sau lệnh này
+    CALL 0, 0, 2, 2     # Gọi add_recursive(R2, R1)
+    
+    RETURN 0
+
+stop:
+    RETURN 1            # Trả về kết quả tích lũy
+.endfunc
+
+.func @main
+    .registers 4
+    
+    # Đăng ký hàm vào Global (để hàm con gọi được)
+    # Giả sử Loader đã load @add_recursive vào const pool số 0
+    LOAD_CONST 0, 0     # Load Proto @add_recursive
+    CLOSURE 0, 0        # Tạo Closure
+    SET_GLOBAL 0, 0     # Lưu vào Global "add_recursive"
+
+    # Setup gọi lần đầu: add_recursive(1000, 0)
+    LOAD_INT 1, 1000    # n = 1000
+    LOAD_INT 2, 0       # acc = 0
+    
+    # Gọi
+    GET_GLOBAL 0, 0
+    CALL 3, 0, 1, 2     # Kết quả lưu vào R3
+    
+    # In kết quả (Native Call - Test luôn Cache Native)
+    GET_GLOBAL 0, 1     # Lấy hàm 'print' (index 1)
+    CALL_VOID 0, 3, 1   # print(R3)
+    
+    HALT
+.endfunc

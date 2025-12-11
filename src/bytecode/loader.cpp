@@ -274,14 +274,20 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
             case OpCode::NEW_ARRAY: case OpCode::NEW_HASH: 
             case OpCode::GET_INDEX: case OpCode::SET_INDEX: 
             case OpCode::GET_PROP: case OpCode::SET_PROP:
-            case OpCode::SET_METHOD: case OpCode::CALL_VOID:
+            case OpCode::SET_METHOD:
             case OpCode::INHERIT:
                 ip += 6; break;
             
             // 4 u16 args (Total 8 bytes + 1 op = 9)
             case OpCode::CALL: 
-                ip += 8; break;
+                ip += 8;  // 4 args * 2 bytes
+                ip += 16; // [MEOW UPDATE] Skip Cache
+                break;
             
+            case OpCode::CALL_VOID:
+                ip += 6;  // 3 args * 2
+                ip += 16; // Cache
+                break;
             // 1 u16 + 1 u64 arg (Total 10 bytes + 1 op = 11)
             case OpCode::LOAD_INT: case OpCode::LOAD_FLOAT:
                 ip += 10; break;

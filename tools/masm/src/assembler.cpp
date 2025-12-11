@@ -38,7 +38,6 @@ void Assembler::parse_func() {
     advance(); 
     Token name = consume(TokenType::IDENTIFIER, "Expected func name");
     std::string func_name(name.lexeme);
-    // Compiler legacy dùng @main, masm xử lý bỏ @ là đúng
     if (func_name.starts_with("@")) func_name = func_name.substr(1);
     protos_.push_back(Prototype{.name = func_name});
     curr_proto_ = &protos_.back();
@@ -64,7 +63,6 @@ void Assembler::parse_upvalue_def() {
     if (!curr_proto_) throw std::runtime_error("Outside .func");
     advance();
     uint32_t idx = std::stoi(std::string(consume(TokenType::NUMBER_INT, "Idx").lexeme));
-    // Compiler output: .upvalue 0 local 1
     std::string type(consume(TokenType::IDENTIFIER, "Type").lexeme);
     uint32_t slot = std::stoi(std::string(consume(TokenType::NUMBER_INT, "Slot").lexeme));
     if (idx < curr_proto_->upvalues.size()) curr_proto_->upvalues[idx] = { (type == "local"), slot };
@@ -95,7 +93,7 @@ void Assembler::parse_const() {
         advance();
     } else if (tk.type == TokenType::IDENTIFIER) {
         if (tk.lexeme == "null") { c.type = ConstType::NULL_T; advance(); }
-        else if (tk.lexeme == "true") { c.type = ConstType::INT_T; c.val_i64 = 1; advance(); } // Fallback logic
+        else if (tk.lexeme == "true") { c.type = ConstType::INT_T; c.val_i64 = 1; advance(); } 
         else if (tk.lexeme == "false") { c.type = ConstType::INT_T; c.val_i64 = 0; advance(); }
         else if (tk.lexeme.starts_with("@")) {
             c.type = ConstType::PROTO_REF_T;
@@ -120,6 +118,7 @@ void Assembler::emit_u32(uint32_t v) {
 }
 void Assembler::emit_u64(uint64_t v) { for(int i=0; i<8; ++i) emit_byte((v >> (i*8)) & 0xFF); }
 
+// --- [QUAN TRỌNG] Hàm parse_instruction ĐẦY ĐỦ ---
 void Assembler::parse_instruction() {
     if (!curr_proto_) throw std::runtime_error("Instruction outside .func");
     Token op_tok = advance();
@@ -131,13 +130,11 @@ void Assembler::parse_instruction() {
     OpCode op = OP_MAP[op_tok.lexeme];
     emit_byte(static_cast<uint8_t>(op));
 
+    // [FIX] Định nghĩa lambda parse_u16 NGAY TẠI ĐÂY để bên dưới dùng được
     auto parse_u16 = [&]() {
         Token t = consume(TokenType::NUMBER_INT, "Expected u16");
         emit_u16(static_cast<uint16_t>(std::stoi(std::string(t.lexeme))));
     };
-
-    // [MODIFIED] Xóa bỏ block xử lý riêng cho GET_GLOBAL/SET_GLOBAL
-    // Để nó rơi xuống default case và parse const_index (u16) như Compiler mong đợi.
 
     switch (op) {
         case OpCode::LOAD_INT: {
@@ -160,7 +157,7 @@ void Assembler::parse_instruction() {
                 Token target = advance();
                 curr_proto_->try_patches.push_back({curr_proto_->bytecode.size(), std::string(target.lexeme)});
                 emit_u16(0xFFFF);
-                if (op == OpCode::SETUP_TRY) parse_u16(); // SETUP_TRY có thêm arg error_reg
+                if (op == OpCode::SETUP_TRY) parse_u16(); 
             } else {
                 parse_u16();
                 if (op == OpCode::SETUP_TRY) parse_u16();
@@ -180,14 +177,30 @@ void Assembler::parse_instruction() {
         case OpCode::SET_PROP: {
             for(int i=0; i<3; ++i) parse_u16();
             
-            // [FIX] Emit Polymorphic Cache Placeholder (48 bytes)
-            // 4 slots * (8 bytes ptr + 4 bytes offset)
+            // Emit Polymorphic Cache Placeholder (48 bytes)
             for (int j = 0; j < 4; ++j) {
                 emit_u64(0); // Shape*
                 emit_u32(0); // Offset
             }
             break;
         }
+        
+        // [MEOW UPDATE] Cập nhật CALL với Inline Cache
+        case OpCode::CALL: {
+            for(int i=0; i<4; ++i) parse_u16(); // dst, fn, arg_start, argc
+            
+            // Padding cho Inline Cache (16 bytes)
+            emit_u64(0); // Cache Tag
+            emit_u64(0); // Cache Dest
+            break;
+        }
+
+        case OpCode::CALL_VOID: {
+            for(int i=0; i<3; ++i) parse_u16(); // fn, arg_start, argc
+            emit_u64(0); emit_u64(0); // 16 bytes cache (Quan trọng!)
+            break;
+        }
+
         default: {
             int args = get_arity(op);
             for(int i=0; i<args; ++i) parse_u16();
@@ -211,7 +224,6 @@ int Assembler::get_arity(OpCode op) {
         case OpCode::EXPORT: 
         case OpCode::GET_KEYS: case OpCode::GET_VALUES:
         case OpCode::GET_SUPER: 
-        // [IMPORTANT] GET/SET GLOBAL take 2 args: (dst, idx) or (idx, src)
         case OpCode::GET_GLOBAL: case OpCode::SET_GLOBAL:
         case OpCode::LOAD_NULL: case OpCode::LOAD_TRUE: case OpCode::LOAD_FALSE:
             return 2;
@@ -325,13 +337,9 @@ std::string Assembler::parse_string_literal(std::string_view sv) {
 
 void Assembler::assemble(const std::string& output_file) {
     while (!is_at_end()) {
-        // Parse từng câu lệnh (directive, instruction, label...)
-        // Nếu có lỗi, parse_statement sẽ ném exception và main.cpp sẽ bắt được
         parse_statement();
     }
-
-    // Sau khi parse xong hết thì thực hiện các bước hậu xử lý
-    link_proto_refs();  // Liên kết các hằng số @proto
-    patch_labels();     // Vá địa chỉ nhảy (jump targets)
-    write_binary(output_file); // Ghi ra file .meowb
+    link_proto_refs();
+    patch_labels();
+    write_binary(output_file);
 }

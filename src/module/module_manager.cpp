@@ -9,6 +9,20 @@
 
 namespace meow {
 
+static void link_module_to_proto(module_t mod, proto_t proto, std::unordered_set<proto_t>& visited) {
+    if (!proto || visited.contains(proto)) return;
+    visited.insert(proto);
+
+    proto->set_module(mod);
+
+    Chunk& chunk = const_cast<Chunk&>(proto->get_chunk());
+    for (size_t i = 0; i < chunk.get_pool_size(); ++i) {
+        if (chunk.get_constant(i).is_proto()) {
+            link_module_to_proto(mod, chunk.get_constant(i).as_proto(), visited);
+        }
+    }
+}
+
 ModuleManager::ModuleManager(MemoryManager* heap, Machine* vm) noexcept
     : heap_(heap), vm_(vm) {}
 
@@ -139,6 +153,9 @@ proto_t main_proto = nullptr;
     module_t meow_module = heap_->new_module(filename_obj, binary_file_path_obj, main_proto);
 
     Loader::link_module(meow_module);
+
+    std::unordered_set<proto_t> visited;
+    link_module_to_proto(meow_module, main_proto, visited);
 
     module_cache_[module_path_obj] = meow_module;
     module_cache_[binary_file_path_obj] = meow_module;

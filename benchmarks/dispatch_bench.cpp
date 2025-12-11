@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
         // Setup Frame 0 manually
         Value* base = machine.context_->stack_;
         *machine.context_->frame_ptr_ = CallFrame(
-            func, mod, base, nullptr, proto->get_chunk().get_code()
+            func, base, nullptr, proto->get_chunk().get_code()
         );
         
         // Setup Pointers
@@ -125,7 +125,7 @@ int main(int argc, char* argv[]) {
         // Setup Frame 0 manually
         Value* base = machine.context_->stack_;
         *machine.context_->frame_ptr_ = CallFrame(
-            func, mod, base, nullptr, proto->get_chunk().get_code()
+            func, base, nullptr, proto->get_chunk().get_code()
         );
         
         // Setup Pointers
@@ -142,9 +142,11 @@ int main(int argc, char* argv[]) {
             *machine.context_,
             *machine.heap_,
             *machine.mod_manager_,
-            machine.context_->current_regs_, // registers
-            nullptr,                         // constants (initially null) [FIX]
-            code_base,                       // instruction_base
+            machine.context_->current_regs_, 
+            nullptr,         
+            code_base,
+            // [FIX] Thêm nullptr cho current_module
+            nullptr,                       
             "", false
         };
 

@@ -24,7 +24,7 @@ Machine::Machine(const std::string& entry_point_directory, const std::string& en
     
     load_builtins();
     
-    std::println("Size of Value is {} bytes", sizeof(Value));
+    // std::println("Size of Value is {} bytes", sizeof(Value));
 }
 
 Machine::~Machine() noexcept {}
@@ -65,31 +65,25 @@ bool Machine::prepare() noexcept {
         proto_t main_proto = main_module->get_main_proto();
         function_t main_func = heap_->new_function(main_proto);
 
-        // --- SETUP CONTEXT ---
         context_->reset();
 
-        // 1. Kiểm tra bộ nhớ cho hàm main
         size_t num_regs = main_proto->get_num_registers();
         if (!context_->check_overflow(num_regs)) [[unlikely]] {
             error("Stack Overflow: Không đủ bộ nhớ khởi chạy main.");
             return false;
         }
 
-        // 2. Thiết lập Frame đầu tiên (tại call_stack_[0])
-        // Main không có caller nên ret_dest là nullptr
+        // [FIX] Bỏ tham số 'main_module'
         *context_->frame_ptr_ = CallFrame(
             main_func, 
-            main_module, 
             context_->stack_, // R0 bắt đầu từ đáy stack
             nullptr,          // Không cần trả về
             main_proto->get_chunk().get_code()
         );
 
-        // 3. Cập nhật con trỏ quản lý
         context_->current_regs_ = context_->stack_;
-        context_->stack_top_ += num_regs; // Đẩy đỉnh stack lên
+        context_->stack_top_ += num_regs; 
         
-        // Đồng bộ biến current_frame_ (cho các hàm cũ dùng)
         context_->current_frame_ = context_->frame_ptr_;
         
         return true; 

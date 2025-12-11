@@ -10,7 +10,8 @@ namespace meow::handlers {
     uint16_t src_reg = read_u16(ip);
     string_t name = constants[name_idx].as_string();
     
-    state->ctx.frame_ptr_->module_->set_export(name, regs[src_reg]);
+    // [FIX] Dùng state->current_module thay vì frame_ptr_->module_
+    state->current_module->set_export(name, regs[src_reg]);
     return ip;
 }
 
@@ -41,7 +42,8 @@ namespace meow::handlers {
     const Value& mod_val = regs[src_idx];
     
     if (auto src_mod = mod_val.as_if_module()) {
-        module_t curr_mod = state->ctx.frame_ptr_->module_;
+        // [FIX] Dùng state->current_module
+        module_t curr_mod = state->current_module;
         curr_mod->import_all_export(src_mod);
     } else {
         state->error("IMPORT_ALL: Register không chứa Module.");
@@ -55,7 +57,8 @@ namespace meow::handlers {
     uint16_t path_idx = read_u16(ip);
     
     string_t path = constants[path_idx].as_string();
-    string_t importer_path = state->ctx.frame_ptr_->module_->get_file_path();
+    // [FIX] Dùng state->current_module
+    string_t importer_path = state->current_module->get_file_path();
     
     module_t mod = state->modules.load_module(path, importer_path);
     regs[dst] = Value(mod);
@@ -88,9 +91,9 @@ namespace meow::handlers {
     Value* new_base = state->ctx.stack_top_;
     state->ctx.frame_ptr_++; 
     
+    // [FIX] Bỏ tham số 'mod' trong constructor CallFrame
     *state->ctx.frame_ptr_ = CallFrame(
         main_closure,
-        mod,
         new_base,
         nullptr, 
         main_proto->get_chunk().get_code()
@@ -102,8 +105,6 @@ namespace meow::handlers {
     state->ctx.current_frame_ = state->ctx.frame_ptr_;
     state->update_pointers();
     
-    // IP mới (đã được update_pointers cập nhật vào instruction_base)
-    // Nhưng vì op_wrapper trong interpreter sẽ gọi lại dispatch, ta trả về IP bắt đầu
     return state->ctx.frame_ptr_->ip_; 
 }
 

@@ -37,6 +37,7 @@ void ObjUpvalue::trace(GCVisitor& visitor) const noexcept {
 
 void ObjFunctionProto::trace(GCVisitor& visitor) const noexcept {
     visitor.visit_object(name_);
+    visitor.visit_object(module_);
     for (size_t i = 0; i < chunk_.get_pool_size(); ++i) {
         visitor.visit_value(chunk_.get_constant(i));
     }

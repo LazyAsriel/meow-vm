@@ -243,6 +243,7 @@ std::string disassemble_chunk(const Chunk& chunk) noexcept {
                 uint16_t arg_start = read_u16_le(code, ip, code_size);
                 uint16_t argc = read_u16_le(code, ip, code_size);
                 os << "  args=[dst=" << dst << ", fn_reg=" << fn_reg << ", arg_start=" << arg_start << ", argc=" << argc << "]";
+                ip += 16;
                 break;
             }
             case OpCode::CALL_VOID: {

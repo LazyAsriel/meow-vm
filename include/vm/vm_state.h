@@ -25,6 +25,7 @@ struct VMState {
     Value* registers;       
     Value* constants;       
     const uint8_t* instruction_base;
+    module_t current_module = nullptr;
 
     std::string_view error_msg;
     bool has_error_ = false;
@@ -41,9 +42,13 @@ struct VMState {
     [[gnu::always_inline]]
     inline void update_pointers() noexcept {
         registers = ctx.current_regs_;
-        // [FIX] Lấy raw pointer từ chunk (đã sửa const trong Chunk)
-        constants = ctx.frame_ptr_->function_->get_proto()->get_chunk().get_constants_raw();
-        instruction_base = ctx.frame_ptr_->function_->get_proto()->get_chunk().get_code();
+        
+        auto proto = ctx.frame_ptr_->function_->get_proto();
+        
+        constants = proto->get_chunk().get_constants_raw();
+        instruction_base = proto->get_chunk().get_code();
+        
+        current_module = proto->get_module();
     }
 
     [[gnu::always_inline]] 

@@ -75,8 +75,13 @@ int main(int argc, char* argv[]) {
         
         // Setup Frame 0 manually
         Value* base = machine.context_->stack_;
+        
+        // [FIX] Cập nhật constructor CallFrame (4 tham số)
         *machine.context_->frame_ptr_ = CallFrame(
-            func, mod, base, nullptr, proto->get_chunk().get_code()
+            func, 
+            base, 
+            nullptr, 
+            proto->get_chunk().get_code()
         );
         
         // Setup Pointers
@@ -94,12 +99,14 @@ int main(int argc, char* argv[]) {
             machine.context_->current_regs_, 
             nullptr,
             code_base, 
+            nullptr, // [FIX] Thêm current_module = nullptr
             "", false
         };
 
         Interpreter::run(state);
     });
 
+    // ... (Phần JIT giữ nguyên) ...
     JitCompiler jit;
     const uint8_t* bytecode_ptr = proto->get_chunk().get_code();
     size_t bytecode_len = proto->get_chunk().get_code_size();
@@ -117,7 +124,6 @@ int main(int argc, char* argv[]) {
     std::cout << "\n--------------------------------------------------\n";
     std::cout << "📊 KẾT QUẢ:\n";
     
-    // if (t_native < 0.001) t_native = 0.001;
     double vm_ratio = t_vm / t_native;
     double jit_ratio = t_jit / t_native;
 
@@ -125,6 +131,5 @@ int main(int argc, char* argv[]) {
     std::cout << "MeowVM     : " << std::fixed << std::setprecision(2) << vm_ratio << "x slower\n";
     std::cout << "MeowJIT    : " << std::fixed << std::setprecision(2) << jit_ratio << "x slower\n";
 
-    
     return 0;
 }
