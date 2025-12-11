@@ -180,10 +180,12 @@ void Assembler::parse_instruction() {
         case OpCode::SET_PROP: {
             for(int i=0; i<3; ++i) parse_u16();
             
-            // Emit Cache Placeholder (12 bytes = 8 bytes ptr + 4 bytes int)
-            // Ta ghi toàn số 0. VM sẽ tự điền lúc chạy.
-            emit_u64(0); // Chỗ để lưu Shape*
-            emit_u32(0); // Chỗ để lưu Offset
+            // [FIX] Emit Polymorphic Cache Placeholder (48 bytes)
+            // 4 slots * (8 bytes ptr + 4 bytes offset)
+            for (int j = 0; j < 4; ++j) {
+                emit_u64(0); // Shape*
+                emit_u32(0); // Offset
+            }
             break;
         }
         default: {
@@ -319,4 +321,17 @@ std::string Assembler::parse_string_literal(std::string_view sv) {
         } else res += sv[i];
     }
     return res;
+}
+
+void Assembler::assemble(const std::string& output_file) {
+    while (!is_at_end()) {
+        // Parse từng câu lệnh (directive, instruction, label...)
+        // Nếu có lỗi, parse_statement sẽ ném exception và main.cpp sẽ bắt được
+        parse_statement();
+    }
+
+    // Sau khi parse xong hết thì thực hiện các bước hậu xử lý
+    link_proto_refs();  // Liên kết các hằng số @proto
+    patch_labels();     // Vá địa chỉ nhảy (jump targets)
+    write_binary(output_file); // Ghi ra file .meowb
 }

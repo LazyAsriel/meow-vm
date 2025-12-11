@@ -51,8 +51,9 @@ if (EXISTS "${PCH_HEADER}")
 endif()
 
 # --- 6. Tools (MASM) ---
-add_executable(masm "tools/masm.cpp")
-target_compile_features(masm PRIVATE cxx_std_23)
+# add_executable(masm "tools/masm.cpp")
+add_subdirectory(tools/masm)
+# target_compile_features(masm PRIVATE cxx_std_23)
 # target_link_libraries(masm PRIVATE meow::libs) # Uncomment nếu cần
 
 # --- 7. Standard Library ---

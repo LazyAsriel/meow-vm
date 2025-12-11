@@ -311,7 +311,7 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
         // Fix đặc biệt cho GET_PROP/SET_PROP nếu dùng Inline Cache
         // Nếu Assembler emit cache (như file asm cậu gửi), ta phải skip thêm 12 bytes
         if (op == OpCode::GET_PROP || op == OpCode::SET_PROP) {
-             ip += 12; 
+             ip += 48; 
         }
     }
 }

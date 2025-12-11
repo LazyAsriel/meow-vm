@@ -1,28 +1,62 @@
 #pragma once
 #include "vm/handlers/utils.h"
 #include "vm/handlers/flow_ops.h"
-#include "core/objects/shape.h" // Đảm bảo đã include Shape
+#include "core/objects/shape.h"
 
 namespace meow::handlers {
 
-// Cấu trúc Cache nằm ngay trong dòng lệnh Bytecode (Alignment 1 byte)
+// --- Cấu hình Polymorphic Cache ---
+static constexpr int IC_CAPACITY = 4;
+
+struct InlineCacheEntry {
+    const Shape* shape; // 8 bytes
+    uint32_t offset;    // 4 bytes
+};
+
+// Kích thước: 12 * 4 = 48 bytes
 #pragma pack(push, 1)
 struct InlineCache {
-    const Shape* shape; // 8 bytes (trên 64-bit)
-    uint32_t offset;    // 4 bytes
+    InlineCacheEntry entries[IC_CAPACITY];
 };
 #pragma pack(pop)
 
-// Helper: Đọc/Ghi Cache từ Instruction Pointer
-// Lưu ý: Con trỏ ip đang trỏ tới byte tiếp theo sau các tham số u16
+// Helper: Đọc Cache từ dòng lệnh
 [[gnu::always_inline]]
 inline static InlineCache* get_inline_cache(const uint8_t*& ip) {
     auto* ic = reinterpret_cast<InlineCache*>(const_cast<uint8_t*>(ip));
-    ip += sizeof(InlineCache); // Nhảy qua vùng cache để trỏ tới lệnh kế tiếp
+    ip += sizeof(InlineCache); // Nhảy qua 48 bytes cache
     return ic;
 }
 
-// --- NEW_CLASS & NEW_INSTANCE (Giữ nguyên, chỉ fix format nếu cần) ---
+// Helper: Cập nhật Cache (Chiến thuật: Move-To-Front)
+// Đưa entry mới nhất lên đầu để lần truy cập sau nhanh nhất.
+inline static void update_inline_cache(InlineCache* ic, const Shape* shape, uint32_t offset) {
+    // 1. Nếu shape đã có trong cache, đưa nó lên đầu (LRU-ish)
+    for (int i = 0; i < IC_CAPACITY; ++i) {
+        if (ic->entries[i].shape == shape) {
+            if (i > 0) {
+                InlineCacheEntry temp = ic->entries[i];
+                // Dịch chuyển các phần tử phía trước xuống 1 nấc
+                for (int j = i; j > 0; --j) {
+                    ic->entries[j] = ic->entries[j - 1];
+                }
+                ic->entries[0] = temp;
+                // Cập nhật lại offset phòng khi shape bị rebuild (ít gặp nhưng an toàn)
+                ic->entries[0].offset = offset; 
+            }
+            return;
+        }
+    }
+
+    // 2. Nếu chưa có, đẩy tất cả xuống và chèn vào đầu (loại bỏ phần tử cuối cùng)
+    for (int i = IC_CAPACITY - 1; i > 0; --i) {
+        ic->entries[i] = ic->entries[i - 1];
+    }
+    ic->entries[0].shape = shape;
+    ic->entries[0].offset = offset;
+}
+
+// --- NEW_CLASS & NEW_INSTANCE (Giữ nguyên) ---
 
 [[gnu::always_inline]] static const uint8_t* impl_NEW_CLASS(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
@@ -41,49 +75,47 @@ inline static InlineCache* get_inline_cache(const uint8_t*& ip) {
         state->error("NEW_INSTANCE: Toán hạng không phải là Class.");
         return impl_PANIC(ip, regs, constants, state);
     }
-    // Khởi tạo với Shape rỗng
     regs[dst] = Value(state->heap.new_instance(class_val.as_class(), state->heap.get_empty_shape()));
     return ip;
 }
 
-// --- GET_PROP (Có Inline Caching) ---
+// --- GET_PROP (Polymorphic IC) ---
 
 [[gnu::always_inline]] static const uint8_t* impl_GET_PROP(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t obj_reg = read_u16(ip);
     uint16_t name_idx = read_u16(ip);
     
-    // Lấy con trỏ tới vùng cache (nằm ngay sau lệnh)
     InlineCache* ic = get_inline_cache(ip);
-
     Value& obj = regs[obj_reg];
     
     if (obj.is_instance()) [[likely]] {
         instance_t inst = obj.as_instance();
         Shape* current_shape = inst->get_shape();
 
-        // 1. FAST PATH: Cache Hit?
-        // So sánh Shape hiện tại với Shape đã lưu trong cache
-        if (current_shape == ic->shape) [[likely]] {
-            // BINGO! Không cần hash lookup
-            regs[dst] = inst->get_field_at(ic->offset);
-            return ip;
+        // 1. FAST PATH: Duyệt tuyến tính qua 4 slots (Rất nhanh vì nằm gọn trong Cache Line CPU)
+        // Dùng loop unrolling thủ công hoặc để compiler tự lo.
+        for (int i = 0; i < IC_CAPACITY; ++i) {
+            if (ic->entries[i].shape == current_shape) {
+                // BINGO!
+                regs[dst] = inst->get_field_at(ic->entries[i].offset);
+                return ip;
+            }
         }
 
-        // 2. SLOW PATH: Cache Miss -> Phải tra cứu
+        // 2. SLOW PATH: Cache Miss
         string_t name = constants[name_idx].as_string();
         int offset = current_shape->get_offset(name);
 
         if (offset != -1) {
-            // Tìm thấy! Update Cache ngay lập tức
-            ic->shape = current_shape;
-            ic->offset = static_cast<uint32_t>(offset);
+            // Tìm thấy -> Update Cache (Move-To-Front)
+            update_inline_cache(ic, current_shape, static_cast<uint32_t>(offset));
             
             regs[dst] = inst->get_field_at(offset);
             return ip;
         }
 
-        // Fallback: Tìm method (Method không cache vào Shape IC vì nó nằm ở Class)
+        // Fallback: Tìm method
         class_t k = inst->get_class();
         while (k) {
             if (k->has_method(name)) {
@@ -106,16 +138,14 @@ inline static InlineCache* get_inline_cache(const uint8_t*& ip) {
     return ip;
 }
 
-// --- SET_PROP (Có Inline Caching) ---
+// --- SET_PROP (Polymorphic IC) ---
 
 [[gnu::always_inline]] static const uint8_t* impl_SET_PROP(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t obj_reg = read_u16(ip);
     uint16_t name_idx = read_u16(ip);
     uint16_t val_reg = read_u16(ip);
     
-    // Lấy cache
     InlineCache* ic = get_inline_cache(ip);
-
     Value& obj = regs[obj_reg];
     Value& val = regs[val_reg];
     
@@ -123,10 +153,12 @@ inline static InlineCache* get_inline_cache(const uint8_t*& ip) {
         instance_t inst = obj.as_instance();
         Shape* current_shape = inst->get_shape();
 
-        // 1. FAST PATH: Cache Hit (Chỉ áp dụng cho Update, không áp dụng cho Transition)
-        if (current_shape == ic->shape) [[likely]] {
-            inst->set_field_at(ic->offset, val);
-            return ip;
+        // 1. FAST PATH
+        for (int i = 0; i < IC_CAPACITY; ++i) {
+            if (ic->entries[i].shape == current_shape) {
+                inst->set_field_at(ic->entries[i].offset, val);
+                return ip;
+            }
         }
 
         // 2. SLOW PATH
@@ -134,14 +166,11 @@ inline static InlineCache* get_inline_cache(const uint8_t*& ip) {
         int offset = current_shape->get_offset(name);
 
         if (offset != -1) {
-            ic->shape = current_shape;
-            ic->offset = static_cast<uint32_t>(offset);
-            
+            update_inline_cache(ic, current_shape, static_cast<uint32_t>(offset));
             inst->set_field_at(offset, val);
         } else {
-            // Hiện tại ta KHÔNG cache transition (Polymorphic IC phức tạp hơn nhiều)
-            // Chỉ thực hiện logic chuyển shape bình thường.
-            
+            // Transition logic (Tạo field mới)
+            // Lưu ý: Không cache transition ở đây vì shape sẽ thay đổi ngay sau đó.
             Shape* next_shape = current_shape->get_transition(name);
             if (next_shape == nullptr) {
                 next_shape = current_shape->add_transition(name, &state->heap);
@@ -149,10 +178,6 @@ inline static InlineCache* get_inline_cache(const uint8_t*& ip) {
 
             inst->set_shape(next_shape);
             inst->get_fields_raw().push_back(val);
-            
-            // Lưu ý: Sau lệnh này, Shape của instance đã đổi thành next_shape.
-            // Lần tới chạy lệnh này, nếu instance đã có shape mới, nó sẽ lại cache miss
-            // cho đến khi nó ổn định.
         }
     } else {
         state->error("SET_PROP: Chỉ có thể gán thuộc tính cho Instance.");
@@ -161,8 +186,7 @@ inline static InlineCache* get_inline_cache(const uint8_t*& ip) {
     return ip;
 }
 
-// --- SET_METHOD, INHERIT, GET_SUPER (Giữ nguyên) ---
-
+// --- Các hàm khác giữ nguyên ... ---
 [[gnu::always_inline]] static const uint8_t* impl_SET_METHOD(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t class_reg = read_u16(ip);
     uint16_t name_idx = read_u16(ip);

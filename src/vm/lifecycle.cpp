@@ -24,7 +24,7 @@ Machine::Machine(const std::string& entry_point_directory, const std::string& en
     
     load_builtins();
     
-    // std::println("Size of Value is {} bytes", sizeof(Value));
+    std::println("Size of Value is {} bytes", sizeof(Value));
 }
 
 Machine::~Machine() noexcept {}
