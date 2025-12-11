@@ -15,12 +15,13 @@
 #include "common/definitions.h"
 #include "core/value.h"
 #include "memory/gc_visitor.h"
+#include "core/objects/string.h"
 
 namespace meow {
 class ObjHashTable : public ObjBase<ObjectType::HASH_TABLE> {
    private:
     using key_t = string_t;
-    using map_t = std::unordered_map<key_t, value_t>;
+    using map_t = std::unordered_map<key_t, value_t, ObjStringHasher>;
     using visitor_t = GCVisitor;
 
     map_t fields_;
@@ -28,10 +29,8 @@ class ObjHashTable : public ObjBase<ObjectType::HASH_TABLE> {
    public:
     // --- Constructors & destructor---
     ObjHashTable() = default;
-    explicit ObjHashTable(const map_t& fields) : fields_(fields) {
-    }
-    explicit ObjHashTable(map_t&& fields) noexcept : fields_(std::move(fields)) {
-    }
+    explicit ObjHashTable(const map_t& fields) : fields_(fields) {}
+    explicit ObjHashTable(map_t&& fields) noexcept : fields_(std::move(fields)) {}
 
     // --- Rule of 5 ---
     ObjHashTable(const ObjHashTable&) = delete;

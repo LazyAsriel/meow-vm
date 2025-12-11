@@ -88,4 +88,10 @@ public:
 
     inline void trace(visitor_t&) const noexcept override {}
 };
+
+struct ObjStringHasher {
+    inline size_t operator()(string_t s) const noexcept {
+        return s->hash(); 
+    }
+};
 }

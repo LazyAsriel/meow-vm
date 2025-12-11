@@ -3,6 +3,7 @@
 #include "common/definitions.h"
 #include "core/meow_object.h"
 #include "memory/gc_visitor.h"
+#include "core/objects/string.h"
 
 namespace meow {
 
@@ -11,7 +12,7 @@ class MemoryManager;
 class Shape : public ObjBase<ObjectType::SHAPE> {
 public:
     using TransitionMap = std::unordered_map<string_t, Shape*>;
-    using PropertyMap   = std::unordered_map<string_t, uint32_t>;
+    using PropertyMap = std::unordered_map<string_t, uint32_t, ObjStringHasher>;
 
 private:
     PropertyMap property_offsets_;  // Map: "x" -> 0, "y" -> 1

@@ -25,7 +25,7 @@ public:
         module_cache_.clear();
     }
 
-    inline void add_cache(string_t name, const module_t& mod) {
+    inline void add_cache(string_t name, module_t mod) {
         module_cache_[name] = mod;
     }
 private:

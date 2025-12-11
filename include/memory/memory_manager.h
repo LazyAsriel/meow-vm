@@ -4,7 +4,8 @@
 #include "core/objects.h"
 #include "common/definitions.h"
 #include "memory/garbage_collector.h"
-#include "core/objects/shape.h" // [FIX] Thêm include Shape
+#include "core/objects/shape.h"
+#include "core/objects/string.h"
 
 namespace meow {
 class MemoryManager {
@@ -14,15 +15,13 @@ public:
     array_t new_array(const std::vector<Value>& elements = {}) noexcept;
     string_t new_string(std::string_view str_view) noexcept;
     string_t new_string(const char* chars, size_t length) noexcept;
-    hash_table_t new_hash(const std::unordered_map<string_t, Value>& fields = {}) noexcept;
+    hash_table_t new_hash(const std::unordered_map<string_t, Value, ObjStringHasher>& fields = {}) noexcept;
     upvalue_t new_upvalue(size_t index) noexcept;
     proto_t new_proto(size_t registers, size_t upvalues, string_t name, Chunk&& chunk) noexcept;
     proto_t new_proto(size_t registers, size_t upvalues, string_t name, Chunk&& chunk, std::vector<UpvalueDesc>&& descs) noexcept;
     function_t new_function(proto_t proto) noexcept;
     module_t new_module(string_t file_name, string_t file_path, proto_t main_proto = nullptr) noexcept;
     class_t new_class(string_t name = nullptr) noexcept;
-    
-    // [FIX] Update signature: new_instance nhận Shape*
     instance_t new_instance(class_t klass, Shape* shape) noexcept;
     
     bound_method_t new_bound_method(instance_t instance, function_t function) noexcept;

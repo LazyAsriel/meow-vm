@@ -28,7 +28,7 @@ array_t MemoryManager::new_array(const std::vector<Value>& elements) noexcept {
     return new_object<ObjArray>(elements);
 }
 
-hash_table_t MemoryManager::new_hash(const std::unordered_map<string_t, Value>& fields) noexcept {
+hash_table_t MemoryManager::new_hash(const std::unordered_map<string_t, Value, ObjStringHasher>& fields) noexcept {
     return new_object<ObjHashTable>(fields);
 }
 
@@ -56,7 +56,6 @@ class_t MemoryManager::new_class(string_t name) noexcept {
     return new_object<ObjClass>(name);
 }
 
-// [FIX] Implement new_instance với Shape
 instance_t MemoryManager::new_instance(class_t klass, Shape* shape) noexcept {
     return new_object<ObjInstance>(klass, shape);
 }
@@ -65,7 +64,6 @@ bound_method_t MemoryManager::new_bound_method(instance_t instance, function_t f
     return new_object<ObjBoundMethod>(instance, function);
 }
 
-// [FIX] Implement new_shape
 Shape* MemoryManager::new_shape() noexcept {
     return new_object<Shape>();
 }
