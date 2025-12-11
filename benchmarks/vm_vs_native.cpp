@@ -16,6 +16,7 @@
 #include "memory/memory_manager.h"
 #include "bytecode/chunk.h"
 #include "bytecode/op_codes.h"
+#include "jit/meow_jit.h"
 #include "make_chunk.h"
 
 using namespace meow;
@@ -99,14 +100,31 @@ int main(int argc, char* argv[]) {
         Interpreter::run(state);
     });
 
+    JitCompiler jit;
+    const uint8_t* bytecode_ptr = proto->get_chunk().get_code();
+    size_t bytecode_len = proto->get_chunk().get_code_size();
+    auto jit_func = jit.compile(bytecode_ptr, bytecode_len);
+
+    double t_jit = measure("MeowVM (JIT x64)", [&]() {
+        // Setup môi trường như Interpreter
+        machine.context_->reset();
+        Value* regs = machine.context_->stack_;
+        
+        // Gọi thẳng hàm máy!
+        jit_func(regs);
+    });
+
     std::cout << "\n--------------------------------------------------\n";
     std::cout << "📊 KẾT QUẢ:\n";
     
     // if (t_native < 0.001) t_native = 0.001;
-    double ratio = t_vm / t_native;
-    
+    double vm_ratio = t_vm / t_native;
+    double jit_ratio = t_jit / t_native;
+
     std::cout << "Native C++ : 1x (Baseline)\n";
-    std::cout << "MeowVM     : " << std::fixed << std::setprecision(2) << ratio << "x slower\n";
+    std::cout << "MeowVM     : " << std::fixed << std::setprecision(2) << vm_ratio << "x slower\n";
+    std::cout << "MeowJIT    : " << std::fixed << std::setprecision(2) << jit_ratio << "x slower\n";
+
     
     return 0;
 }

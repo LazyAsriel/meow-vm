@@ -182,6 +182,19 @@ public:
         return std::forward<Self>(self).storage_.visit(overload{std::forward<Fs>(fs)...});
     }
 
+    template <typename R, typename Self, typename Visitor>
+    constexpr R visit(this Self&& self, Visitor&& vis) {
+        return std::forward<Self>(self).storage_.visit(
+            [&vis]<typename T>(T&& arg) -> R {
+                if constexpr (std::is_void_v<R>) {
+                    std::invoke(std::forward<Visitor>(vis), std::forward<T>(arg));
+                } else {
+                    return static_cast<R>(std::invoke(std::forward<Visitor>(vis), std::forward<T>(arg)));
+                }
+            }
+        );
+    }
+
     // --- Monadic Operations ---
     template <typename F>
     constexpr auto transform(F&& f) const {
