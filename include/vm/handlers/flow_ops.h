@@ -4,8 +4,22 @@
 
 namespace meow::handlers {
 
+    // --- Cấu trúc giải mã ---
+    
+    // Jump chuẩn: (cond: u16, offset: u16)
+    struct JumpCondArgs { 
+        uint16_t cond; 
+        uint16_t offset; 
+    };
+
+    // Jump nén: (cond: u8, offset: u16) 
+    // Offset vẫn giữ u16 để nhảy xa được, chỉ nén register index
+    struct JumpCondArgsB { 
+        uint8_t cond; 
+        uint16_t offset; 
+    } __attribute__((packed)); // Đảm bảo size = 3 bytes
+
     // --- PANIC ---
-    // [FIX] Signature chuẩn 4 tham số
     [[gnu::always_inline]]
     inline static const uint8_t* impl_PANIC(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
         (void)ip; (void)regs; (void)constants;
@@ -46,7 +60,7 @@ namespace meow::handlers {
     [[gnu::always_inline]]
     inline static const uint8_t* impl_UNIMPL(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
         state->error("Opcode chưa được hỗ trợ (UNIMPL)");
-        return impl_PANIC(ip, regs, constants, state); // [FIX] Truyền đủ tham số
+        return impl_PANIC(ip, regs, constants, state);
     }
 
     // --- HALT ---
@@ -55,11 +69,82 @@ namespace meow::handlers {
         return nullptr; 
     }
 
+    // --- JUMP (Unconditional) ---
+    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+        // Chỉ đọc offset u16
+        uint16_t offset = *reinterpret_cast<const uint16_t*>(ip);
+        return state->instruction_base + offset;
+    }
+
+    // --- JUMP CONDITIONAL (Standard u16) ---
+
+    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_TRUE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+        const auto& args = *reinterpret_cast<const JumpCondArgs*>(ip);
+        Value& cond = regs[args.cond];
+
+        bool truthy = false;
+        if (cond.is_bool()) [[likely]] truthy = cond.as_bool();
+        else if (cond.is_int()) truthy = (cond.as_int() != 0);
+        else truthy = meow::to_bool(cond);
+
+        if (truthy) {
+            return state->instruction_base + args.offset;
+        }
+        return ip + sizeof(JumpCondArgs);
+    }
+
+    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_FALSE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+        const auto& args = *reinterpret_cast<const JumpCondArgs*>(ip);
+        Value& cond = regs[args.cond];
+
+        bool truthy = false;
+        if (cond.is_bool()) [[likely]] truthy = cond.as_bool();
+        else if (cond.is_int()) truthy = (cond.as_int() != 0);
+        else truthy = meow::to_bool(cond);
+
+        if (!truthy) {
+            return state->instruction_base + args.offset;
+        }
+        return ip + sizeof(JumpCondArgs);
+    }
+
+    // --- JUMP CONDITIONAL (Packed u8) ---
+
+    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_TRUE_B(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+        const auto& args = *reinterpret_cast<const JumpCondArgsB*>(ip);
+        Value& cond = regs[args.cond];
+
+        bool truthy = false;
+        if (cond.is_bool()) [[likely]] truthy = cond.as_bool();
+        else if (cond.is_int()) truthy = (cond.as_int() != 0);
+        else truthy = meow::to_bool(cond);
+
+        if (truthy) {
+            return state->instruction_base + args.offset;
+        }
+        return ip + sizeof(JumpCondArgsB);
+    }
+
+    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_FALSE_B(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+        const auto& args = *reinterpret_cast<const JumpCondArgsB*>(ip);
+        Value& cond = regs[args.cond];
+
+        bool truthy = false;
+        if (cond.is_bool()) [[likely]] truthy = cond.as_bool();
+        else if (cond.is_int()) truthy = (cond.as_int() != 0);
+        else truthy = meow::to_bool(cond);
+
+        if (!truthy) {
+            return state->instruction_base + args.offset;
+        }
+        return ip + sizeof(JumpCondArgsB);
+    }
+
     // --- RETURN ---
     [[gnu::always_inline]]
     inline static const uint8_t* impl_RETURN(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
         uint16_t ret_reg_idx = read_u16(ip);
-        Value result = (ret_reg_idx == 0xFFFF) ? Value(null_t{}) : regs[ret_reg_idx]; // [FIX] Dùng regs
+        Value result = (ret_reg_idx == 0xFFFF) ? Value(null_t{}) : regs[ret_reg_idx];
 
         size_t base_idx = state->ctx.current_regs_ - state->ctx.stack_;
         meow::close_upvalues(state->ctx, base_idx);
@@ -99,14 +184,14 @@ namespace meow::handlers {
 
         Value* ret_dest_ptr = nullptr;
         if constexpr (!IsVoid) {
-            if (dst != 0xFFFF) ret_dest_ptr = &regs[dst]; // [FIX] Dùng regs
+            if (dst != 0xFFFF) ret_dest_ptr = &regs[dst];
         }
 
-        Value& callee = regs[fn_reg]; // [FIX] Dùng regs
+        Value& callee = regs[fn_reg];
 
         if (callee.is_native()) [[unlikely]] {
             native_t fn = callee.as_native();
-            Value result = fn(&state->machine, argc, &regs[arg_start]); // [FIX] Dùng regs
+            Value result = fn(&state->machine, argc, &regs[arg_start]);
             
             if (ret_dest_ptr) *ret_dest_ptr = result;
             return ip;
@@ -140,7 +225,7 @@ namespace meow::handlers {
         } 
         else {
             state->error("Not callable");
-            return impl_PANIC(ip, regs, constants, state); // [FIX]
+            return impl_PANIC(ip, regs, constants, state);
         }
 
         proto_t proto = closure->get_proto();
@@ -148,11 +233,11 @@ namespace meow::handlers {
 
         if (!state->ctx.check_frame_overflow()) [[unlikely]] {
             state->error("Stack Overflow (Call Stack)!");
-            return impl_PANIC(ip, regs, constants, state); // [FIX]
+            return impl_PANIC(ip, regs, constants, state);
         }
         if (!state->ctx.check_overflow(num_params)) [[unlikely]] {
             state->error("Stack Overflow (Registers)!");
-            return impl_PANIC(ip, regs, constants, state); // [FIX]
+            return impl_PANIC(ip, regs, constants, state);
         }
 
         Value* new_base = state->ctx.stack_top_;
@@ -165,7 +250,7 @@ namespace meow::handlers {
 
         for (size_t i = 0; i < argc; ++i) {
             if (arg_offset + i < num_params) {
-                new_base[arg_offset + i] = regs[arg_start + i]; // [FIX] Dùng regs
+                new_base[arg_offset + i] = regs[arg_start + i];
             }
         }
 
@@ -192,43 +277,6 @@ namespace meow::handlers {
 
     [[gnu::always_inline]] inline static const uint8_t* impl_CALL_VOID(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
         return do_call<true>(ip, regs, constants, state);
-    }
-
-    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
-        uint16_t offset = read_u16(ip);
-        return state->instruction_base + offset;
-    }
-
-    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_TRUE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
-        uint16_t cond_reg = read_u16(ip);
-        uint16_t offset   = read_u16(ip);
-        Value& cond = regs[cond_reg]; // [FIX] Dùng regs
-
-        bool truthy = false;
-        if (cond.is_bool()) [[likely]] truthy = cond.as_bool();
-        else if (cond.is_int()) truthy = (cond.as_int() != 0);
-        else truthy = meow::to_bool(cond);
-
-        if (truthy) {
-            return state->instruction_base + offset;
-        }
-        return ip;
-    }
-
-    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_FALSE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
-        uint16_t cond_reg = read_u16(ip);
-        uint16_t offset   = read_u16(ip);
-        Value& cond = regs[cond_reg]; // [FIX] Dùng regs
-
-        bool truthy = false;
-        if (cond.is_bool()) [[likely]] truthy = cond.as_bool();
-        else if (cond.is_int()) truthy = (cond.as_int() != 0);
-        else truthy = meow::to_bool(cond);
-
-        if (!truthy) {
-            return state->instruction_base + offset;
-        }
-        return ip;
     }
 
 } // namespace handlers

@@ -69,53 +69,61 @@ namespace {
     struct TableInitializer {
         TableInitializer() {
             // 1. Mặc định gán UNIMPL
-            // (Ta dùng một OpCode giả định hoặc HALT cho wrapper mặc định)
             for (int i = 0; i < 256; ++i) {
                 dispatch_table[i] = op_wrapper<OpCode::HALT, handlers::impl_UNIMPL>;
             }
 
-            // Macro cục bộ giúp đăng ký gọn gàng, tránh lặp lại logic template
-            #define REG(NAME) dispatch_table[static_cast<size_t>(OpCode::NAME)] = op_wrapper<OpCode::NAME, handlers::impl_##NAME>
+            // auto reg = [](OpCode op, OpHandler handler) {
+            //     dispatch_table[static_cast<size_t>(op)] = handler;
+            // };
+
+            #define reg(NAME) dispatch_table[static_cast<size_t>(OpCode::NAME)] = op_wrapper<OpCode::NAME, handlers::impl_##NAME>
 
             // 2. Đăng ký OpCode
             
             // Load / Move
-            REG(LOAD_CONST); REG(LOAD_NULL); REG(LOAD_TRUE); REG(LOAD_FALSE);
-            REG(LOAD_INT); REG(LOAD_FLOAT); REG(MOVE);
+            reg(LOAD_CONST); reg(LOAD_NULL); reg(LOAD_TRUE); reg(LOAD_FALSE);
+            reg(LOAD_INT); reg(LOAD_FLOAT); reg(MOVE);
 
             // Math
-            REG(ADD); REG(SUB); REG(MUL); REG(DIV); REG(MOD); REG(POW);
-            REG(EQ); REG(NEQ); REG(GT); REG(GE); REG(LT); REG(LE);
-            REG(NEG); REG(NOT);
-            REG(BIT_AND); REG(BIT_OR); REG(BIT_XOR); REG(BIT_NOT);
-            REG(LSHIFT); REG(RSHIFT);
+            reg(ADD); reg(SUB); reg(MUL); reg(DIV); reg(MOD); reg(POW);
+            reg(EQ); reg(NEQ); reg(GT); reg(GE); reg(LT); reg(LE);
+            reg(NEG); reg(NOT);
+            reg(BIT_AND); reg(BIT_OR); reg(BIT_XOR); reg(BIT_NOT);
+            reg(LSHIFT); reg(RSHIFT);
 
             // Variables / Memory
-            REG(GET_GLOBAL); REG(SET_GLOBAL);
-            REG(GET_UPVALUE); REG(SET_UPVALUE);
-            REG(CLOSURE); REG(CLOSE_UPVALUES);
+            reg(GET_GLOBAL); reg(SET_GLOBAL);
+            reg(GET_UPVALUE); reg(SET_UPVALUE);
+            reg(CLOSURE); reg(CLOSE_UPVALUES);
 
             // Control Flow
-            REG(JUMP); REG(JUMP_IF_FALSE); REG(JUMP_IF_TRUE);
-            REG(CALL); REG(CALL_VOID); REG(RETURN); REG(HALT);
+            reg(JUMP); reg(JUMP_IF_FALSE); reg(JUMP_IF_TRUE);
+            reg(CALL); reg(CALL_VOID); reg(RETURN); reg(HALT);
 
             // Data Structures
-            REG(NEW_ARRAY); REG(NEW_HASH);
-            REG(GET_INDEX); REG(SET_INDEX);
-            REG(GET_KEYS); REG(GET_VALUES);
+            reg(NEW_ARRAY); reg(NEW_HASH);
+            reg(GET_INDEX); reg(SET_INDEX);
+            reg(GET_KEYS); reg(GET_VALUES);
 
             // OOP
-            REG(NEW_CLASS); REG(NEW_INSTANCE);
-            REG(GET_PROP); REG(SET_PROP); REG(SET_METHOD);
-            REG(INHERIT); REG(GET_SUPER);
+            reg(NEW_CLASS); reg(NEW_INSTANCE);
+            reg(GET_PROP); reg(SET_PROP); reg(SET_METHOD);
+            reg(INHERIT); reg(GET_SUPER);
 
             // Exception
-            REG(THROW); REG(SETUP_TRY); REG(POP_TRY);
+            reg(THROW); reg(SETUP_TRY); reg(POP_TRY);
 
             // Modules
-            REG(IMPORT_MODULE); REG(EXPORT); REG(GET_EXPORT); REG(IMPORT_ALL);
+            reg(IMPORT_MODULE); reg(EXPORT); reg(GET_EXPORT); reg(IMPORT_ALL);
 
-            #undef REG
+            reg(ADD_B); reg(SUB_B); reg(MUL_B); reg(DIV_B); reg(MOD_B);
+            reg(LT_B);
+            
+            reg(JUMP_IF_TRUE_B); 
+            reg(JUMP_IF_FALSE_B);
+
+            #undef reg
         }
     };
     
