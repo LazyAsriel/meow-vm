@@ -4,9 +4,13 @@
 #include "common/definitions.h"
 #include "bytecode/chunk.h"
 #include "core/objects/function.h"
+#include "core/objects/module.h" // Cần để dùng module_t
 
 namespace meow {
+
 class MemoryManager;
+
+/// Lỗi ném ra khi loading bytecode thất bại
 class LoaderError : public std::runtime_error {
 public:
     explicit LoaderError(const std::string& msg) : std::runtime_error(msg) {}
@@ -14,15 +18,21 @@ public:
 
 class Loader {
 public:
+    /// Constructor nhận vào heap và buffer dữ liệu raw bytecode
     Loader(MemoryManager* heap, const std::vector<uint8_t>& data);
+
+    /// Load main module từ bytecode
     proto_t load_module();
 
+    /// [QUAN TRỌNG] Static Linker: Duyệt và vá (patch) lại bytecode để tối ưu hóa
+    /// Chuyển đổi GET_GLOBAL/SET_GLOBAL từ string_lookup sang direct_index O(1)
+    static void link_module(module_t module);
+
 private:
-    // --- Patching Structure ---
     struct Patch {
-        size_t proto_idx;      // Proto đang chứa constant cần vá (Parent)
-        size_t const_idx;      // Vị trí (index) trong Constant Pool cần vá
-        uint32_t target_idx;   // Index của Proto đích (Child) mà nó trỏ tới
+        size_t proto_idx;      // Proto cha
+        size_t const_idx;      // Vị trí constant cần vá
+        uint32_t target_idx;   // Index của Proto con
     };
 
     MemoryManager* heap_;
@@ -32,7 +42,7 @@ private:
     std::vector<proto_t> loaded_protos_;
     std::vector<Patch> patches_;
 
-    // --- Readers ---
+    // --- Helper đọc dữ liệu ---
     void check_can_read(size_t bytes);
     uint8_t  read_u8();
     uint16_t read_u16();
@@ -41,6 +51,7 @@ private:
     double   read_f64();
     string_t read_string();
     
+    // --- Helper load cấu trúc ---
     Value read_constant(size_t current_proto_idx, size_t current_const_idx);
     proto_t read_prototype(size_t current_proto_idx);
     

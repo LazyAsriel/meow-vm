@@ -2,9 +2,6 @@
  * @file module.h
  * @author LazyPaws
  * @brief Core definition of Module in TrangMeo
- * @copyright Copyright (c) 2025 LazyPaws
- * @license All rights reserved. Unauthorized copying of this file, in any form
- * or medium, is strictly prohibited
  */
 
 #pragma once
@@ -21,13 +18,16 @@ class ObjModule : public ObjBase<ObjectType::MODULE> {
 private:
     using string_t = string_t;
     using proto_t = proto_t;
-    using module_map = std::unordered_map<string_t, value_t>;
     using visitor_t = GCVisitor;
 
     enum class State { EXECUTING, EXECUTED };
 
-    module_map globals_;
-    module_map exports_;
+    // [OPTIMIZATION] Data (Values) và Metadata (Names) tách biệt
+    std::vector<Value> globals_store_;
+    std::unordered_map<string_t, uint32_t> global_names_;
+
+    std::unordered_map<string_t, value_t> exports_;
+    
     string_t file_name_;
     string_t file_path_;
     proto_t main_proto_;
@@ -35,21 +35,50 @@ private:
     State state;
 
 public:
-    explicit ObjModule(string_t file_name, string_t file_path, proto_t main_proto = nullptr) noexcept : file_name_(file_name), file_path_(file_path), main_proto_(main_proto) {}
+    explicit ObjModule(string_t file_name, string_t file_path, proto_t main_proto = nullptr) noexcept 
+        : file_name_(file_name), file_path_(file_path), main_proto_(main_proto), state(State::EXECUTING) {}
 
-    // --- Globals ---
-    inline return_t get_global(string_t name) noexcept {
-        return globals_[name];
+    // --- Globals (Optimized) ---
+    
+    [[gnu::always_inline]]
+    inline return_t get_global_by_index(uint32_t index) const noexcept {
+        return globals_store_[index];
     }
-    inline void set_global(string_t name, param_t value) noexcept {
-        globals_[name] = value;
+
+    [[gnu::always_inline]]
+    inline void set_global_by_index(uint32_t index, param_t value) noexcept {
+        globals_store_[index] = value;
     }
+
+    uint32_t intern_global(string_t name) {
+        if (auto it = global_names_.find(name); it != global_names_.end()) {
+            return it->second;
+        }
+        uint32_t index = static_cast<uint32_t>(globals_store_.size());
+        globals_store_.push_back(Value(null_t{}));
+        global_names_[name] = index;
+        return index;
+    }
+
     inline bool has_global(string_t name) {
-        return globals_.contains(name);
+        return global_names_.contains(name);
     }
+
+    inline return_t get_global(string_t name) noexcept {
+        if (auto it = global_names_.find(name); it != global_names_.end()) {
+            return globals_store_[it->second];
+        }
+        return Value(null_t{});
+    }
+
+    inline void set_global(string_t name, param_t value) noexcept {
+        uint32_t idx = intern_global(name);
+        globals_store_[idx] = value;
+    }
+
     inline void import_all_global(const module_t other) noexcept {
-        for (const auto& [key, value] : other->globals_) {
-            globals_[key] = value;
+        for (const auto& [name, idx] : other->global_names_) {
+            set_global(name, other->globals_store_[idx]);
         }
     }
 
@@ -69,139 +98,19 @@ public:
         }
     }
 
-    // --- File info ---
-    inline string_t get_file_name() const noexcept {
-        return file_name_;
-    }
-    inline string_t get_file_path() const noexcept {
-        return file_path_;
-    }
+    // --- Accessors ---
+    inline string_t get_file_name() const noexcept { return file_name_; }
+    inline string_t get_file_path() const noexcept { return file_path_; }
+    inline proto_t get_main_proto() const noexcept { return main_proto_; }
+    inline void set_main_proto(proto_t proto) noexcept { main_proto_ = proto; }
+    inline bool is_has_main() const noexcept { return main_proto_ != nullptr; }
 
-    // --- Main proto ---
-    inline proto_t get_main_proto() const noexcept {
-        return main_proto_;
-    }
-    inline void set_main_proto(proto_t proto) noexcept {
-        main_proto_ = proto;
-    }
-    inline bool is_has_main() const noexcept {
-        return main_proto_ != nullptr;
-    }
+    inline void set_execution() noexcept { state = State::EXECUTING; }
+    inline void set_executed() noexcept { state = State::EXECUTED; }
+    inline bool is_executing() const noexcept { return state == State::EXECUTING; }
+    inline bool is_executed() const noexcept { return state == State::EXECUTED; }
 
-    // --- Execution state ---
-    inline void set_execution() noexcept {
-        state = State::EXECUTING;
-    }
-    inline void set_executed() noexcept {
-        state = State::EXECUTED;
-    }
-    inline bool is_executing() const noexcept {
-        return state == State::EXECUTING;
-    }
-    inline bool is_executed() const noexcept {
-        return state == State::EXECUTED;
-    }
-
+    // [FIX] Chỉ khai báo, implementation nằm trong .cpp
     void trace(visitor_t& visitor) const noexcept override;
 };
 }
-
-
-// /**
-//  * @file module.h
-//  * @brief Module: The container of Code, Data, and Interface.
-//  */
-
-// #pragma once
-
-// #include <vector>
-// #include "common/pch.h"
-// #include "core/meow_object.h"
-// #include "core/value.h"
-
-// namespace meow {
-
-// class ObjModule final : public ObjBase<ObjectType::MODULE> {
-// public:
-//     enum class State : uint8_t { LOADING, RUNNING, READY };
-// private:
-//     // --- Data Storage (Flat Layout) ---
-//     std::vector<value_t> globals_;
-//     std::vector<value_t> exports_;
-    
-//     std::vector<string_t> global_names_; 
-//     std::vector<string_t> export_names_;
-
-//     // --- Metadata ---
-//     string_t path_;
-//     proto_t  entry_point_;
-//     State    state_{ State::LOADING };
-
-// public:
-//     explicit ObjModule(string_t path, proto_t main = nullptr) noexcept
-//         : path_(path), entry_point_(main) {}
-
-//     inline void resize_globals(uint32_t size) {
-//         globals_.resize(size, {});
-//         global_names_.resize(size, nullptr);
-//     }
-
-//     [[nodiscard]] inline value_t global(uint32_t idx) const noexcept {
-//         return globals_[idx];
-//     }
-
-//     inline void set_global(uint32_t idx, value_t val) noexcept {
-//         globals_[idx] = val;
-//     }
-
-//     inline void resize_exports(uint32_t size) {
-//         exports_.resize(size, {});
-//         export_names_.resize(size, nullptr);
-//     }
-
-//     [[nodiscard]] inline value_t exported(uint32_t idx) const noexcept {
-//         return exports_[idx];
-//     }
-
-//     inline void set_exported(uint32_t idx, value_t val) noexcept {
-//         exports_[idx] = val;
-//     }
-
-//     void name_global(uint32_t idx, string_t name) {
-//         if (idx < global_names_.size()) global_names_[idx] = name;
-//     }
-    
-//     void name_export(uint32_t idx, string_t name) {
-//         if (idx < export_names_.size()) export_names_[idx] = name;
-//     }
-
-//     [[nodiscard]] value_t find_global(string_t name) const noexcept {
-//         return find_in(globals_, global_names_, name);
-//     }
-
-//     [[nodiscard]] value_t find_exported(string_t name) const noexcept {
-//         return find_in(exports_, export_names_, name);
-//     }
-//     [[nodiscard]] inline string_t path()  const noexcept { return path_; }
-//     [[nodiscard]] inline proto_t  entry() const noexcept { return entry_point_; }
-    
-//     inline void set_entry(proto_t p) noexcept { entry_point_ = p; }
-
-//     inline void set_state(State s) noexcept { state_ = s; }
-//     [[nodiscard]] inline bool is_ready() const noexcept { return state_ == State::READY; }
-
-//     // --- GC ---
-//     void trace(GCVisitor& v) const noexcept override;
-
-// private:
-//     static value_t find_in(const std::vector<value_t>& vals, 
-//                            const std::vector<string_t>& names, 
-//                            string_t key) {
-//         for (size_t i = 0; i < names.size(); ++i) {
-//             if (names[i] == key) return vals[i];
-//         }
-//         return {};
-//     }
-// };
-
-// } // namespace meow

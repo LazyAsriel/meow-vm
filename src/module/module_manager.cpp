@@ -123,22 +123,22 @@ module_t ModuleManager::load_module(string_t module_path_obj, string_t importer_
     
     file.close();
 
-    proto_t main_proto = nullptr;
+proto_t main_proto = nullptr;
     try {
         Loader loader(heap_, buffer);
         main_proto = loader.load_module();
     } catch (const LoaderError& e) {
-        throw std::runtime_error("Tệp bytecode bị hỏng hoặc không hợp lệ: " + 
-                                 binary_file_path + " - Lỗi: " + e.what());
+        throw std::runtime_error("Tệp bytecode bị hỏng: " + binary_file_path + " - " + e.what());
     }
 
     if (!main_proto) {
-        throw std::runtime_error("Loader trả về proto null mà không ném lỗi cho tệp: " + 
-                                 binary_file_path);
+        throw std::runtime_error("Loader trả về proto null");
     }
 
     string_t filename_obj = heap_->new_string(binary_file_path_fs.filename().string());
     module_t meow_module = heap_->new_module(filename_obj, binary_file_path_obj, main_proto);
+
+    Loader::link_module(meow_module);
 
     module_cache_[module_path_obj] = meow_module;
     module_cache_[binary_file_path_obj] = meow_module;

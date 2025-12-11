@@ -6,27 +6,22 @@ namespace meow::handlers {
 
 [[gnu::always_inline]] static const uint8_t* impl_GET_GLOBAL(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
-    uint16_t name_idx = read_u16(ip);
-    string_t name = constants[name_idx].as_string();
-    
+    uint16_t global_idx = read_u16(ip);
+        
     module_t mod = state->ctx.frame_ptr_->module_;
-    if (mod->has_global(name)) {
-        regs[dst] = mod->get_global(name);
-    } else {
-        regs[dst] = Value(null_t{});
-    }
+    
+    regs[dst] = mod->get_global_by_index(global_idx);
+    
     return ip;
 }
 
 [[gnu::always_inline]] static const uint8_t* impl_SET_GLOBAL(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
-    uint16_t name_idx = read_u16(ip);
+    uint16_t global_idx = read_u16(ip);
     uint16_t src = read_u16(ip);
-    string_t name = constants[name_idx].as_string();
-    
-    state->ctx.frame_ptr_->module_->set_global(name, regs[src]);
+        
+    state->ctx.frame_ptr_->module_->set_global_by_index(global_idx, regs[src]);
     return ip;
 }
-
 [[gnu::always_inline]] static const uint8_t* impl_GET_UPVALUE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t uv_idx = read_u16(ip);
