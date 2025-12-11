@@ -23,7 +23,8 @@ namespace meow::handlers {
         state->error("NEW_INSTANCE: Toán hạng không phải là Class.");
         return impl_PANIC(ip, regs, constants, state);
     }
-    regs[dst] = Value(state->heap.new_instance(class_val.as_class()));
+    // [FIX] Khởi tạo Instance với Shape rỗng
+    regs[dst] = Value(state->heap.new_instance(class_val.as_class(), state->heap.get_empty_shape()));
     return ip;
 }
 
@@ -37,11 +38,15 @@ namespace meow::handlers {
     
     if (obj.is_instance()) {
         instance_t inst = obj.as_instance();
-        if (inst->has_field(name)) {
-            regs[dst] = inst->get_field(name);
+        
+        // [FAST PATH] Tìm offset từ Shape
+        int offset = inst->get_shape()->get_offset(name);
+        if (offset != -1) {
+            regs[dst] = inst->get_field_at(offset); // Array access O(1)
             return ip;
         }
-        // Tìm method
+
+        // [SLOW PATH] Tìm method trong Class
         class_t k = inst->get_class();
         while (k) {
             if (k->has_method(name)) {
@@ -73,7 +78,28 @@ namespace meow::handlers {
     Value& val = regs[val_reg];
     
     if (obj.is_instance()) {
-        obj.as_instance()->set_field(name, val);
+        instance_t inst = obj.as_instance();
+        
+        // 1. Kiểm tra xem property đã có chưa
+        int offset = inst->get_shape()->get_offset(name);
+
+        if (offset != -1) {
+            // [UPDATE] Property đã tồn tại -> Ghi đè vào mảng (Siêu nhanh)
+            inst->set_field_at(offset, val);
+        } else {
+            // [TRANSITION] Property mới -> Cần đổi Shape
+            Shape* current_shape = inst->get_shape();
+            Shape* next_shape = current_shape->get_transition(name);
+
+            if (next_shape == nullptr) {
+                // Chưa có đường đi, tạo đường mới
+                next_shape = current_shape->add_transition(name, &state->heap);
+            }
+
+            // Chuyển sang Shape mới và mở rộng mảng lưu trữ
+            inst->set_shape(next_shape);
+            inst->get_fields_raw().push_back(val);
+        }
     } else {
         state->error("SET_PROP: Chỉ có thể gán thuộc tính cho Instance.");
         return impl_PANIC(ip, regs, constants, state);

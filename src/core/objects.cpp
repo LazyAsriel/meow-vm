@@ -25,13 +25,8 @@ void ObjClass::trace(GCVisitor& visitor) const noexcept {
     }
 }
 
-void ObjInstance::trace(GCVisitor& visitor) const noexcept {
-    visitor.visit_object(klass_);
-    for (const auto& [key, value] : fields_) {
-        visitor.visit_object(key);
-        visitor.visit_value(value);
-    }
-}
+// [FIX] Đã xóa ObjInstance::trace vì định nghĩa inline trong oop.h
+// Logic cũ dùng map gây lỗi biên dịch với vector fields_
 
 void ObjBoundMethod::trace(GCVisitor& visitor) const noexcept {
     visitor.visit_object(instance_);

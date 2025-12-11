@@ -211,7 +211,8 @@ namespace meow::handlers {
         } 
         else if (callee.is_class()) {
             class_t klass = callee.as_class();
-            self = state->heap.new_instance(klass);
+            // [FIX] Khởi tạo Instance với Shape rỗng
+            self = state->heap.new_instance(klass, state->heap.get_empty_shape());
             
             if (ret_dest_ptr) *ret_dest_ptr = Value(self);
             
@@ -279,4 +280,4 @@ namespace meow::handlers {
         return do_call<true>(ip, regs, constants, state);
     }
 
-} // namespace handlers
+} // namespace meow::handlers

@@ -15,6 +15,7 @@
 #include "common/definitions.h"
 #include "core/value.h"
 #include "memory/gc_visitor.h"
+#include "core/objects/shape.h"
 
 namespace meow {
 class ObjClass : public ObjBase<ObjectType::CLASS> {
@@ -61,36 +62,56 @@ class ObjInstance : public ObjBase<ObjectType::INSTANCE> {
    private:
     using string_t = string_t;
     using class_t = class_t;
-    using field_map = std::unordered_map<string_t, value_t>;
     using visitor_t = GCVisitor;
 
     class_t klass_;
-    field_map fields_;
+    Shape* shape_;              // <--- Con trỏ Shape
+    std::vector<Value> fields_; // <--- Mảng giá trị tuyến tính
 
    public:
-    explicit ObjInstance(class_t k = nullptr) noexcept : klass_(k) {
+    // Constructor nhận vào Empty Shape ban đầu
+    explicit ObjInstance(class_t k, Shape* empty_shape) noexcept 
+        : klass_(k), shape_(empty_shape) {
     }
 
     // --- Metadata ---
-    inline class_t get_class() const noexcept {
-        return klass_;
-    }
-    inline void set_class(class_t klass) noexcept {
-        klass_ = klass;
-    }
+    inline class_t get_class() const noexcept { return klass_; }
+    inline void set_class(class_t klass) noexcept { klass_ = klass; }
 
-    // --- Fields ---
-    inline return_t get_field(string_t name) noexcept {
-        return fields_[name];
+    inline Shape* get_shape() const noexcept { return shape_; }
+    inline void set_shape(Shape* s) noexcept { shape_ = s; }
+
+    // --- Fast Field Access (By Index) ---
+    // Dùng cho Inline Caching hoặc khi đã biết offset
+    inline Value get_field_at(int offset) const noexcept {
+        return fields_[offset];
     }
-    inline void set_field(string_t name, param_t value) noexcept {
-        fields_[name] = value;
+    
+    inline void set_field_at(int offset, Value value) noexcept {
+        fields_[offset] = value;
     }
+    
+    // --- Raw Field Access (Cho Transition) ---
+    inline std::vector<Value>& get_fields_raw() { return fields_; }
+
+    // --- Slow API (Tương thích ngược) ---
     inline bool has_field(string_t name) const {
-        return fields_.find(name) != fields_.end();
+        return shape_->get_offset(name) != -1;
+    }
+    
+    inline Value get_field(string_t name) const {
+        int offset = shape_->get_offset(name);
+        if (offset != -1) return fields_[offset];
+        return Value(null_t{});
     }
 
-    void trace(visitor_t& visitor) const noexcept override;
+    void trace(visitor_t& visitor) const noexcept override {
+        visitor.visit_object(klass_);
+        visitor.visit_object(shape_); // Trace Shape
+        for (const auto& val : fields_) {
+            visitor.visit_value(val);
+        }
+    }
 };
 
 class ObjBoundMethod : public ObjBase<ObjectType::BOUND_METHOD> {

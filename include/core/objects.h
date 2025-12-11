@@ -6,4 +6,5 @@
 #include "core/objects/module.h"
 #include "core/objects/oop.h"
 #include "core/objects/string.h"
+#include "core/objects/shape.h"
 #include "memory/gc_visitor.h"

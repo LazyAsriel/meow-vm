@@ -1,5 +1,6 @@
 #include "memory/memory_manager.h"
 #include "core/objects.h"
+// #include "core/objects/shape.h" // Đã include trong header
 
 namespace meow {
 
@@ -13,7 +14,6 @@ string_t MemoryManager::new_string(std::string_view str_view) noexcept {
     if (it != string_pool_.end()) {
         return it->second;
     }
-    
     std::string s(str_view);
     string_t new_obj = new_object<ObjString>(s);
     string_pool_.emplace(std::move(s), new_obj);
@@ -52,21 +52,22 @@ module_t MemoryManager::new_module(string_t file_name, string_t file_path, proto
     return new_object<ObjModule>(file_name, file_path, main_proto);
 }
 
-
-// module_t MemoryManager::new_module(string_t file_name, string_t file_path, proto_t main_proto, size_t globals_count) noexcept {
-//     return new_object<ObjModule>(file_name, file_path, main_proto, globals_count);
-// }
-
 class_t MemoryManager::new_class(string_t name) noexcept {
     return new_object<ObjClass>(name);
 }
 
-instance_t MemoryManager::new_instance(class_t klass) noexcept {
-    return new_object<ObjInstance>(klass);
+// [FIX] Implement new_instance với Shape
+instance_t MemoryManager::new_instance(class_t klass, Shape* shape) noexcept {
+    return new_object<ObjInstance>(klass, shape);
 }
 
 bound_method_t MemoryManager::new_bound_method(instance_t instance, function_t function) noexcept {
     return new_object<ObjBoundMethod>(instance, function);
+}
+
+// [FIX] Implement new_shape
+Shape* MemoryManager::new_shape() noexcept {
+    return new_object<Shape>();
 }
 
 }
