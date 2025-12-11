@@ -134,13 +134,11 @@ inline static InlineCache* get_inline_cache(const uint8_t*& ip) {
         int offset = current_shape->get_offset(name);
 
         if (offset != -1) {
-            // [UPDATE] Property đã tồn tại -> Update Cache
             ic->shape = current_shape;
             ic->offset = static_cast<uint32_t>(offset);
             
             inst->set_field_at(offset, val);
         } else {
-            // [TRANSITION] Thêm mới -> Logic phức tạp hơn
             // Hiện tại ta KHÔNG cache transition (Polymorphic IC phức tạp hơn nhiều)
             // Chỉ thực hiện logic chuyển shape bình thường.
             

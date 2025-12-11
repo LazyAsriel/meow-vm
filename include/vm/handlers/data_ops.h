@@ -10,7 +10,7 @@ namespace meow::handlers {
 [[gnu::always_inline]] static const uint8_t* impl_LOAD_CONST(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t idx = read_u16(ip);
-    regs[dst] = constants[idx]; // [FIX] Dùng constants
+    regs[dst] = constants[idx];
     return ip;
 }
 
@@ -83,7 +83,7 @@ namespace meow::handlers {
         
         if (!key.is_string()) {
             state->error("NEW_HASH: Key phải là string.");
-            return impl_PANIC(ip, regs, constants, state); // [FIX]
+            return impl_PANIC(ip, regs, constants, state);
         }
         hash->set(key.as_string(), val);
     }
@@ -102,20 +102,20 @@ namespace meow::handlers {
     if (src.is_array()) {
         if (!key.is_int()) {
             state->error("Array index phải là số nguyên.");
-            return impl_PANIC(ip, regs, constants, state); // [FIX]
+            return impl_PANIC(ip, regs, constants, state);
         }
         array_t arr = src.as_array();
         int64_t idx = key.as_int();
         if (idx < 0 || static_cast<size_t>(idx) >= arr->size()) {
             state->error("Array index out of bounds.");
-            return impl_PANIC(ip, regs, constants, state); // [FIX]
+            return impl_PANIC(ip, regs, constants, state);
         }
         regs[dst] = arr->get(idx);
     } 
     else if (src.is_hash_table()) {
         if (!key.is_string()) {
             state->error("Hash key phải là string.");
-            return impl_PANIC(ip, regs, constants, state); // [FIX]
+            return impl_PANIC(ip, regs, constants, state);
         }
         hash_table_t hash = src.as_hash_table();
         string_t k = key.as_string();
@@ -128,20 +128,20 @@ namespace meow::handlers {
     else if (src.is_string()) {
         if (!key.is_int()) {
             state->error("String index phải là số nguyên.");
-            return impl_PANIC(ip, regs, constants, state); // [FIX]
+            return impl_PANIC(ip, regs, constants, state);
         }
         string_t str = src.as_string();
         int64_t idx = key.as_int();
         if (idx < 0 || static_cast<size_t>(idx) >= str->size()) {
             state->error("String index out of bounds.");
-            return impl_PANIC(ip, regs, constants, state); // [FIX]
+            return impl_PANIC(ip, regs, constants, state);
         }
         char c = str->get(idx);
         regs[dst] = Value(state->heap.new_string(&c, 1));
     }
     else {
         state->error("Không thể dùng toán tử index [] trên kiểu dữ liệu này.");
-        return impl_PANIC(ip, regs, constants, state); // [FIX]
+        return impl_PANIC(ip, regs, constants, state);
     }
     return ip;
 }
@@ -158,13 +158,13 @@ namespace meow::handlers {
     if (src.is_array()) {
         if (!key.is_int()) {
             state->error("Array index phải là số nguyên.");
-            return impl_PANIC(ip, regs, constants, state); // [FIX]
+            return impl_PANIC(ip, regs, constants, state);
         }
         array_t arr = src.as_array();
         int64_t idx = key.as_int();
         if (idx < 0) {
             state->error("Array index không được âm.");
-            return impl_PANIC(ip, regs, constants, state); // [FIX]
+            return impl_PANIC(ip, regs, constants, state);
         }
         if (static_cast<size_t>(idx) >= arr->size()) {
             arr->resize(idx + 1);
@@ -174,13 +174,13 @@ namespace meow::handlers {
     else if (src.is_hash_table()) {
         if (!key.is_string()) {
             state->error("Hash key phải là string.");
-            return impl_PANIC(ip, regs, constants, state); // [FIX]
+            return impl_PANIC(ip, regs, constants, state);
         }
         src.as_hash_table()->set(key.as_string(), val);
     }
     else {
         state->error("Không thể gán index [] trên kiểu dữ liệu này.");
-        return impl_PANIC(ip, regs, constants, state); // [FIX]
+        return impl_PANIC(ip, regs, constants, state);
     }
     return ip;
 }

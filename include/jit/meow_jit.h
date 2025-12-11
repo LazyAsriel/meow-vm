@@ -1,4 +1,5 @@
 #pragma once
+
 #include <vector>
 #include <cstdint>
 #include <cstring>
@@ -7,8 +8,12 @@
 #include <stdexcept>
 #include <unordered_map>
 #include <array>
+#include <bit> 
+
 #include "core/value.h"
 #include "bytecode/op_codes.h"
+// 👇 Include chuẩn, không trick
+#include "meow_nanbox_layout.h" 
 
 namespace meow {
 
@@ -21,7 +26,7 @@ private:
     struct JumpFixup {
         size_t jump_instruction_pos;
         size_t target_bytecode_offset;
-        bool is_short; // Đánh dấu nếu muốn thử short jump (cho forward) - Ở đây ta focus backward
+        bool is_short; 
     };
     std::vector<JumpFixup> fixups_;
     std::unordered_map<size_t, size_t> bytecode_to_native_map_;
@@ -32,7 +37,8 @@ private:
     static constexpr int CPU_R14 = 14;
     static constexpr int CPU_R15 = 15;
 
-    int map_vm_reg_to_cpu(int vm_reg) {
+    // Helper đơn giản, constexpr để inline tốt
+    [[nodiscard]] constexpr int map_vm_reg_to_cpu(int vm_reg) const noexcept {
         switch (vm_reg) {
             case 0: return CPU_RBX;
             case 1: return CPU_R12;
@@ -42,8 +48,6 @@ private:
             default: return -1;
         }
     }
-
-    static constexpr uint64_t NANBOX_INT_TAG = 0x7FFA000000000000ULL;
 
 public:
     JitCompiler() {
@@ -57,9 +61,19 @@ public:
         if (code_buffer_) munmap(code_buffer_, capacity_);
     }
 
+    // --- Emit Functions ---
+
     void emit(uint8_t b) { code_buffer_[size_++] = b; }
-    void emit_u32(uint32_t v) { memcpy(code_buffer_ + size_, &v, 4); size_ += 4; }
-    void emit_u64(uint64_t v) { memcpy(code_buffer_ + size_, &v, 8); size_ += 8; }
+    
+    void emit_u32(uint32_t v) { 
+        std::memcpy(code_buffer_ + size_, &v, 4); 
+        size_ += 4; 
+    }
+    
+    void emit_u64(uint64_t v) { 
+        std::memcpy(code_buffer_ + size_, &v, 8); 
+        size_ += 8; 
+    }
 
     void emit_rex(bool w, bool r, bool x, bool b) {
         uint8_t rex = 0x40;
@@ -94,13 +108,17 @@ public:
         emit(0xC0 | ((rhs & 7) << 3) | (lhs & 7));
     }
 
+    // Hàm này rất quan trọng: 
+    // Nếu 'imm' truyền vào là hằng số compile-time, trình biên dịch sẽ tối ưu nhánh if/else ngay lập tức.
     void emit_mov_reg_imm(int dst, uint64_t imm) {
         bool r12_15 = dst >= 8;
         if (imm <= 0xFFFFFFFF) {
+            // Tối ưu: Dùng mov r32, imm32 (nhanh hơn và code ngắn hơn)
             if (r12_15) emit(0x41); 
             emit(0xB8 | (dst & 7));
             emit_u32((uint32_t)imm);
         } else {
+            // Full 64-bit move
             emit_rex(true, false, false, r12_15);
             emit(0xB8 | (dst & 7));
             emit_u64(imm);
@@ -145,12 +163,13 @@ public:
         size_t pc = 0;
 
         // --- PROLOGUE ---
-        emit(0x53); // push rbx
+        emit(0x53);             // push rbx
         emit(0x41); emit(0x54); // push r12
         emit(0x41); emit(0x55); // push r13
         emit(0x41); emit(0x56); // push r14
         emit(0x41); emit(0x57); // push r15
 
+        // Load & Unbox
         for (int i = 0; i <= 4; ++i) {
             int cpu_reg = map_vm_reg_to_cpu(i);
             emit_load_mem_to_reg(cpu_reg, i);
@@ -194,7 +213,6 @@ public:
                     break;
                 }
 
-                // FUSION OPTIMIZED: LT + JUMP
                 case OpCode::LT:
                 case OpCode::LT_B: {
                     uint16_t dst, r1, r2;
@@ -216,33 +234,23 @@ public:
                         if (next_op == OpCode::JUMP_IF_TRUE_B) {
                             uint8_t jump_reg = bytecode[pc + 1];
                             if (jump_reg == dst) {
-                                // Match!
                                 pc += 2; 
                                 uint16_t target = *reinterpret_cast<const uint16_t*>(bytecode + pc); pc += 2;
 
                                 if (reg_r1 != -1 && reg_r2 != -1) {
                                     emit_cmp_reg_reg(reg_r1, reg_r2);
                                     
-                                    // --- SHORT JUMP OPTIMIZATION ---
-                                    // Kiểm tra xem target đã được compile chưa (Backward jump)
                                     if (bytecode_to_native_map_.count(target)) {
                                         size_t target_addr = bytecode_to_native_map_[target];
-                                        // Tính khoảng cách: Target - (Current + 2 bytes instruction)
                                         int64_t diff = (int64_t)target_addr - (int64_t)(size_ + 2);
-                                        
                                         if (diff >= -128 && diff <= 127) {
-                                            // Dùng JL Short (7C rel8) -> 2 bytes
-                                            emit(0x7C);
-                                            emit((uint8_t)diff);
+                                            emit(0x7C); emit((uint8_t)diff);
                                         } else {
-                                            // Dùng JL Near (0F 8C rel32) -> 6 bytes
                                             emit(0x0F); emit(0x8C);
-                                            // Fixup thủ công vì đã có địa chỉ
                                             int32_t rel32 = (int32_t)(target_addr - (size_ + 4));
                                             emit_u32(rel32);
                                         }
                                     } else {
-                                        // Forward jump: Mặc định Long Jump cho an toàn
                                         emit(0x0F); emit(0x8C); 
                                         fixups_.push_back({size_, (size_t)target, false});
                                         emit_u32(0);
@@ -280,15 +288,13 @@ public:
                     emit(0x85); 
                     emit(0xC0 | ((cpu_reg & 7) << 3) | (cpu_reg & 7)); 
 
-                    // Backward optimization cho JNZ
                     if (bytecode_to_native_map_.count(target)) {
                         size_t target_addr = bytecode_to_native_map_[target];
                         int64_t diff = (int64_t)target_addr - (int64_t)(size_ + 2);
                         if (diff >= -128 && diff <= 127) {
-                            emit(0x75); // JNZ Short
-                            emit((uint8_t)diff);
+                            emit(0x75); emit((uint8_t)diff);
                         } else {
-                            emit(0x0F); emit(0x85); // JNZ Near
+                            emit(0x0F); emit(0x85); 
                             int32_t rel32 = (int32_t)(target_addr - (size_ + 4));
                             emit_u32(rel32);
                         }
@@ -303,10 +309,16 @@ public:
                 case OpCode::HALT: {
                     for (int i = 0; i <= 4; ++i) {
                         int cpu_reg = map_vm_reg_to_cpu(i);
-                        emit_mov_reg_imm(0, NANBOX_INT_TAG);
+                        
+                        // 🔥 ĐIỂM SỬA CHÍNH: Gọi trực tiếp consteval function
+                        // Không qua biến trung gian, không enum, không static variable.
+                        // Trình biên dịch sẽ inline giá trị này thành constant literal.
+                        // NanboxLayout::make_tag(2) trả về 0x7FFA... ngay lúc compile.
+                        emit_mov_reg_imm(0, NanboxLayout::make_tag(2)); 
+                        
                         bool r12_15 = cpu_reg >= 8;
                         emit_rex(true, r12_15, false, false);
-                        emit(0x09);
+                        emit(0x09); 
                         emit(0xC0 | (0 << 3) | (cpu_reg & 7)); 
                         emit_store_reg_to_mem(i, cpu_reg);
                     }
@@ -324,16 +336,15 @@ public:
             }
         }
 
-        // Patch Forward Jumps (chỉ Long Jump)
         for (auto& fix : fixups_) {
             size_t target_native = bytecode_to_native_map_[fix.target_bytecode_offset];
             size_t src_native = fix.jump_instruction_pos + 4;
             int32_t rel = (int32_t)(target_native - src_native);
-            memcpy(code_buffer_ + fix.jump_instruction_pos, &rel, 4);
+            std::memcpy(code_buffer_ + fix.jump_instruction_pos, &rel, 4);
         }
 
         return (JitFunc)code_buffer_;
     }
 };
 
-}
+} // namespace meow
