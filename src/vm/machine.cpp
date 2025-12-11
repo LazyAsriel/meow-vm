@@ -12,7 +12,8 @@ void Machine::run() noexcept {
         *heap_,          
         *mod_manager_,   
         context_->current_regs_, 
-        initial_code,    // [NEW] Truyền tham số instruction_base
+        nullptr,         // [FIX] Thêm constants (khởi tạo null, update_pointers sẽ điền sau)
+        initial_code,    
         "", false        
     };
 

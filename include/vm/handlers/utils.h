@@ -10,16 +10,19 @@
 #include "memory/memory_manager.h"
 #include "runtime/upvalue.h"
 #include "debug/print.h"
+#include <cstring>
 
+// Định nghĩa chữ ký chuẩn cho Handler (Argument Threading)
 #define HOT_HANDLER [[gnu::always_inline, gnu::hot]] static const uint8_t*
 
 namespace meow {
 namespace handlers {
 
+// Helper đọc nhanh (Inline decoder)
 [[gnu::always_inline]]
 inline uint16_t read_u16(const uint8_t*& ip) noexcept {
-    uint16_t val;
-    std::memcpy(&val, ip, 2); 
+    // Dùng reinterpret_cast trực tiếp (x64 hỗ trợ unaligned load tốt)
+    uint16_t val = *reinterpret_cast<const uint16_t*>(ip);
     ip += 2;
     return val;
 }

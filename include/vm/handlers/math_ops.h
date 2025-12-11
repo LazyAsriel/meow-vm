@@ -6,19 +6,19 @@ namespace meow::handlers {
 
 
 #define BINARY_OP_IMPL(NAME) \
-    HOT_HANDLER impl_##NAME(const uint8_t* ip, VMState* state) { \
+    HOT_HANDLER impl_##NAME(const uint8_t* ip, Value* regs, Value* constants, VMState* state) { \
         uint16_t dst = read_u16(ip); \
         uint16_t r1  = read_u16(ip); \
         uint16_t r2  = read_u16(ip); \
-        auto left  = state->reg(r1); \
-        auto right = state->reg(r2); \
-        state->reg(dst) = OperatorDispatcher::find(OpCode::NAME, left, right)(&state->heap, left, right); \
+        auto left  = regs[r1]; \
+        auto right = regs[r2]; \
+        regs[dst] = OperatorDispatcher::find(OpCode::NAME, left, right)(&state->heap, left, right); \
         return ip; \
     }
 
 struct Args_ADD { uint16_t dst; uint16_t r1; uint16_t r2; };
 
-HOT_HANDLER impl_ADD(const uint8_t* ip, VMState* state) {
+HOT_HANDLER impl_ADD(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     // uint16_t dst = read_u16(ip);
     // uint16_t r1 = read_u16(ip);
     // uint16_t r2 = read_u16(ip);
@@ -26,30 +26,30 @@ HOT_HANDLER impl_ADD(const uint8_t* ip, VMState* state) {
     const auto& args = *reinterpret_cast<const Args_ADD*>(ip);
     ip += sizeof(Args_ADD);
 
-    auto left = state->reg(args.r1);
-    auto right = state->reg(args.r2);
+    auto left = regs[args.r1];
+    auto right = regs[args.r2];
 
     if (left.is_int() && right.is_int()) [[likely]] {
-        state->reg(args.dst) = Value(left.as_int() + right.as_int());
+        regs[args.dst] = Value(left.as_int() + right.as_int());
     } else if (left.is_float() && right.is_float()) {
-        state->reg(args.dst) = Value(left.as_float() + right.as_float());
+        regs[args.dst] = Value(left.as_float() + right.as_float());
     } else {
-        state->reg(args.dst) = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
+        regs[args.dst] = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
     }
     return ip;
 }
 
-HOT_HANDLER impl_LT(const uint8_t* ip, VMState* state) {
+HOT_HANDLER impl_LT(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t r1 = read_u16(ip);
     uint16_t r2 = read_u16(ip);
-    auto left = state->reg(r1);
-    auto right = state->reg(r2);
+    auto left = regs[r1];
+    auto right = regs[r2];
 
     if (left.is_int() && right.is_int()) [[likely]] {
-        state->reg(dst) = Value(left.as_int() < right.as_int());
+        regs[dst] = Value(left.as_int() < right.as_int());
     } else {
-        state->reg(dst) = OperatorDispatcher::find(OpCode::LT, left, right)(&state->heap, left, right);
+        regs[dst] = OperatorDispatcher::find(OpCode::LT, left, right)(&state->heap, left, right);
     }
     return ip;
 }
@@ -72,26 +72,26 @@ BINARY_OP_IMPL(BIT_XOR)
 BINARY_OP_IMPL(LSHIFT)
 BINARY_OP_IMPL(RSHIFT)
 
-HOT_HANDLER impl_NEG(const uint8_t* ip, VMState* state) {
+HOT_HANDLER impl_NEG(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t src = read_u16(ip);
-    auto val = state->reg(src);
-    state->reg(dst) = OperatorDispatcher::find(OpCode::NEG, val)(&state->heap, val);
+    auto val = regs[src];
+    regs[dst] = OperatorDispatcher::find(OpCode::NEG, val)(&state->heap, val);
     return ip;
 }
 
-HOT_HANDLER impl_BIT_NOT(const uint8_t* ip, VMState* state) {
+HOT_HANDLER impl_BIT_NOT(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t src = read_u16(ip);
-    auto val = state->reg(src);
-    state->reg(dst) = OperatorDispatcher::find(OpCode::BIT_NOT, val)(&state->heap, val);
+    auto val = regs[src];
+    regs[dst] = OperatorDispatcher::find(OpCode::BIT_NOT, val)(&state->heap, val);
     return ip;
 }
 
-HOT_HANDLER impl_NOT(const uint8_t* ip, VMState* state) {
+HOT_HANDLER impl_NOT(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t src = read_u16(ip);
-    state->reg(dst) = Value(!to_bool(state->reg(src)));
+    regs[dst] = Value(!to_bool(regs[src]));
     return ip;
 }
 

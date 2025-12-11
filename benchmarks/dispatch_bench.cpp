@@ -142,8 +142,9 @@ int main(int argc, char* argv[]) {
             *machine.context_,
             *machine.heap_,
             *machine.mod_manager_,
-            machine.context_->current_regs_, 
-            code_base, // <--- Added this argument
+            machine.context_->current_regs_, // registers
+            nullptr,                         // constants (initially null) [FIX]
+            code_base,                       // instruction_base
             "", false
         };
 

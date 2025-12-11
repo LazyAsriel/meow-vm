@@ -4,40 +4,30 @@
 
 namespace meow::handlers {
 
-    // --- PANIC (Xử lý lỗi runtime Meow) ---
+    // --- PANIC ---
+    // [FIX] Signature chuẩn 4 tham số
     [[gnu::always_inline]]
-    inline static const uint8_t* impl_PANIC(const uint8_t* ip, VMState* state) {
-        (void)ip;
+    inline static const uint8_t* impl_PANIC(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+        (void)ip; (void)regs; (void)constants;
         
-        // Tìm Handler gần nhất
         if (!state->ctx.exception_handlers_.empty()) {
             auto& handler = state->ctx.exception_handlers_.back();
-            
-            // Tính toán số lượng frame cần unwind dựa trên khoảng cách con trỏ
             long current_depth = state->ctx.frame_ptr_ - state->ctx.call_stack_;
             
-            // Unwind stack
             while (current_depth > (long)handler.frame_depth_) {
-                // Đóng upvalue của frame hiện tại trước khi hủy (dùng index tuyệt đối)
                 size_t reg_idx = state->ctx.frame_ptr_->regs_base_ - state->ctx.stack_;
                 meow::close_upvalues(state->ctx, reg_idx);
-                
-                state->ctx.frame_ptr_--; // Lùi frame pointer
+                state->ctx.frame_ptr_--;
                 current_depth--;
             }
             
-            // Khôi phục Stack Top & Context
             state->ctx.stack_top_ = state->ctx.stack_ + handler.stack_depth_;
             state->ctx.current_regs_ = state->ctx.frame_ptr_->regs_base_;
-            
-            // Sync legacy & Cache
             state->ctx.current_frame_ = state->ctx.frame_ptr_; 
-            state->update_pointers(); // [QUAN TRỌNG] Cập nhật lại registers và instruction_base
+            state->update_pointers(); 
 
-            // Tính địa chỉ Catch (Dùng instruction_base mới khôi phục + offset đã lưu)
             const uint8_t* catch_ip = state->instruction_base + handler.catch_ip_;
             
-            // Lưu lỗi vào register (nếu cần)
             if (handler.error_reg_ != static_cast<size_t>(-1)) {
                 auto err_str = state->heap.new_string(state->get_error_message());
                 state->reg(handler.error_reg_) = Value(err_str);
@@ -48,69 +38,58 @@ namespace meow::handlers {
             return catch_ip;
         } 
         
-        // Không bắt được lỗi -> In ra console và Dừng VM
         printl("VM Panic: {}", state->get_error_message());
         return nullptr; 
     }
 
     // --- UNIMPL ---
     [[gnu::always_inline]]
-    inline static const uint8_t* impl_UNIMPL(const uint8_t* ip, VMState* state) {
+    inline static const uint8_t* impl_UNIMPL(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
         state->error("Opcode chưa được hỗ trợ (UNIMPL)");
-        return impl_PANIC(ip, state);
+        return impl_PANIC(ip, regs, constants, state); // [FIX] Truyền đủ tham số
     }
 
     // --- HALT ---
     [[gnu::always_inline]]
-    inline static const uint8_t* impl_HALT(const uint8_t*, VMState*) {
-        return nullptr; // Dừng dispatcher
+    inline static const uint8_t* impl_HALT(const uint8_t*, Value*, Value*, VMState*) {
+        return nullptr; 
     }
 
     // --- RETURN ---
     [[gnu::always_inline]]
-    inline static const uint8_t* impl_RETURN(const uint8_t* ip, VMState* state) {
+    inline static const uint8_t* impl_RETURN(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
         uint16_t ret_reg_idx = read_u16(ip);
-        
-        // 1. Lấy kết quả (nếu có)
-        Value result = (ret_reg_idx == 0xFFFF) ? Value(null_t{}) : state->reg(ret_reg_idx);
+        Value result = (ret_reg_idx == 0xFFFF) ? Value(null_t{}) : regs[ret_reg_idx]; // [FIX] Dùng regs
 
-        // 2. Đóng Upvalues (tính index từ đáy stack)
         size_t base_idx = state->ctx.current_regs_ - state->ctx.stack_;
         meow::close_upvalues(state->ctx, base_idx);
 
-        // 3. Check Main Frame (Nếu là frame cuối cùng -> Exit)
         if (state->ctx.frame_ptr_ == state->ctx.call_stack_) {
             return nullptr; 
         }
 
-        // 4. Pop Frame
         CallFrame* popped_frame = state->ctx.frame_ptr_;
         state->ctx.frame_ptr_--;
         
-        // 5. Khôi phục trạng thái Caller
         CallFrame* caller = state->ctx.frame_ptr_;
         
-        // Stack Top mới = Chỗ bắt đầu của hàm vừa return (thu hồi toàn bộ bộ nhớ của hàm con)
         state->ctx.stack_top_ = popped_frame->regs_base_;
         state->ctx.current_regs_ = caller->regs_base_;
         
-        // Sync
         state->ctx.current_frame_ = caller; 
-        state->update_pointers(); // [QUAN TRỌNG] Restore instruction_base của caller
+        state->update_pointers(); 
 
-        // 6. Ghi kết quả vào biến hứng (nếu caller có hứng)
         if (popped_frame->ret_dest_ != nullptr) {
             *popped_frame->ret_dest_ = result;
         }
 
-        // Nhảy về địa chỉ đã lưu
         return popped_frame->ip_;
     }
 
     // --- CALL Helper ---
     template <bool IsVoid>
     [[gnu::always_inline]] 
-    static inline const uint8_t* do_call(const uint8_t* ip, VMState* state) {
+    static inline const uint8_t* do_call(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
         uint16_t dst = 0;
         if constexpr (!IsVoid) dst = read_u16(ip);
 
@@ -118,25 +97,21 @@ namespace meow::handlers {
         uint16_t arg_start = read_u16(ip);
         uint16_t argc      = read_u16(ip);
 
-        // Xác định nơi hứng kết quả ở frame hiện tại
         Value* ret_dest_ptr = nullptr;
         if constexpr (!IsVoid) {
-            if (dst != 0xFFFF) ret_dest_ptr = &state->reg(dst);
+            if (dst != 0xFFFF) ret_dest_ptr = &regs[dst]; // [FIX] Dùng regs
         }
 
-        Value& callee = state->reg(fn_reg);
+        Value& callee = regs[fn_reg]; // [FIX] Dùng regs
 
-        // 1. Native Call (Optimized)
         if (callee.is_native()) [[unlikely]] {
             native_t fn = callee.as_native();
-            // Truyền trực tiếp địa chỉ mảng tham số (stack liền mạch)
-            Value result = fn(&state->machine, argc, &state->reg(arg_start));
+            Value result = fn(&state->machine, argc, &regs[arg_start]); // [FIX] Dùng regs
             
             if (ret_dest_ptr) *ret_dest_ptr = result;
             return ip;
         }
 
-        // 2. Meow Call (Function / Method / Class)
         instance_t self = nullptr;
         function_t closure = nullptr;
         bool is_init = false;
@@ -160,85 +135,74 @@ namespace meow::handlers {
                 closure = init_method.as_function();
                 is_init = true;
             } else {
-                return ip; // Không có init -> xong, trả về instance
+                return ip; 
             }
         } 
         else {
             state->error("Not callable");
-            return impl_PANIC(ip, state);
+            return impl_PANIC(ip, regs, constants, state); // [FIX]
         }
 
         proto_t proto = closure->get_proto();
         size_t num_params = proto->get_num_registers();
 
-        // --- CHECK OVERFLOW (POINTER CHECK - Siêu nhanh) ---
         if (!state->ctx.check_frame_overflow()) [[unlikely]] {
             state->error("Stack Overflow (Call Stack)!");
-            return impl_PANIC(ip, state);
+            return impl_PANIC(ip, regs, constants, state); // [FIX]
         }
         if (!state->ctx.check_overflow(num_params)) [[unlikely]] {
             state->error("Stack Overflow (Registers)!");
-            return impl_PANIC(ip, state);
+            return impl_PANIC(ip, regs, constants, state); // [FIX]
         }
 
-        // --- PREPARE NEW FRAME ---
         Value* new_base = state->ctx.stack_top_;
         
-        // Copy tham số
         size_t arg_offset = 0;
         if (self != nullptr && num_params > 0) {
             new_base[0] = Value(self);
             arg_offset = 1;
         }
 
-        // Copy args (Vector hóa tốt vì bộ nhớ liền nhau)
         for (size_t i = 0; i < argc; ++i) {
             if (arg_offset + i < num_params) {
-                new_base[arg_offset + i] = state->reg(arg_start + i);
+                new_base[arg_offset + i] = regs[arg_start + i]; // [FIX] Dùng regs
             }
         }
 
-        state->ctx.frame_ptr_++; // Push CallStack
-        
-        // Constructor CallFrame
+        state->ctx.frame_ptr_++;
         *state->ctx.frame_ptr_ = CallFrame(
             closure,
             state->ctx.frame_ptr_[-1].module_, 
             new_base,                          
-            is_init ? nullptr : ret_dest_ptr,  // Init luôn void
-            ip                                 // Return Address
+            is_init ? nullptr : ret_dest_ptr,  
+            ip                                 
         );
 
-        // Update Context & Cache
         state->ctx.current_regs_ = new_base;
         state->ctx.stack_top_ += num_params;
         state->ctx.current_frame_ = state->ctx.frame_ptr_;
-        state->update_pointers(); // [QUAN TRỌNG] Cập nhật instruction_base mới
+        state->update_pointers(); 
 
-        // Jump to new code start (vừa được cache vào instruction_base)
         return state->instruction_base;
     }
 
-    [[gnu::always_inline]] inline static const uint8_t* impl_CALL(const uint8_t* ip, VMState* state) {
-        return do_call<false>(ip, state);
+    [[gnu::always_inline]] inline static const uint8_t* impl_CALL(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+        return do_call<false>(ip, regs, constants, state);
     }
 
-    [[gnu::always_inline]] inline static const uint8_t* impl_CALL_VOID(const uint8_t* ip, VMState* state) {
-        return do_call<true>(ip, state);
+    [[gnu::always_inline]] inline static const uint8_t* impl_CALL_VOID(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+        return do_call<true>(ip, regs, constants, state);
     }
 
-    // --- JUMP (Đã tối ưu hóa với instruction_base) ---
-    
-    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP(const uint8_t* ip, VMState* state) {
+    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
         uint16_t offset = read_u16(ip);
-        // Thay vì truy cập ctx->frame->func->proto->chunk->code, dùng cache:
         return state->instruction_base + offset;
     }
 
-    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_TRUE(const uint8_t* ip, VMState* state) {
+    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_TRUE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
         uint16_t cond_reg = read_u16(ip);
         uint16_t offset   = read_u16(ip);
-        Value& cond = state->reg(cond_reg);
+        Value& cond = regs[cond_reg]; // [FIX] Dùng regs
 
         bool truthy = false;
         if (cond.is_bool()) [[likely]] truthy = cond.as_bool();
@@ -251,10 +215,10 @@ namespace meow::handlers {
         return ip;
     }
 
-    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_FALSE(const uint8_t* ip, VMState* state) {
+    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_FALSE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
         uint16_t cond_reg = read_u16(ip);
         uint16_t offset   = read_u16(ip);
-        Value& cond = state->reg(cond_reg);
+        Value& cond = regs[cond_reg]; // [FIX] Dùng regs
 
         bool truthy = false;
         if (cond.is_bool()) [[likely]] truthy = cond.as_bool();

@@ -86,29 +86,35 @@ int main(int argc, char* argv[]) {
     });
 
     double t_vm = measure("MeowVM (Interpreter)", [&]() {
-        // [FIX] Reset & Setup Frame manually with pointers
+        // [FIX] Reset context manually
         machine.context_->reset();
         
+        // Setup Frame 0 manually
         Value* base = machine.context_->stack_;
         *machine.context_->frame_ptr_ = CallFrame(
             func, mod, base, nullptr, proto->get_chunk().get_code()
         );
         
+        // Setup Pointers
         machine.context_->current_regs_ = base;
-        machine.context_->stack_top_ += 5;
+        machine.context_->stack_top_ += 5; 
         machine.context_->current_frame_ = machine.context_->frame_ptr_;
 
+        // [FIX] Get instruction base pointer
         const uint8_t* code_base = proto->get_chunk().get_code();
 
+        // Create State wrapper with correct constructor (Added instruction_base)
         VMState state{
             machine,
             *machine.context_,
             *machine.heap_,
             *machine.mod_manager_,
-            machine.context_->current_regs_,
-            code_base, // [NEW]
+            machine.context_->current_regs_, 
+            nullptr,   // [FIX] Thêm constants
+            code_base, 
             "", false
         };
+
         Interpreter::run(state);
     });
 
