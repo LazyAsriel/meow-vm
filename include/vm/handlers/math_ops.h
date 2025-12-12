@@ -19,7 +19,6 @@ struct BinaryArgsB {
     uint8_t r1; 
     uint8_t r2; 
 } __attribute__((packed)); // <--- Và cái này
-
 // 2. Unary Ops (dst, src)
 struct UnaryArgs { 
     uint16_t dst; 
