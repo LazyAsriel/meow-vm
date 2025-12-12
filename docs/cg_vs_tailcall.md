@@ -1,3 +1,6 @@
+Kết quả benchmark Computed Gotos và Musttail
+Hiện tại đang dùng Musttail
+
 lazycat@lazy-cat:~/Projects/meow-vm$ cd ..
 lazycat@lazy-cat:~/Projects$ cd cpp/meow-vm
 lazycat@lazy-cat:~/Projects/cpp/meow-vm$ cat src/vm/interpreter.cpp

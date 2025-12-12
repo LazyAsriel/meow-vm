@@ -18,7 +18,7 @@ struct NanboxLayout {
     // --- Shift offset ---
     static constexpr unsigned TAG_SHIFT    = 48;
 
-    [[nodiscard]] static consteval uint64_t make_tag(uint64_t index) const noexcept {
+    [[nodiscard]] static consteval uint64_t make_tag(uint64_t index) noexcept {
         return QNAN_POS | (index << TAG_SHIFT);
     }
 };

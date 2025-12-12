@@ -53,7 +53,7 @@ namespace {
         const uint8_t* next_ip = ImplFn(ip, regs, constants, state);
 
         // 2. Dispatch tiếp theo
-        if (next_ip) {
+        if (next_ip) [[likely]] {
             // Compile-time check: Chỉ reload nếu opcode làm thay đổi frame
             if constexpr (IsFrameChange<Op>) {
                 regs = state->registers;
