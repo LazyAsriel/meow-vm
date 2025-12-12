@@ -29,6 +29,7 @@ public:
     inline Value(bool_t v) noexcept : data_(v) {}
     inline Value(int_t v) noexcept : data_(v) {}
     inline Value(float_t v) noexcept : data_(v) {}
+    inline Value(native_t v) noexcept : data_(v) {}
     inline Value(object_t v) noexcept : data_(v) {}
 
     // --- Rule of five ---
@@ -52,6 +53,7 @@ public:
     inline Value& operator=(bool_t v) noexcept { data_ = v; return *this; }
     inline Value& operator=(int_t v) noexcept { data_ = v; return *this; }
     inline Value& operator=(float_t v) noexcept { data_ = v; return *this; }
+    inline Value& operator=(native_t v) noexcept { data_ = v; return *this; }
     inline Value& operator=(object_t v) noexcept { data_ = v; return *this; }
 
     inline constexpr size_t index() const noexcept {

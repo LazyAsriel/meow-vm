@@ -18,12 +18,12 @@ fi
 
 BUILD_PATH="build/$CONFIG/bin"
 
-echo "Using configuration: $CONFIG"
+# echo "Using configuration: $CONFIG"
 
 "$BUILD_PATH/masm" "$MEOW_FILE" "$BYTECODE_FILE"
 
 if [ $? -eq 0 ]; then
-    echo "Build successful. Running VM..."
+    # echo "Build successful. Running VM..."
     "$BUILD_PATH/meow-vm" "$BYTECODE_FILE"
 else
     echo "Build failed!"

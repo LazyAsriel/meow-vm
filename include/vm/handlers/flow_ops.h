@@ -1,7 +1,7 @@
 #pragma once
 #include "vm/handlers/utils.h"
 #include "core/objects.h"
-#include <cstring> // Cần cho memcpy nếu fallback, nhưng ở đây ta dùng packed
+#include <cstring> // Cho memcpy (nếu cần dùng chỗ khác)
 
 namespace meow::handlers {
 
@@ -17,8 +17,6 @@ namespace meow::handlers {
     } __attribute__((packed));
 
     // --- Inline Cache Structure (Packed) ---
-    // [OPTIMIZATION] __attribute__((packed)) giúp compiler tự xử lý unaligned access
-    // mà không cần memcpy thủ công. Hiệu năng cực cao trên x86_64.
     struct CallIC {
         void* check_tag;   // 8 bytes
         void* destination; // 8 bytes (Padding/Future JIT target)
@@ -27,9 +25,8 @@ namespace meow::handlers {
     // Helper đọc IC an toàn
     [[gnu::always_inline]]
     inline static CallIC* get_call_ic(const uint8_t*& ip) {
-        // Lấy con trỏ, ép kiểu sang packed struct
         auto* ic = reinterpret_cast<CallIC*>(const_cast<uint8_t*>(ip));
-        ip += sizeof(CallIC); // Nhảy qua 16 bytes
+        ip += sizeof(CallIC); 
         return ic;
     }
 
@@ -100,7 +97,7 @@ namespace meow::handlers {
         bool truthy;
         if (cond.is_bool()) [[likely]] truthy = cond.as_bool();
         else if (cond.is_int()) truthy = (cond.as_int() != 0);
-        else truthy = meow::to_bool(cond);
+        else [[unlikely]] truthy = meow::to_bool(cond);
 
         if (truthy) return state->instruction_base + args.offset;
         return ip + sizeof(JumpCondArgs);
@@ -113,7 +110,7 @@ namespace meow::handlers {
         bool truthy;
         if (cond.is_bool()) [[likely]] truthy = cond.as_bool();
         else if (cond.is_int()) truthy = (cond.as_int() != 0);
-        else truthy = meow::to_bool(cond);
+        else [[unlikely]] truthy = meow::to_bool(cond);
 
         if (!truthy) return state->instruction_base + args.offset;
         return ip + sizeof(JumpCondArgs);
@@ -147,7 +144,7 @@ namespace meow::handlers {
         size_t base_idx = state->ctx.current_regs_ - state->ctx.stack_;
         meow::close_upvalues(state->ctx, base_idx);
 
-        if (state->ctx.frame_ptr_ == state->ctx.call_stack_) {
+        if (state->ctx.frame_ptr_ == state->ctx.call_stack_) [[unlikely]] {
             return nullptr; 
         }
 
@@ -169,7 +166,7 @@ namespace meow::handlers {
     }
 
     // ========================================================================
-    // CALL (OPTIMIZED WITH PACKED INLINE CACHE)
+    // CALL (OPTIMIZED)
     // ========================================================================
 
     template <bool IsVoid>
@@ -181,24 +178,16 @@ namespace meow::handlers {
         uint16_t arg_start = read_u16(ip);
         uint16_t argc      = read_u16(ip);
 
-        // [FIX] Lấy packed struct (An toàn & Nhanh)
         CallIC* ic = get_call_ic(ip);
-
         Value& callee = regs[fn_reg];
 
-        std::println("DEBUG: CALL trying to invoke: {}", to_string(callee));
-        if (callee.is_bool()) {
-            std::println("!!! ALARM !!! Callee is BOOL: {}", callee.as_bool());
-        }
-        // ---------------------------------------------------------
-        // FAST PATH: Function Call
-        // ---------------------------------------------------------
-        if (callee.is_function()) {
+        // 1. FAST PATH: Function Call
+        if (callee.is_function()) [[likely]] {
             function_t closure = callee.as_function();
             proto_t proto = closure->get_proto();
 
-            // So sánh trực tiếp (Compiler sẽ sinh lệnh load unaligned an toàn)
-            if (ic->check_tag == proto) {
+            // INLINE CACHE HIT
+            if (ic->check_tag == proto) [[likely]] {
                 size_t num_params = proto->get_num_registers();
                 
                 if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
@@ -208,8 +197,11 @@ namespace meow::handlers {
 
                 Value* new_base = state->ctx.stack_top_;
                 
-                for (size_t i = 0; i < argc; ++i) {
-                    if (i < num_params) new_base[i] = regs[arg_start + i];
+                // Copy Arguments (Thủ công nhưng optimized)
+                // Tính trước số lượng cần copy để tránh if() trong vòng lặp
+                size_t copy_count = (argc < num_params) ? argc : num_params;
+                for (size_t i = 0; i < copy_count; ++i) {
+                    new_base[i] = regs[arg_start + i];
                 }
 
                 state->ctx.frame_ptr_++;
@@ -228,27 +220,22 @@ namespace meow::handlers {
                 return state->instruction_base;
             }
             
-            // CACHE MISS: Cập nhật tag (Ghi đè an toàn)
+            // CACHE MISS
             ic->check_tag = proto;
         } 
-        // ---------------------------------------------------------
-        // FAST PATH: Native Call
-        // ---------------------------------------------------------
+        // 2. FAST PATH: Native Call
         else if (callee.is_native()) {
             native_t fn = callee.as_native();
             
-            if (ic->check_tag == (void*)fn) {
+            if (ic->check_tag == (void*)fn) [[likely]] {
                 Value result = fn(&state->machine, argc, &regs[arg_start]);
                 if constexpr (!IsVoid) regs[dst] = result;
                 return ip; 
             }
-            
             ic->check_tag = (void*)fn;
         }
 
-        // ---------------------------------------------------------
-        // SLOW PATH / FALLBACK
-        // ---------------------------------------------------------
+        // 3. SLOW PATH / FALLBACK
         
         Value* ret_dest_ptr = nullptr;
         if constexpr (!IsVoid) {
@@ -287,7 +274,7 @@ namespace meow::handlers {
                 return ip; 
             }
         } 
-        else {
+        else [[unlikely]] {
             state->error(std::format("Giá trị loại '{}' không thể gọi được (Not callable).", to_string(callee)));
             return impl_PANIC(ip, regs, constants, state);
         }

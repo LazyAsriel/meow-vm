@@ -1,31 +1,30 @@
-# File: tests/call_bench.meow
-
+# --- HÀM ĐỆ QUY (Logic giống hệt Python) ---
 .func @add_recursive
     .registers 4
-    # Khai báo hằng số tên biến global cần truy cập
+    # Hằng số
     .const "add_recursive"  # Index 0
 
     # R0: n, R1: acc
     # R2: temp (n-1), R3: temp (acc+n)
 
-    # Điều kiện dừng: n < 1
+    # if n < 1 return acc
     LOAD_INT 2, 1
     LT 2, 0, 2          
     JUMP_IF_TRUE 2, stop
 
-    # Đệ quy: add_recursive(n - 1, acc + n)
+    # else: recursive call
     
-    # 1. Tính n - 1 vào R2
+    # 1. Tính n - 1 (lưu vào R2)
     LOAD_INT 2, 1
     SUB 2, 0, 2         
     
-    # 2. Tính acc + n vào R3
+    # 2. Tính acc + n (lưu vào R3)
     ADD 3, 1, 0         
     
-    # Lấy hàm add_recursive từ Global (dùng hằng số index 0)
+    # Lấy hàm add_recursive từ Global
     GET_GLOBAL 0, 0 
     
-    # Gọi hàm: CALL dst, fn, arg_start, argc
+    # Gọi đệ quy: add_recursive(n-1, acc+n)
     CALL 0, 0, 2, 2     
     
     RETURN 0
@@ -34,40 +33,52 @@ stop:
     RETURN 1
 .endfunc
 
+# --- MAIN (Vòng lặp benchmark 10.000 lần) ---
 .func @main
-    .registers 4
+    .registers 6 
     
-    # --- KHAI BÁO HẰNG SỐ ---
-    .const @add_recursive   # Index 0: Proto cho CLOSURE
-    .const "add_recursive"  # Index 1: Tên biến cho SET_GLOBAL
-    .const "print"          # Index 2: Tên hàm print
+    # .const trong hàm main
+    .const @add_recursive   # Index 0: Proto function
+    .const "add_recursive"  # Index 1: Tên biến Global
+    .const "print"          # Index 2: Tên hàm in
     
-    # Tạo closure từ proto tại index 0
+    # Đăng ký hàm vào Global để hàm con có thể gọi đệ quy
     CLOSURE 0, 0
-    
-    # Gán vào biến global "add_recursive" (tên tại index 1)
     SET_GLOBAL 1, 0
 
-    # --- DEBUG CHÈN THÊM ---
-    GET_GLOBAL 3, 1     # Lấy lại giá trị vừa gán vào R3
-    GET_GLOBAL 0, 2     # Lấy hàm "typeof" (hoặc print nếu chưa có typeof)
-    CALL_VOID 0, 3, 1   # In thử xem nó là gì?
-    # -----------------------
+    # --- SETUP LOOP 10,000 LẦN ---
+    # R4: Biến đếm i = 0
+    # R5: Giới hạn limit = 10000
+    LOAD_INT 4, 0
+    LOAD_INT 5, 10000
 
-    # Setup: n=1000 (R1), acc=0 (R2)
+loop_start:
+    # Kiểm tra: if i >= 10000 thì thoát
+    GE 0, 4, 5
+    JUMP_IF_TRUE 0, loop_end
+
+    # --- BODY VÒNG LẶP ---
+    # Setup tham số: n=1000 (R1), acc=0 (R2)
     LOAD_INT 1, 1000    
     LOAD_INT 2, 0       
     
-    # Lấy lại hàm từ global để gọi (dùng tên tại index 1)
+    # Lấy hàm add_recursive
     GET_GLOBAL 0, 1
     
-    # Gọi add_recursive(n, acc) -> Kết quả vào R3
+    # Gọi hàm: add_recursive(1000, 0) -> Kết quả ghi vào R3
     CALL 3, 0, 1, 2     
+
+    # --- TĂNG BIẾN ĐẾM ---
+    # i = i + 1
+    LOAD_INT 0, 1
+    ADD 4, 4, 0
     
-    # Lấy hàm print (tên tại index 2)
+    # Quay lại đầu vòng lặp
+    JUMP loop_start
+
+loop_end:
+    # In kết quả lần cuối cùng để verify (phải ra 500500)
     GET_GLOBAL 0, 2
-    
-    # print(R3)
     CALL_VOID 0, 3, 1
     
     HALT

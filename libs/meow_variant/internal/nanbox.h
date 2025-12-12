@@ -152,28 +152,65 @@ public:
 private:
     uint64_t bits_;
 
+    // template <typename T>
+    // static uint64_t encode(std::size_t idx, T v) noexcept {
+    //     using U = std::decay_t<T>;
+    //     if constexpr (DoubleLike<U>) {
+    //         uint64_t b = to_bits(static_cast<double>(v));
+    //         if (!is_double(b)) return b ^ 1; 
+    //         if (b == Layout::VALUELESS) return b ^ 1;
+    //         return b;
+    //     } else {
+    //         uint64_t payload = 0;
+    //         if constexpr (PointerLike<U>) payload = reinterpret_cast<uintptr_t>(static_cast<const void*>(v));
+    //         else if constexpr (IntegralLike<U>) payload = static_cast<uint64_t>(static_cast<int64_t>(v));
+    //         else if constexpr (BoolLike<U>) payload = v ? 1 : 0;
+            
+    //         // Logic Extended Tag vẫn giữ nguyên, chỉ thay constants
+    //         if constexpr (use_extended_tag) {
+    //             if (idx < 8) {
+    //                 return Layout::QNAN_POS | (static_cast<uint64_t>(idx) << Layout::TAG_SHIFT) | (payload & Layout::PAYLOAD_MASK);
+    //             } else {
+    //                 return Layout::QNAN_NEG | (static_cast<uint64_t>(idx - 8) << Layout::TAG_SHIFT) | (payload & Layout::PAYLOAD_MASK);
+    //             }
+    //         } else {
+    //             return Layout::QNAN_POS | (static_cast<uint64_t>(idx) << Layout::TAG_SHIFT) | (payload & Layout::PAYLOAD_MASK);
+    //         }
+    //     }
+    // }
+
     template <typename T>
     static uint64_t encode(std::size_t idx, T v) noexcept {
         using U = std::decay_t<T>;
+        
         if constexpr (DoubleLike<U>) {
             uint64_t b = to_bits(static_cast<double>(v));
             if (!is_double(b)) return b ^ 1; 
             if (b == Layout::VALUELESS) return b ^ 1;
             return b;
-        } else {
+        } 
+        else {
             uint64_t payload = 0;
-            if constexpr (PointerLike<U>) payload = reinterpret_cast<uintptr_t>(static_cast<const void*>(v));
-            else if constexpr (IntegralLike<U>) payload = static_cast<uint64_t>(static_cast<int64_t>(v));
-            else if constexpr (BoolLike<U>) payload = v ? 1 : 0;
             
-            // Logic Extended Tag vẫn giữ nguyên, chỉ thay constants
+            if constexpr (PointerLike<U>) {
+                payload = reinterpret_cast<uintptr_t>(v);
+            }
+            else if constexpr (IntegralLike<U>) {
+                payload = static_cast<uint64_t>(static_cast<int64_t>(v));
+            }
+            else if constexpr (BoolLike<U>) {
+                payload = v ? 1 : 0;
+            }
             if constexpr (use_extended_tag) {
                 if (idx < 8) {
+                    // Dùng QNAN_POS (0x7FF8...) cho 8 kiểu đầu
                     return Layout::QNAN_POS | (static_cast<uint64_t>(idx) << Layout::TAG_SHIFT) | (payload & Layout::PAYLOAD_MASK);
                 } else {
+                    // Dùng QNAN_NEG (0xFFF8...) cho các kiểu tiếp theo
                     return Layout::QNAN_NEG | (static_cast<uint64_t>(idx - 8) << Layout::TAG_SHIFT) | (payload & Layout::PAYLOAD_MASK);
                 }
             } else {
+                // Mặc định: Dùng QNAN_POS
                 return Layout::QNAN_POS | (static_cast<uint64_t>(idx) << Layout::TAG_SHIFT) | (payload & Layout::PAYLOAD_MASK);
             }
         }

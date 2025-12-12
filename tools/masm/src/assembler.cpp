@@ -214,6 +214,9 @@ int Assembler::get_arity(OpCode op) {
         case OpCode::CLOSE_UPVALUES: case OpCode::IMPORT_ALL: case OpCode::THROW: 
         case OpCode::RETURN: 
             return 1;
+
+        case OpCode::LOAD_NULL: case OpCode::LOAD_TRUE: case OpCode::LOAD_FALSE: 
+            return 1;
             
         case OpCode::LOAD_CONST: case OpCode::MOVE: 
         case OpCode::NEG: case OpCode::NOT: case OpCode::BIT_NOT: 
@@ -225,7 +228,7 @@ int Assembler::get_arity(OpCode op) {
         case OpCode::GET_KEYS: case OpCode::GET_VALUES:
         case OpCode::GET_SUPER: 
         case OpCode::GET_GLOBAL: case OpCode::SET_GLOBAL:
-        case OpCode::LOAD_NULL: case OpCode::LOAD_TRUE: case OpCode::LOAD_FALSE:
+        // case OpCode::LOAD_NULL: case OpCode::LOAD_TRUE: case OpCode::LOAD_FALSE:
             return 2;
 
         case OpCode::GET_EXPORT: 
@@ -318,7 +321,7 @@ void Assembler::write_binary(const std::string& filename) {
         out.write((char*)p.bytecode.data(), p.bytecode.size());
     }
     out.close();
-    std::cout << "Assembled: " << filename << "\n";
+    // std::cout << "Assembled: " << filename << "\n";
 }
 
 std::string Assembler::parse_string_literal(std::string_view sv) {

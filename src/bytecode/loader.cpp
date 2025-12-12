@@ -252,7 +252,10 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
             case OpCode::CLOSE_UPVALUES: case OpCode::IMPORT_ALL: case OpCode::THROW: 
             case OpCode::RETURN: 
                 ip += 2; break;
-                
+            
+            case OpCode::LOAD_NULL: case OpCode::LOAD_TRUE: case OpCode::LOAD_FALSE:
+                ip += 2; break;
+            
             // 2 u16 args (Total 4 bytes + 1 op = 5)
             case OpCode::LOAD_CONST: case OpCode::MOVE: 
             case OpCode::NEG: case OpCode::NOT: case OpCode::BIT_NOT: 
@@ -263,7 +266,7 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
             case OpCode::GET_KEYS: case OpCode::GET_VALUES:
             case OpCode::GET_SUPER: 
             case OpCode::GET_GLOBAL: case OpCode::SET_GLOBAL: // Target
-            case OpCode::LOAD_NULL: case OpCode::LOAD_TRUE: case OpCode::LOAD_FALSE:
+            // case OpCode::LOAD_NULL: case OpCode::LOAD_TRUE: case OpCode::LOAD_FALSE:
                 ip += 4; break;
 
             // 3 u16 args (Total 6 bytes + 1 op = 7)
