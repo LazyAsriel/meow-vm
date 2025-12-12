@@ -1,4 +1,4 @@
-#include "compiler/disassemble.h"
+#include <meow/compiler/disassemble.h>
 #include <meow/definitions.h>
 #include <meow/core/objects.h>
 #include <meow/compiler/op_codes.h>

@@ -1,8 +1,8 @@
 #pragma once
 
 #include "pch.h"
-#include "bytecode/op_codes.h"
-#include "bytecode/chunk.h"
+#include <meow/compiler/op_codes.h>
+#include <meow/compiler/chunk.h>
 
 namespace meow {
 // Chunk create_vm_chunk(int64_t LIMIT) {

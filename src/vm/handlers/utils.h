@@ -3,6 +3,7 @@
 #include "vm/vm_state.h"
 #include <meow/compiler/op_codes.h>
 #include <meow/value.h>
+#include <meow/cast.h>
 #include "runtime/operator_dispatcher.h"
 #include "runtime/execution_context.h"
 #include "runtime/call_frame.h"
