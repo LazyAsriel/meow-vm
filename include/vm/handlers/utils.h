@@ -13,7 +13,7 @@
 #include <cstring>
 
 // Định nghĩa chữ ký chuẩn cho Handler (Argument Threading)
-#define HOT_HANDLER [[gnu::always_inline, gnu::hot]] static const uint8_t*
+#define HOT_HANDLER [[gnu::always_inline, gnu::hot, gnu::aligned(32)]] static const uint8_t*
 
 namespace meow {
 namespace handlers {
