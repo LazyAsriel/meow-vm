@@ -99,6 +99,16 @@ public:
         return static_cast<std::size_t>((bits_ >> Layout::TAG_SHIFT) & 0x7);
     }
 
+    [[nodiscard]] __attribute__((always_inline)) 
+    uint64_t raw() const noexcept { return bits_; }
+
+    [[nodiscard]] __attribute__((always_inline))
+    static NaNBoxedVariant from_raw(uint64_t raw_bits) noexcept {
+        NaNBoxedVariant v;
+        v.bits_ = raw_bits;
+        return v;
+    }
+
     [[nodiscard]] bool valueless() const noexcept { return bits_ == Layout::VALUELESS; }
 
     template <typename T>
@@ -151,33 +161,6 @@ public:
 
 private:
     uint64_t bits_;
-
-    // template <typename T>
-    // static uint64_t encode(std::size_t idx, T v) noexcept {
-    //     using U = std::decay_t<T>;
-    //     if constexpr (DoubleLike<U>) {
-    //         uint64_t b = to_bits(static_cast<double>(v));
-    //         if (!is_double(b)) return b ^ 1; 
-    //         if (b == Layout::VALUELESS) return b ^ 1;
-    //         return b;
-    //     } else {
-    //         uint64_t payload = 0;
-    //         if constexpr (PointerLike<U>) payload = reinterpret_cast<uintptr_t>(static_cast<const void*>(v));
-    //         else if constexpr (IntegralLike<U>) payload = static_cast<uint64_t>(static_cast<int64_t>(v));
-    //         else if constexpr (BoolLike<U>) payload = v ? 1 : 0;
-            
-    //         // Logic Extended Tag vẫn giữ nguyên, chỉ thay constants
-    //         if constexpr (use_extended_tag) {
-    //             if (idx < 8) {
-    //                 return Layout::QNAN_POS | (static_cast<uint64_t>(idx) << Layout::TAG_SHIFT) | (payload & Layout::PAYLOAD_MASK);
-    //             } else {
-    //                 return Layout::QNAN_NEG | (static_cast<uint64_t>(idx - 8) << Layout::TAG_SHIFT) | (payload & Layout::PAYLOAD_MASK);
-    //             }
-    //         } else {
-    //             return Layout::QNAN_POS | (static_cast<uint64_t>(idx) << Layout::TAG_SHIFT) | (payload & Layout::PAYLOAD_MASK);
-    //         }
-    //     }
-    // }
 
     template <typename T>
     static uint64_t encode(std::size_t idx, T v) noexcept {

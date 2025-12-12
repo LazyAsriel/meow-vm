@@ -60,6 +60,17 @@ public:
         return data_.index();
     }
 
+    [[nodiscard]] __attribute__((always_inline)) 
+    uint64_t as_raw_u64() const noexcept {
+        return data_.raw();
+    }
+    
+    static Value from_raw_u64(uint64_t bits) noexcept {
+        Value v;
+        v.data_ = base_t::from_raw(bits);
+        return v;
+    }
+
     // === Type Checkers ===
 
     // --- Primary type ---

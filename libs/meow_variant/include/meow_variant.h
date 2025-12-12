@@ -150,6 +150,17 @@ public:
     }
 
     // --- Accessors ---
+    [[nodiscard]] __attribute__((always_inline))
+    auto raw() const noexcept requires (requires { storage_.raw(); }) {
+        return storage_.raw();
+    }
+    
+    static basic_variant from_raw(uint64_t bits) noexcept 
+    requires (requires { backend_type::from_raw(uint64_t{}); }) {
+        basic_variant v;
+        v.storage_ = backend_type::from_raw(bits);
+        return v;
+    }
     [[nodiscard]] constexpr std::size_t index() const noexcept { return storage_.index(); }
     [[nodiscard]] constexpr bool valueless() const noexcept { return storage_.valueless(); }
     [[nodiscard]] constexpr bool has_value() const noexcept { return !valueless(); }
