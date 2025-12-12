@@ -19,7 +19,7 @@ enum class ObjectType : uint8_t {
 
 struct MeowObject {
     const ObjectType type;
-    bool is_marked = false; 
+    bool marked = false; 
 
     explicit MeowObject(ObjectType type_tag) noexcept : type(type_tag) {}
     
@@ -29,9 +29,9 @@ struct MeowObject {
     inline ObjectType get_type() const noexcept { return type; }
     
     // GC Helper
-    inline bool is_marked() const noexcept { return is_marked; }
-    inline void mark() noexcept { is_marked = true; }
-    inline void unmark() noexcept { is_marked = false; }
+    inline bool is_marked() const noexcept { return marked; }
+    inline void mark() noexcept { marked = true; }
+    inline void unmark() noexcept { marked = false; }
 };
 
 template <ObjectType type_tag>
