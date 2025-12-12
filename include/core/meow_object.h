@@ -18,15 +18,8 @@ enum class ObjectType : uint8_t {
 };
 
 struct MeowObject {
-    // 1. Vtable Pointer (8 bytes - Hidden by compiler)
-    
-    // 2. Data Fields
-    const ObjectType type; // 1 byte
-    
-    // [OPTIMIZATION] Nhét cờ GC vào vùng padding
-    // Mặc định compiler sẽ padding thêm 7 bytes ở đây để align 8 bytes.
-    // Ta lấy 1 byte dùng, không tốn thêm RAM.
-    bool is_marked_ = false; 
+    const ObjectType type;
+    bool is_marked = false; 
 
     explicit MeowObject(ObjectType type_tag) noexcept : type(type_tag) {}
     
@@ -36,9 +29,9 @@ struct MeowObject {
     inline ObjectType get_type() const noexcept { return type; }
     
     // GC Helper
-    inline bool is_marked() const noexcept { return is_marked_; }
-    inline void mark() noexcept { is_marked_ = true; }
-    inline void unmark() noexcept { is_marked_ = false; }
+    inline bool is_marked() const noexcept { return is_marked; }
+    inline void mark() noexcept { is_marked = true; }
+    inline void unmark() noexcept { is_marked = false; }
 };
 
 template <ObjectType type_tag>

@@ -1,7 +1,10 @@
 # File: tests/call_bench.meow
 
 .func @add_recursive
-    .registers 4        # <--- [FIX 1] Tăng lên 4 (R0, R1, R2, R3)
+    .registers 4
+    # Khai báo hằng số tên biến global cần truy cập
+    .const "add_recursive"  # Index 0
+
     # R0: n, R1: acc
     # R2: temp (n-1), R3: temp (acc+n)
 
@@ -12,19 +15,17 @@
 
     # Đệ quy: add_recursive(n - 1, acc + n)
     
-    # 1. Tính n - 1 vào R2 (Tham số 1)
+    # 1. Tính n - 1 vào R2
     LOAD_INT 2, 1
     SUB 2, 0, 2         
     
-    # 2. Tính acc + n vào R3 (Tham số 2) 
-    # [FIX 2] Dùng R3 thay vì R1 để tham số nằm liền nhau (R2, R3)
+    # 2. Tính acc + n vào R3
     ADD 3, 1, 0         
     
-    # Chuẩn bị gọi đệ quy
+    # Lấy hàm add_recursive từ Global (dùng hằng số index 0)
     GET_GLOBAL 0, 0 
     
     # Gọi hàm: CALL dst, fn, arg_start, argc
-    # arg_start = 2, argc = 2 -> VM sẽ lấy R2 và R3 làm tham số
     CALL 0, 0, 2, 2     
     
     RETURN 0
@@ -36,23 +37,32 @@ stop:
 .func @main
     .registers 4
     
-    # Đăng ký hàm vào Global
-    LOAD_CONST 0, 0
+    # --- KHAI BÁO HẰNG SỐ ---
+    .const @add_recursive   # Index 0: Proto cho CLOSURE
+    .const "add_recursive"  # Index 1: Tên biến cho SET_GLOBAL
+    .const "print"          # Index 2: Tên hàm print
+    
+    # Tạo closure từ proto tại index 0
     CLOSURE 0, 0
-    SET_GLOBAL 0, 0
+    
+    # Gán vào biến global "add_recursive" (tên tại index 1)
+    SET_GLOBAL 1, 0
 
     # Setup: n=1000 (R1), acc=0 (R2)
     LOAD_INT 1, 1000    
     LOAD_INT 2, 0       
     
-    GET_GLOBAL 0, 0
-    # Gọi add_recursive(n, acc)
-    # Lấy tham số từ R1, R2. Kết quả trả về vào R3.
+    # Lấy lại hàm từ global để gọi (dùng tên tại index 1)
+    GET_GLOBAL 0, 1
+    
+    # Gọi add_recursive(n, acc) -> Kết quả vào R3
     CALL 3, 0, 1, 2     
     
-    # In kết quả
-    GET_GLOBAL 0, 1     # Lấy hàm print
-    CALL_VOID 0, 3, 1   # print(R3)
+    # Lấy hàm print (tên tại index 2)
+    GET_GLOBAL 0, 2
+    
+    # print(R3)
+    CALL_VOID 0, 3, 1
     
     HALT
 .endfunc

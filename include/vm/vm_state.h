@@ -27,15 +27,16 @@ struct VMState {
     const uint8_t* instruction_base;
     module_t current_module = nullptr;
 
-    std::string_view error_msg;
+    // [FIX] Dùng std::string để copy và sở hữu chuỗi lỗi
+    std::string error_msg;
     bool has_error_ = false;
 
     void error(std::string_view msg) noexcept {
-        error_msg = msg;
+        error_msg = msg; // Copy dữ liệu từ view sang string
         has_error_ = true;
     }
     bool has_error() const noexcept { return has_error_; }
-    void clear_error() noexcept { has_error_ = false; }
+    void clear_error() noexcept { has_error_ = false; error_msg.clear(); }
     std::string_view get_error_message() const noexcept { return error_msg; }
 
     // --- Fast Accessors ---

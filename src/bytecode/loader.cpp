@@ -7,6 +7,9 @@
 #include "bytecode/chunk.h"
 #include "bytecode/op_codes.h"
 #include <unordered_set>
+#include <cstring> // memcpy
+#include <bit>     // bit_cast
+#include <format>  // std::format (C++20/23)
 
 namespace meow {
 
@@ -210,8 +213,10 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
         
         // --- PATCHING ---
         if (op == OpCode::GET_GLOBAL || op == OpCode::SET_GLOBAL) {
-            // [Op:1] [Dst/Src:2] [NameIdx:2]
-            size_t operand_offset = ip + 3;
+            // [FIX] Tính toán offset chính xác cho từng loại lệnh
+            // GET_GLOBAL: [Op:1] [Dst:2] [NameIdx:2] -> NameIdx ở offset +3
+            // SET_GLOBAL: [Op:1] [NameIdx:2] [Src:2] -> NameIdx ở offset +1
+            size_t operand_offset = (op == OpCode::GET_GLOBAL) ? (ip + 3) : (ip + 1);
             
             if (operand_offset + 2 <= size) {
                 // Đọc Name Index (u16)
@@ -222,15 +227,13 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
                     Value name_val = chunk.get_constant(name_idx);
                     if (name_val.is_string()) {
                         // Tìm/Tạo index cho global này trong module
-                        // Hàm này (trong module.h) sẽ trả về index (u32)
-                        // Ta ép về u16 để ghi vào bytecode (giới hạn 65535 globals/module)
                         uint32_t global_idx = mod->intern_global(name_val.as_string());
                         
                         if (global_idx > 0xFFFF) {
                             throw LoaderError("Module has too many globals (> 65535).");
                         }
 
-                        // Ghi đè trực tiếp vào bytecode
+                        // Ghi đè trực tiếp vào bytecode (Thay thế String Index bằng Global Slot Index)
                         chunk.patch_u16(operand_offset, static_cast<uint16_t>(global_idx));
                     }
                 }
@@ -239,7 +242,6 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
 
         // --- SKIP INSTRUCTION ---
         // Cần nhảy qua các byte tham số để đến OpCode tiếp theo.
-        // Logic này cần đồng bộ với Assembler/VM args size.
         ip += 1; // Op
         switch (op) {
             // 1 byte args (none)
@@ -281,25 +283,18 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
             // 4 u16 args (Total 8 bytes + 1 op = 9)
             case OpCode::CALL: 
                 ip += 8;  // 4 args * 2 bytes
-                ip += 16; // [MEOW UPDATE] Skip Cache
+                ip += 16; // Skip Inline Cache (16 bytes)
                 break;
             
             case OpCode::CALL_VOID:
                 ip += 6;  // 3 args * 2
-                ip += 16; // Cache
+                ip += 16; // Skip Inline Cache (16 bytes)
                 break;
+
             // 1 u16 + 1 u64 arg (Total 10 bytes + 1 op = 11)
             case OpCode::LOAD_INT: case OpCode::LOAD_FLOAT:
                 ip += 10; break;
 
-            // 12 bytes cache (GET_PROP/SET_PROP cache slot - Tùy implementation)
-            // Lưu ý: Trong assembler.cpp cũ, GET_PROP/SET_PROP emit thêm 12 byte cache
-            // Nếu dùng Inline Cache, cần +12 byte ở đây.
-            // Check lại assembler: emit_u64(0); emit_u32(0); -> 12 byte
-            // => GET_PROP/SET_PROP size = 1 + 6 (args) + 12 (cache) = 19 bytes?
-            // Ở phiên bản đơn giản hiện tại, ta tạm bỏ qua cache size trong switch này
-            // Nhưng nếu Assembler emit cache, Loader phải skip nó.
-            
             // Jumps (u16 offset / reg+offset)
             case OpCode::JUMP: ip += 2; break; // Target
             case OpCode::SETUP_TRY: ip += 4; break; // Target + Reg
@@ -314,8 +309,9 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
             default: break;
         }
         
-        // Fix đặc biệt cho GET_PROP/SET_PROP nếu dùng Inline Cache
-        // Nếu Assembler emit cache (như file asm cậu gửi), ta phải skip thêm 12 bytes
+        // Fix đặc biệt cho GET_PROP/SET_PROP dùng Inline Cache (48 bytes)
+        // Assembler emit: [Op] [Arg1] [Arg2] [Arg3] + [Cache: 48 bytes]
+        // Ở switch trên đã cộng 6 bytes cho 3 args, giờ cộng thêm 48 bytes cache.
         if (op == OpCode::GET_PROP || op == OpCode::SET_PROP) {
              ip += 48; 
         }
