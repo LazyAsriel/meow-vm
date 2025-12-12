@@ -3,26 +3,29 @@
 #include <vector>
 #include <iomanip>
 
-// --- TÀ THUẬT: MỞ KHÓA PRIVATE ĐỂ BENCHMARK ---
+// Vẫn cần hack access private để truy cập vào heap trong create_benchmark_chunk nếu cần
+// Nhưng với API mới thì main() sạch hơn nhiều.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wkeyword-macro"
 #define private public
 #define protected public
-#include "vm/machine.h"
+#include <meow/machine.h>
 #include "vm/interpreter.h"
 #undef private
 #undef protected
 #pragma clang diagnostic pop
 
-#include "memory/memory_manager.h"
+#include <meow/memory/memory_manager.h>
 #include "bytecode/chunk.h"
 #include "bytecode/op_codes.h"
+#include <meow/config.h> // [CHANGE]
 
 using namespace meow;
 
 const int LIMIT = 10'000'000;
 
 Chunk create_benchmark_chunk(MemoryManager& /*heap*/) {
+    // (Giữ nguyên nội dung hàm này như cũ)
     Chunk chunk;
     std::vector<Value> constants;
     
@@ -87,7 +90,7 @@ double measure(const std::string& name, Func func) {
 int main(int argc, char* argv[]) {
     (void)argc; (void)argv;
 
-    std::cout << "🐱 MEOW VM BENCHMARK: DISPATCH WAR 🐱\n";
+    std::cout << "🐱 MEOW VM BENCHMARK: DISPATCH WAR (v" << MEOW_VERSION_STR << ") 🐱\n";
     std::cout << "Scenario: Loop " << LIMIT << " iterations (ADD + LT + JUMP)\n\n";
 
     char* fake_argv[] = { (char*)"meow", (char*)"test" };
@@ -96,69 +99,13 @@ int main(int argc, char* argv[]) {
     Chunk code = create_benchmark_chunk(*machine.heap_);
     auto proto = machine.heap_->new_proto(5, 0, machine.heap_->new_string("bench"), std::move(code));
     auto func = machine.heap_->new_function(proto);
-    auto mod = machine.heap_->new_module(machine.heap_->new_string("bench"), machine.heap_->new_string("bench.meow"));
 
-    // --- BENCHMARK 1: MACHINE (COMPUTED GOTO) ---
-    double t_machine = measure("Machine (Computed Goto)", [&]() {
-        // [FIX] Reset context manually
-        machine.context_->reset();
-        
-        // Setup Frame 0 manually
-        Value* base = machine.context_->stack_;
-        *machine.context_->frame_ptr_ = CallFrame(
-            func, base, nullptr, proto->get_chunk().get_code()
-        );
-        
-        // Setup Pointers
-        machine.context_->current_regs_ = base;
-        machine.context_->stack_top_ += 5; // Reserve 5 registers
-        machine.context_->current_frame_ = machine.context_->frame_ptr_;
-
-        machine.run();
-    });
-
-    // --- BENCHMARK 2: INTERPRETER (MUSTTAIL) ---
-    double t_interp = measure("Interpreter (Musttail)", [&]() {
-        // [FIX] Reset context manually
-        machine.context_->reset();
-        
-        // Setup Frame 0 manually
-        Value* base = machine.context_->stack_;
-        *machine.context_->frame_ptr_ = CallFrame(
-            func, base, nullptr, proto->get_chunk().get_code()
-        );
-        
-        // Setup Pointers
-        machine.context_->current_regs_ = base;
-        machine.context_->stack_top_ += 5; 
-        machine.context_->current_frame_ = machine.context_->frame_ptr_;
-
-        // [FIX] Get instruction base pointer
-        const uint8_t* code_base = proto->get_chunk().get_code();
-
-        // Create State wrapper with correct constructor (Added instruction_base)
-        VMState state{
-            machine,
-            *machine.context_,
-            *machine.heap_,
-            *machine.mod_manager_,
-            machine.context_->current_regs_, 
-            nullptr,         
-            code_base,
-            // [FIX] Thêm nullptr cho current_module
-            nullptr,                       
-            "", false
-        };
-
-        Interpreter::run(state);
+    double t_interp = measure("Interpreter (API v2)", [&]() {
+        machine.execute(func);
     });
 
     std::cout << "\n📊 RESULT:\n";
-    std::cout << "Machine (Computed Goto): " << t_machine << " ms\n";
-    std::cout << "Interpreter (Musttail):  " << t_interp << " ms\n";
-    
-    double diff = t_interp / t_machine;
-    std::cout << "Ratio: Interpreter is " << std::fixed << std::setprecision(2) << diff << "x time of Machine.\n";
+    std::cout << "Interpreter Time: " << t_interp << " ms\n";
     
     return 0;
 }

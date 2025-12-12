@@ -1,6 +1,6 @@
-#include "memory/memory_manager.h"
-#include "core/objects.h"
-// #include "core/objects/shape.h" // Đã include trong header
+#include <meow/memory/memory_manager.h>
+#include <meow/core/objects.h>
+// #include <meow/core/shape.h> // Đã include trong header
 
 namespace meow {
 

@@ -1,11 +1,11 @@
 #include "module/module_manager.h"
 
-#include "common/pch.h"
-#include "core/objects/module.h"
-#include "core/objects/string.h"
-#include "memory/memory_manager.h"
+#include "pch.h"
+#include <meow/core/module.h>
+#include <meow/core/string.h>
+#include <meow/memory/memory_manager.h>
 #include "module/module_utils.h"
-#include "bytecode/loader.h"
+#include "compiler/loader.h"
 
 namespace meow {
 

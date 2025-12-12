@@ -1,8 +1,8 @@
-#include "vm/machine.h"
-#include "common/pch.h"
+#include <meow/machine.h>
+#include "pch.h"
 // #include "memory/mark_sweep_gc.h"
 #include "memory/generational_gc.h"
-#include "memory/memory_manager.h"
+#include <meow/memory/memory_manager.h>
 #include "module/module_manager.h"
 #include "runtime/execution_context.h"
 #include "debug/print.h"

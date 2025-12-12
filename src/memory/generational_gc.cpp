@@ -1,8 +1,8 @@
-#include "common/pch.h"
+#include "pch.h"
 #include "memory/generational_gc.h"
-#include "core/value.h"
+#include <meow/value.h>
 #include "runtime/execution_context.h"
-#include "core/meow_object.h"
+#include <meow/core/meow_object.h>
 
 namespace meow {
 

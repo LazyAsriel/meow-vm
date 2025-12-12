@@ -1,5 +1,5 @@
-#include "core/objects/shape.h"
-#include "memory/memory_manager.h"
+#include <meow/core/shape.h>
+#include <meow/memory/memory_manager.h>
 
 namespace meow {
 

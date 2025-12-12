@@ -1,0 +1,6 @@
+#pragma once
+
+#define MEOW_VERSION_MAJOR @meow-vm_VERSION_MAJOR@
+#define MEOW_VERSION_MINOR @meow-vm_VERSION_MINOR@
+#define MEOW_VERSION_PATCH @meow-vm_VERSION_PATCH@
+#define MEOW_VERSION_STR   "@meow-vm_VERSION_MAJOR@.@meow-vm_VERSION_MINOR@.@meow-vm_VERSION_PATCH@"

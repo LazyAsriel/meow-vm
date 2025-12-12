@@ -1,6 +1,6 @@
-#include "common/pch.h"
+#include "pch.h"
 #include "memory/mark_sweep_gc.h"
-#include "core/value.h"
+#include <meow/value.h>
 #include "runtime/execution_context.h"
 
 namespace meow {

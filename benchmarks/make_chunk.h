@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common/pch.h"
+#include "pch.h"
 #include "bytecode/op_codes.h"
 #include "bytecode/chunk.h"
 

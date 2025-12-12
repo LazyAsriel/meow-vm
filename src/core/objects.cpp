@@ -1,6 +1,6 @@
-#include "core/objects.h"
-#include "memory/gc_visitor.h"
-#include "memory/memory_manager.h"
+#include <meow/core/objects.h>
+#include <meow/memory/gc_visitor.h>
+#include <meow/memory/memory_manager.h>
 
 namespace meow {
 

@@ -3,13 +3,13 @@
  * @brief Implementation of built-in native functions for MeowVM
  */
 
-#include "common/pch.h"
-#include "vm/machine.h"
-#include "core/objects.h"
-#include "core/value.h"
-#include "memory/memory_manager.h"
+#include "pch.h"
+#include <meow/machine.h>
+#include <meow/core/objects.h>
+#include <meow/value.h>
+#include <meow/memory/memory_manager.h>
 #include "module/module_manager.h"
-#include "common/cast.h"
+#include <meow/cast.h>
 #include "debug/print.h"
 
 namespace meow {

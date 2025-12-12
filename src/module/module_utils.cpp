@@ -1,5 +1,5 @@
 #include "module/module_utils.h"
-#include "common/pch.h"
+#include "pch.h"
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN

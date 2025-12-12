@@ -7,21 +7,23 @@
 #pragma clang diagnostic ignored "-Wkeyword-macro"
 #define private public
 #define protected public
-#include "vm/machine.h"
+#include <meow/machine.h>
 #include "vm/interpreter.h"
 #undef private
 #undef protected
 #pragma clang diagnostic pop
 
-#include "memory/memory_manager.h"
+#include <meow/memory/memory_manager.h>
 #include "bytecode/chunk.h"
 #include "bytecode/op_codes.h"
 #include "jit/meow_jit.h"
 #include "make_chunk.h"
+#include <meow/config.h> // [CHANGE]
 
 using namespace meow;
 
 const int64_t LIMIT = 10'000'000; 
+
 int64_t run_native_cpp(int64_t limit) {
     int64_t sum = 0;
     int64_t counter = 0;
@@ -52,7 +54,7 @@ int main(int argc, char* argv[]) {
 
     int64_t limit = (argc > 100) ? 1 : LIMIT;
 
-    std::cout << "\n🏁 === VM vs NATIVE: SPEED BATTLE === 🏁\n";
+    std::cout << "\n🏁 === VM vs NATIVE: SPEED BATTLE (v" << MEOW_VERSION_STR << ") === 🏁\n";
     std::cout << "Iterations: " << LIMIT << "\n\n";
 
     char* fake_argv[] = { (char*)"meow", (char*)"bench" };
@@ -61,63 +63,27 @@ int main(int argc, char* argv[]) {
     Chunk code = create_vm_chunk(LIMIT);
     auto proto = machine.heap_->new_proto(5, 0, machine.heap_->new_string("bench"), std::move(code));
     auto func = machine.heap_->new_function(proto);
-    auto mod = machine.heap_->new_module(machine.heap_->new_string("bench"), machine.heap_->new_string("bench.meow"));
 
-    run_native_cpp(limit); 
+    run_native_cpp(limit); // Warmup cache
     
     double t_native = measure("Native C++ (Hardcoded)", [&]() {
-        auto result = run_native_cpp(limit);
-        if (result == 12345) std::cout << "";
+        run_native_cpp(limit);
     });
 
     double t_vm = measure("MeowVM (Interpreter)", [&]() {
-        machine.context_->reset();
-        
-        // Setup Frame 0 manually
-        Value* base = machine.context_->stack_;
-        
-        // [FIX] Cập nhật constructor CallFrame (4 tham số)
-        *machine.context_->frame_ptr_ = CallFrame(
-            func, 
-            base, 
-            nullptr, 
-            proto->get_chunk().get_code()
-        );
-        
-        // Setup Pointers
-        machine.context_->current_regs_ = base;
-        machine.context_->stack_top_ += 5; 
-        machine.context_->current_frame_ = machine.context_->frame_ptr_;
-
-        const uint8_t* code_base = proto->get_chunk().get_code();
-
-        VMState state{
-            machine,
-            *machine.context_,
-            *machine.heap_,
-            *machine.mod_manager_,
-            machine.context_->current_regs_, 
-            nullptr,
-            code_base, 
-            nullptr, // [FIX] Thêm current_module = nullptr
-            "", false
-        };
-
-        Interpreter::run(state);
+        // [CHANGE] Code cũ dài dòng đã bay màu!
+        machine.execute(func);
     });
 
-    // ... (Phần JIT giữ nguyên) ...
     JitCompiler jit;
     const uint8_t* bytecode_ptr = proto->get_chunk().get_code();
     size_t bytecode_len = proto->get_chunk().get_code_size();
     auto jit_func = jit.compile(bytecode_ptr, bytecode_len);
 
     double t_jit = measure("MeowVM (JIT x64)", [&]() {
-        // Setup môi trường như Interpreter
         machine.context_->reset();
         Value* regs = machine.context_->stack_;
         
-        // Gọi thẳng hàm máy!
         jit_func(regs);
     });
 
