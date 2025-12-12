@@ -1,4 +1,4 @@
-Kết quả benchmark Computed Gotos và Musttail
+Kết quả log cho benchmark giữa Computed Gotos và Musttail
 Hiện tại đang dùng Musttail
 
 lazycat@lazy-cat:~/Projects/meow-vm$ cd ..
