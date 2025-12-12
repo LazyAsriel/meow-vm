@@ -2,6 +2,7 @@ Kết quả log cho benchmark giữa Computed Gotos và Musttail
 Hiện tại đang dùng Musttail
 Ở Projects/cpp/meow-vm là phiên bản vm cũ dùng cả Computed Gotos và Musttail
 Phiên bản hiện tại nằm ở Projects/meow-vm
+Và đừng nhầm đó là code của phiên bản vm hiện tại
 
 lazycat@lazy-cat:~/Projects/meow-vm$ cd ..
 lazycat@lazy-cat:~/Projects$ cd cpp/meow-vm
