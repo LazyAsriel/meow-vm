@@ -186,6 +186,10 @@ namespace meow::handlers {
 
         Value& callee = regs[fn_reg];
 
+        std::println("DEBUG: CALL trying to invoke: {}", to_string(callee));
+        if (callee.is_bool()) {
+            std::println("!!! ALARM !!! Callee is BOOL: {}", callee.as_bool());
+        }
         // ---------------------------------------------------------
         // FAST PATH: Function Call
         // ---------------------------------------------------------

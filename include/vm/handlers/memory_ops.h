@@ -18,6 +18,7 @@ namespace meow::handlers {
     uint16_t src = read_u16(ip);
         
     state->current_module->set_global_by_index(global_idx, regs[src]);
+    std::println("DEBUG: SET_GLOBAL idx={} val={}", global_idx, to_string(regs[src]));
     return ip;
 }
 [[gnu::always_inline]] static const uint8_t* impl_GET_UPVALUE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
@@ -68,6 +69,7 @@ namespace meow::handlers {
         }
     }
     regs[dst] = Value(closure);
+    std::println("DEBUG: CLOSURE created at Reg[{}]. Value type: {}", dst, to_string(regs[dst]));
     return ip;
 }
 

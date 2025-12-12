@@ -48,6 +48,12 @@ stop:
     # Gán vào biến global "add_recursive" (tên tại index 1)
     SET_GLOBAL 1, 0
 
+    # --- DEBUG CHÈN THÊM ---
+    GET_GLOBAL 3, 1     # Lấy lại giá trị vừa gán vào R3
+    GET_GLOBAL 0, 2     # Lấy hàm "typeof" (hoặc print nếu chưa có typeof)
+    CALL_VOID 0, 3, 1   # In thử xem nó là gì?
+    # -----------------------
+
     # Setup: n=1000 (R1), acc=0 (R2)
     LOAD_INT 1, 1000    
     LOAD_INT 2, 0       
