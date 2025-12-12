@@ -24,6 +24,7 @@ endif()
 
 # Executable (CLI)
 add_executable(meow-vm "cli/main.cpp")
+target_link_libraries(meow-vm PRIVATE meow_core masm_core meow::libs)
 target_link_libraries(meow-vm PRIVATE meow_core meow::libs)
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
     target_precompile_headers(meow-vm PRIVATE "pch.h")

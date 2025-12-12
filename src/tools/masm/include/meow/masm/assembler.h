@@ -4,6 +4,8 @@
 #include <string>
 #include <unordered_map>
 
+namespace meow::masm {
+
 class Assembler {
     const std::vector<Token>& tokens_;
     size_t current_ = 0;
@@ -14,7 +16,12 @@ class Assembler {
 
 public:
     explicit Assembler(const std::vector<Token>& tokens);
-    void assemble(const std::string& output_file);
+
+    // [NEW] API chính: Trả về buffer bytecode trong bộ nhớ
+    std::vector<uint8_t> assemble();
+
+    // [OLD] Helper: Ghi thẳng ra file (dùng cho tool masm cũ)
+    void assemble_to_file(const std::string& output_file);
 
 private:
     Token peek() const;
@@ -34,10 +41,10 @@ private:
     void parse_instruction();
     
     // Helpers
-    int get_arity(OpCode op);
+    int get_arity(meow::OpCode op);
     std::string parse_string_literal(std::string_view sv);
 
-    // Emit bytecode
+    // Emit bytecode helpers
     void emit_byte(uint8_t b);
     void emit_u16(uint16_t v);
     void emit_u32(uint32_t v);
@@ -46,5 +53,9 @@ private:
     // Finalize
     void link_proto_refs();
     void patch_labels();
-    void write_binary(const std::string& filename);
+    
+    // [NEW] Sinh binary ra vector
+    std::vector<uint8_t> serialize_binary();
 };
+
+} // namespace meow::masm

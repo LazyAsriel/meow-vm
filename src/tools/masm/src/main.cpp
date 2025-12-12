@@ -1,16 +1,19 @@
-#include "common.h"
-#include "lexer.h"
-#include "assembler.h"
+#include <meow/masm/common.h>
+#include <meow/masm/lexer.h>
+#include <meow/masm/assembler.h>
 #include <iostream>
 #include <fstream>
 #include <vector>
 
+using namespace meow::masm;
+
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cout << "Usage: meow-asm <input.meow> [output.meowb]\n";
+        std::cout << "Usage: masm <input.meow> [output.meowb]\n";
         return 1;
     }
 
+    // Khởi tạo bảng opcode (quan trọng!)
     init_op_map();
 
     std::string input_path = argv[1];
@@ -43,7 +46,7 @@ int main(int argc, char* argv[]) {
     // Assembling
     try {
         Assembler asm_tool(tokens);
-        asm_tool.assemble(output_path);
+        asm_tool.assemble_to_file(output_path);
     } catch (const std::exception& e) {
         std::cerr << "[Assembly Error] " << e.what() << "\n";
         return 1;

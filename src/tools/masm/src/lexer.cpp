@@ -1,11 +1,13 @@
-#include "lexer.h"
+#include <meow/masm/lexer.h>
 #include <cctype>
 
-std::unordered_map<std::string_view, OpCode> OP_MAP;
+namespace meow::masm {
+
+std::unordered_map<std::string_view, meow::OpCode> OP_MAP;
 
 void init_op_map() {
     if (!OP_MAP.empty()) return;
-    #define O(x) OP_MAP[#x] = OpCode::x;
+    #define O(x) OP_MAP[#x] = meow::OpCode::x;
     
     O(LOAD_CONST) O(LOAD_NULL) O(LOAD_TRUE) O(LOAD_FALSE) O(LOAD_INT) O(LOAD_FLOAT) O(MOVE)
     O(ADD) O(SUB) O(MUL) O(DIV) O(MOD) O(POW)
@@ -19,6 +21,12 @@ void init_op_map() {
     O(BIT_AND) O(BIT_OR) O(BIT_XOR) O(BIT_NOT) O(LSHIFT) O(RSHIFT)
     O(THROW) O(SETUP_TRY) O(POP_TRY)
     O(IMPORT_MODULE) O(EXPORT) O(GET_EXPORT) O(IMPORT_ALL)
+    
+    // Bytecode optimized versions
+    O(ADD_B) O(SUB_B) O(MUL_B) O(DIV_B) O(MOD_B)
+    O(LT_B)
+    O(JUMP_IF_TRUE_B) O(JUMP_IF_FALSE_B)
+
     #undef O
 }
 
@@ -110,3 +118,5 @@ Token Lexer::scan_identifier() {
     if (OP_MAP.count(text)) return {TokenType::OPCODE, text, line_};
     return {TokenType::IDENTIFIER, text, line_};
 }
+
+} // namespace meow::masm

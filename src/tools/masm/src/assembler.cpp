@@ -1,10 +1,12 @@
-#include "assembler.h"
+#include <meow/masm/assembler.h>
 #include <iostream>
 #include <fstream>
 #include <charconv> 
 #include <bit>
 #include <cstring>
 #include <stdexcept>
+
+namespace meow::masm {
 
 Assembler::Assembler(const std::vector<Token>& tokens) : tokens_(tokens) {}
 
@@ -118,7 +120,6 @@ void Assembler::emit_u32(uint32_t v) {
 }
 void Assembler::emit_u64(uint64_t v) { for(int i=0; i<8; ++i) emit_byte((v >> (i*8)) & 0xFF); }
 
-// --- [QUAN TRỌNG] Hàm parse_instruction ĐẦY ĐỦ ---
 void Assembler::parse_instruction() {
     if (!curr_proto_) throw std::runtime_error("Instruction outside .func");
     Token op_tok = advance();
@@ -127,17 +128,16 @@ void Assembler::parse_instruction() {
     if (OP_MAP.find(op_tok.lexeme) == OP_MAP.end()) {
         throw std::runtime_error("Unknown opcode: " + std::string(op_tok.lexeme));
     }
-    OpCode op = OP_MAP[op_tok.lexeme];
+    meow::OpCode op = OP_MAP[op_tok.lexeme];
     emit_byte(static_cast<uint8_t>(op));
 
-    // [FIX] Định nghĩa lambda parse_u16 NGAY TẠI ĐÂY để bên dưới dùng được
     auto parse_u16 = [&]() {
         Token t = consume(TokenType::NUMBER_INT, "Expected u16");
         emit_u16(static_cast<uint16_t>(std::stoi(std::string(t.lexeme))));
     };
 
     switch (op) {
-        case OpCode::LOAD_INT: {
+        case meow::OpCode::LOAD_INT: {
             parse_u16(); // dst
             Token t = consume(TokenType::NUMBER_INT, "Expected int64");
             int64_t val;
@@ -145,26 +145,26 @@ void Assembler::parse_instruction() {
             emit_u64(std::bit_cast<uint64_t>(val));
             break;
         }
-        case OpCode::LOAD_FLOAT: {
+        case meow::OpCode::LOAD_FLOAT: {
             parse_u16(); // dst
             Token t = consume(TokenType::NUMBER_FLOAT, "Expected double");
             double val = std::stod(std::string(t.lexeme));
             emit_u64(std::bit_cast<uint64_t>(val));
             break;
         }
-        case OpCode::JUMP: case OpCode::SETUP_TRY: {
+        case meow::OpCode::JUMP: case meow::OpCode::SETUP_TRY: {
             if (peek().type == TokenType::IDENTIFIER) {
                 Token target = advance();
                 curr_proto_->try_patches.push_back({curr_proto_->bytecode.size(), std::string(target.lexeme)});
                 emit_u16(0xFFFF);
-                if (op == OpCode::SETUP_TRY) parse_u16(); 
+                if (op == meow::OpCode::SETUP_TRY) parse_u16(); 
             } else {
                 parse_u16();
-                if (op == OpCode::SETUP_TRY) parse_u16();
+                if (op == meow::OpCode::SETUP_TRY) parse_u16();
             }
             break;
         }
-        case OpCode::JUMP_IF_FALSE: case OpCode::JUMP_IF_TRUE: {
+        case meow::OpCode::JUMP_IF_FALSE: case meow::OpCode::JUMP_IF_TRUE: {
             parse_u16(); // reg
             if (peek().type == TokenType::IDENTIFIER) {
                 Token target = advance();
@@ -173,8 +173,8 @@ void Assembler::parse_instruction() {
             } else parse_u16();
             break;
         }
-        case OpCode::GET_PROP:
-        case OpCode::SET_PROP: {
+        case meow::OpCode::GET_PROP:
+        case meow::OpCode::SET_PROP: {
             for(int i=0; i<3; ++i) parse_u16();
             
             // Emit Polymorphic Cache Placeholder (48 bytes)
@@ -185,8 +185,7 @@ void Assembler::parse_instruction() {
             break;
         }
         
-        // [MEOW UPDATE] Cập nhật CALL với Inline Cache
-        case OpCode::CALL: {
+        case meow::OpCode::CALL: {
             for(int i=0; i<4; ++i) parse_u16(); // dst, fn, arg_start, argc
             
             // Padding cho Inline Cache (16 bytes)
@@ -195,9 +194,9 @@ void Assembler::parse_instruction() {
             break;
         }
 
-        case OpCode::CALL_VOID: {
+        case meow::OpCode::CALL_VOID: {
             for(int i=0; i<3; ++i) parse_u16(); // fn, arg_start, argc
-            emit_u64(0); emit_u64(0); // 16 bytes cache (Quan trọng!)
+            emit_u64(0); emit_u64(0); // 16 bytes cache
             break;
         }
 
@@ -209,42 +208,38 @@ void Assembler::parse_instruction() {
     }
 }
 
-int Assembler::get_arity(OpCode op) {
+int Assembler::get_arity(meow::OpCode op) {
     switch (op) {
-        case OpCode::CLOSE_UPVALUES: case OpCode::IMPORT_ALL: case OpCode::THROW: 
-        case OpCode::RETURN: 
-            return 1;
-
-        case OpCode::LOAD_NULL: case OpCode::LOAD_TRUE: case OpCode::LOAD_FALSE: 
+        case meow::OpCode::CLOSE_UPVALUES: case meow::OpCode::IMPORT_ALL: case meow::OpCode::THROW: 
+        case meow::OpCode::RETURN: case meow::OpCode::LOAD_NULL: case meow::OpCode::LOAD_TRUE: case meow::OpCode::LOAD_FALSE:
             return 1;
             
-        case OpCode::LOAD_CONST: case OpCode::MOVE: 
-        case OpCode::NEG: case OpCode::NOT: case OpCode::BIT_NOT: 
-        case OpCode::GET_UPVALUE: case OpCode::SET_UPVALUE: 
-        case OpCode::CLOSURE:
-        case OpCode::NEW_CLASS: case OpCode::NEW_INSTANCE: 
-        case OpCode::IMPORT_MODULE:
-        case OpCode::EXPORT: 
-        case OpCode::GET_KEYS: case OpCode::GET_VALUES:
-        case OpCode::GET_SUPER: 
-        case OpCode::GET_GLOBAL: case OpCode::SET_GLOBAL:
-        // case OpCode::LOAD_NULL: case OpCode::LOAD_TRUE: case OpCode::LOAD_FALSE:
+        case meow::OpCode::LOAD_CONST: case meow::OpCode::MOVE: 
+        case meow::OpCode::NEG: case meow::OpCode::NOT: case meow::OpCode::BIT_NOT: 
+        case meow::OpCode::GET_UPVALUE: case meow::OpCode::SET_UPVALUE: 
+        case meow::OpCode::CLOSURE:
+        case meow::OpCode::NEW_CLASS: case meow::OpCode::NEW_INSTANCE: 
+        case meow::OpCode::IMPORT_MODULE:
+        case meow::OpCode::EXPORT: 
+        case meow::OpCode::GET_KEYS: case meow::OpCode::GET_VALUES:
+        case meow::OpCode::GET_SUPER: 
+        case meow::OpCode::GET_GLOBAL: case meow::OpCode::SET_GLOBAL:
             return 2;
 
-        case OpCode::GET_EXPORT: 
-        case OpCode::ADD: case OpCode::SUB: case OpCode::MUL: case OpCode::DIV:
-        case OpCode::MOD: case OpCode::POW: case OpCode::EQ: case OpCode::NEQ:
-        case OpCode::GT: case OpCode::GE: case OpCode::LT: case OpCode::LE:
-        case OpCode::BIT_AND: case OpCode::BIT_OR: case OpCode::BIT_XOR:
-        case OpCode::LSHIFT: case OpCode::RSHIFT: 
-        case OpCode::NEW_ARRAY: case OpCode::NEW_HASH: 
-        case OpCode::GET_INDEX: case OpCode::SET_INDEX: 
-        case OpCode::GET_PROP: case OpCode::SET_PROP:
-        case OpCode::SET_METHOD: case OpCode::CALL_VOID:
-        case OpCode::INHERIT:
+        case meow::OpCode::GET_EXPORT: 
+        case meow::OpCode::ADD: case meow::OpCode::SUB: case meow::OpCode::MUL: case meow::OpCode::DIV:
+        case meow::OpCode::MOD: case meow::OpCode::POW: case meow::OpCode::EQ: case meow::OpCode::NEQ:
+        case meow::OpCode::GT: case meow::OpCode::GE: case meow::OpCode::LT: case meow::OpCode::LE:
+        case meow::OpCode::BIT_AND: case meow::OpCode::BIT_OR: case meow::OpCode::BIT_XOR:
+        case meow::OpCode::LSHIFT: case meow::OpCode::RSHIFT: 
+        case meow::OpCode::NEW_ARRAY: case meow::OpCode::NEW_HASH: 
+        case meow::OpCode::GET_INDEX: case meow::OpCode::SET_INDEX: 
+        case meow::OpCode::GET_PROP: case meow::OpCode::SET_PROP:
+        case meow::OpCode::SET_METHOD: case meow::OpCode::CALL_VOID:
+        case meow::OpCode::INHERIT:
             return 3;
             
-        case OpCode::CALL: return 4;
+        case meow::OpCode::CALL: return 4;
         default: return 0;
     }
 }
@@ -275,15 +270,40 @@ void Assembler::patch_labels() {
     }
 }
 
-void Assembler::write_binary(const std::string& filename) {
-    std::ofstream out(filename, std::ios::binary);
-    if (!out) throw std::runtime_error("Cannot open output file");
+std::string Assembler::parse_string_literal(std::string_view sv) {
+    if (sv.length() >= 2) sv = sv.substr(1, sv.length() - 2);
+    std::string res; res.reserve(sv.length());
+    for (size_t i = 0; i < sv.length(); ++i) {
+        if (sv[i] == '\\' && i + 1 < sv.length()) {
+            char next = sv[++i];
+            if (next == 'n') res += '\n'; else if (next == 't') res += '\t';
+            else if (next == '\\') res += '\\'; else if (next == '"') res += '"';
+            else res += next;
+        } else res += sv[i];
+    }
+    return res;
+}
 
-    auto write_u8 = [&](uint8_t v) { out.write((char*)&v, 1); };
-    auto write_u32 = [&](uint32_t v) { out.write((char*)&v, 4); };
-    auto write_u64 = [&](uint64_t v) { out.write((char*)&v, 8); };
-    auto write_f64 = [&](double v) { uint64_t bit; std::memcpy(&bit, &v, 8); out.write((char*)&bit, 8); };
-    auto write_str = [&](const std::string& s) { write_u32(s.size()); out.write(s.data(), s.size()); };
+// --- [NEW] Serialize Binary (Lưu vào RAM) ---
+std::vector<uint8_t> Assembler::serialize_binary() {
+    std::vector<uint8_t> buffer;
+    buffer.reserve(4096); 
+
+    auto write_u8 = [&](uint8_t v) { buffer.push_back(v); };
+    auto write_u32 = [&](uint32_t v) { 
+        buffer.push_back(v & 0xFF); buffer.push_back((v >> 8) & 0xFF);
+        buffer.push_back((v >> 16) & 0xFF); buffer.push_back((v >> 24) & 0xFF);
+    };
+    auto write_u64 = [&](uint64_t v) { 
+        for(int i=0; i<8; ++i) buffer.push_back((v >> (i*8)) & 0xFF); 
+    };
+    auto write_f64 = [&](double v) { 
+        uint64_t bit; std::memcpy(&bit, &v, 8); write_u64(bit); 
+    };
+    auto write_str = [&](const std::string& s) { 
+        write_u32(s.size()); 
+        buffer.insert(buffer.end(), s.begin(), s.end()); 
+    };
 
     write_u32(0x4D454F57); // Magic
     write_u32(1);          // Version
@@ -291,7 +311,7 @@ void Assembler::write_binary(const std::string& filename) {
     if (proto_name_map_.count("main")) write_u32(proto_name_map_["main"]);
     else write_u32(0);
 
-    write_u32(protos_.size()); // Proto Count
+    write_u32(protos_.size()); 
 
     for (const auto& p : protos_) {
         write_u32(p.num_regs);
@@ -300,8 +320,8 @@ void Assembler::write_binary(const std::string& filename) {
         std::vector<Constant> write_consts = p.constants;
         write_consts.push_back({ConstType::STRING_T, 0, 0, p.name, 0});
         
-        write_u32(write_consts.size() - 1); // Name index
-        write_u32(write_consts.size());     // Pool size
+        write_u32(write_consts.size() - 1); 
+        write_u32(write_consts.size());     
 
         for (const auto& c : write_consts) {
             switch (c.type) {
@@ -318,31 +338,26 @@ void Assembler::write_binary(const std::string& filename) {
             write_u32(u.index);
         }
         write_u32(p.bytecode.size());
-        out.write((char*)p.bytecode.data(), p.bytecode.size());
+        buffer.insert(buffer.end(), p.bytecode.begin(), p.bytecode.end());
     }
-    out.close();
-    // std::cout << "Assembled: " << filename << "\n";
+    return buffer;
 }
 
-std::string Assembler::parse_string_literal(std::string_view sv) {
-    if (sv.length() >= 2) sv = sv.substr(1, sv.length() - 2);
-    std::string res; res.reserve(sv.length());
-    for (size_t i = 0; i < sv.length(); ++i) {
-        if (sv[i] == '\\' && i + 1 < sv.length()) {
-            char next = sv[++i];
-            if (next == 'n') res += '\n'; else if (next == 't') res += '\t';
-            else if (next == '\\') res += '\\'; else if (next == '"') res += '"';
-            else res += next;
-        } else res += sv[i];
-    }
-    return res;
-}
-
-void Assembler::assemble(const std::string& output_file) {
+std::vector<uint8_t> Assembler::assemble() {
     while (!is_at_end()) {
         parse_statement();
     }
     link_proto_refs();
     patch_labels();
-    write_binary(output_file);
+    return serialize_binary();
 }
+
+void Assembler::assemble_to_file(const std::string& output_file) {
+    auto buffer = assemble();
+    std::ofstream out(output_file, std::ios::binary);
+    if (!out) throw std::runtime_error("Cannot open output file");
+    out.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
+    out.close();
+}
+
+} // namespace meow::masm

@@ -2,6 +2,8 @@
 #include "common.h"
 #include <vector>
 
+namespace meow::masm {
+
 class Lexer {
     std::string_view src_;
     size_t pos_ = 0;
@@ -21,3 +23,5 @@ private:
     Token scan_number();
     Token scan_identifier();
 };
+
+} // namespace meow::masm
