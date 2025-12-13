@@ -1,6 +1,5 @@
 #include <meow/machine.h>
 #include "pch.h"
-// #include "memory/mark_sweep_gc.h"
 #include "memory/generational_gc.h"
 #include <meow/memory/memory_manager.h>
 #include "module/module_manager.h"
@@ -17,14 +16,11 @@ Machine::Machine(const std::string& entry_point_directory, const std::string& en
     }
 
     context_ = std::make_unique<ExecutionContext>();
-    // auto gc = std::make_unique<MarkSweepGC>(context_.get());
     auto gc = std::make_unique<GenerationalGC>(context_.get());
     heap_ = std::make_unique<MemoryManager>(std::move(gc));
     mod_manager_ = std::make_unique<ModuleManager>(heap_.get(), this);
     
     load_builtins();
-    
-    // std::println("Size of Value is {} bytes", sizeof(Value));
 }
 
 Machine::~Machine() noexcept {}
@@ -32,6 +28,9 @@ Machine::~Machine() noexcept {}
 void Machine::interpret() noexcept {
     if (prepare()) {
         run();
+        if (has_error()) {
+            std::println(stderr, "VM Runtime Error: {}", get_error_message());
+        }
     } else {
         if (has_error()) {
             std::println(stderr, "VM Init Error: {}", get_error_message());
@@ -73,11 +72,10 @@ bool Machine::prepare() noexcept {
             return false;
         }
 
-        // [FIX] Bỏ tham số 'main_module'
         *context_->frame_ptr_ = CallFrame(
             main_func, 
-            context_->stack_, // R0 bắt đầu từ đáy stack
-            nullptr,          // Không cần trả về
+            context_->stack_,
+            nullptr,
             main_proto->get_chunk().get_code()
         );
 

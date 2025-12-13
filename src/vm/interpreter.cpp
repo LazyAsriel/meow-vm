@@ -118,7 +118,10 @@ namespace {
             reg(IMPORT_MODULE); reg(EXPORT); reg(GET_EXPORT); reg(IMPORT_ALL);
 
             reg(ADD_B); reg(SUB_B); reg(MUL_B); reg(DIV_B); reg(MOD_B);
-            reg(LT_B);
+            reg(EQ_B); reg(NEQ_B); reg(GT_B); reg(GE_B); reg(LT_B); reg(LE_B);
+            
+            reg(JUMP_IF_TRUE_B); 
+            reg(JUMP_IF_FALSE_B);
             
             reg(JUMP_IF_TRUE_B); 
             reg(JUMP_IF_FALSE_B);

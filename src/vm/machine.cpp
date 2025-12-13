@@ -30,7 +30,6 @@ void Machine::execute(function_t func) {
     context_->stack_top_ += num_regs; 
     context_->current_frame_ = context_->frame_ptr_;
 
-    // Khởi tạo state trực tiếp trong member function -> OK
     VMState state {
         *this,           
         *context_,       
@@ -53,7 +52,6 @@ void Machine::execute(function_t func) {
 void Machine::run() noexcept {
     const uint8_t* initial_code = context_->frame_ptr_->function_->get_proto()->get_chunk().get_code();
     
-    // Khởi tạo state trực tiếp -> OK
     VMState state {
         *this,           
         *context_,       

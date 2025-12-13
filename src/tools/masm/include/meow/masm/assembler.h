@@ -17,10 +17,7 @@ class Assembler {
 public:
     explicit Assembler(const std::vector<Token>& tokens);
 
-    // [NEW] API chính: Trả về buffer bytecode trong bộ nhớ
     std::vector<uint8_t> assemble();
-
-    // [OLD] Helper: Ghi thẳng ra file (dùng cho tool masm cũ)
     void assemble_to_file(const std::string& output_file);
 
 private:
@@ -53,8 +50,6 @@ private:
     // Finalize
     void link_proto_refs();
     void patch_labels();
-    
-    // [NEW] Sinh binary ra vector
     std::vector<uint8_t> serialize_binary();
 };
 

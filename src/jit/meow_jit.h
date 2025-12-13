@@ -12,7 +12,6 @@
 
 #include <meow/value.h>
 #include <meow/compiler/op_codes.h>
-// 👇 Include chuẩn, không trick
 #include "meow_nanbox_layout.h" 
 
 namespace meow {

@@ -4,11 +4,10 @@
 #include <vector>
 #include <unordered_map>
 #include <string_view>
-#include <meow/compiler/op_codes.h> // Dùng chung OpCode với VM
+#include <meow/compiler/op_codes.h>
 
 namespace meow::masm {
 
-// Init map ánh xạ string -> OpCode
 extern std::unordered_map<std::string_view, meow::OpCode> OP_MAP;
 void init_op_map();
 
