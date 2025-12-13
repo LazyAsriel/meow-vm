@@ -39,28 +39,24 @@ size_t GenerationalGC::collect() noexcept {
 // --- Logic Dọn Dẹp Young Gen (Minor GC) ---
 void GenerationalGC::sweep_young() {
     std::vector<MeowObject*> survivors;
-    survivors.reserve(young_gen_.size() / 2); // Dự đoán 50% sống sót
+    survivors.reserve(young_gen_.size() / 2);
 
     for (auto obj : young_gen_) {
         if (obj->is_marked()) {
-            // Sống sót!
-            // RESET MARK để chuẩn bị cho lần GC sau
             obj->unmark();
-            
-            // Promotion: Sống qua đợt này thì cho lên Old Gen (hoặc giữ lại Young tùy chính sách)
-            // Ở đây ta cho lên Old Gen luôn để Young Gen trống trải đón lính mới.
             old_gen_.push_back(obj);
         } else {
-            // Chết -> Giải phóng
             delete obj;
         }
     }
     
-    // Young Gen sạch bách
-    young_gen_.clear(); 
+    young_gen_.clear();
     
-    // (Lưu ý: Nếu muốn giữ lại Young Gen vài vòng thì cần thêm biến 'age' trong object,
-    // nhưng simple GenerationalGC thì promotion luôn là ổn nhất).
+    // 👇 [THÊM ĐOẠN NÀY] Rất quan trọng! 
+    // Phải bỏ đánh dấu Old Gen, nếu không lần GC sau nó sẽ bị bỏ qua -> Crash
+    for (auto obj : old_gen_) {
+        obj->unmark();
+    }
 }
 
 // --- Logic Dọn Dẹp Toàn Bộ (Major GC) ---

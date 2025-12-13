@@ -51,9 +51,20 @@ struct ExecutionContext {
     }
 
     inline void trace(GCVisitor& visitor) const noexcept {
+        // 1. Trace Operand Stack
         for (const Value* slot = stack_; slot < stack_top_; ++slot) {
             visitor.visit_value(*slot);
         }
+        
+        // 2. [FIX] Trace Call Stack
+        // Iterate from the first frame up to the current frame_ptr_
+        for (const CallFrame* frame = call_stack_; frame <= frame_ptr_; ++frame) {
+            if (frame->function_) {
+                visitor.visit_object(frame->function_);
+            }
+        }
+
+        // 3. Trace Open Upvalues
         for (const auto& upvalue : open_upvalues_) {
             visitor.visit_object(upvalue);
         }
