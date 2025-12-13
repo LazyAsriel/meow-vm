@@ -1,4 +1,4 @@
-add_library(masm_core STATIC
+add_library(masm_core OBJECT
     src/assembler.cpp
     src/lexer.cpp
 )
