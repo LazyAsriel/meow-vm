@@ -325,4 +325,48 @@ namespace meow::handlers {
         return do_call<true>(ip, regs, constants, state);
     }
 
+    [[gnu::always_inline]] 
+    static const uint8_t* impl_TAIL_CALL(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+        uint16_t dst = read_u16(ip); (void)dst;
+        uint16_t fn_reg = read_u16(ip);
+        uint16_t arg_start = read_u16(ip);
+        uint16_t argc = read_u16(ip);
+        
+        ip += 16;
+
+        Value& callee = regs[fn_reg];
+
+        if (!callee.is_function()) [[unlikely]] {
+            state->error("TAIL_CALL: Chỉ hỗ trợ hàm người dùng (Meow Function).");
+            return nullptr;
+        }
+
+        function_t closure = callee.as_function();
+        proto_t proto = closure->get_proto();
+        size_t num_params = proto->get_num_registers();
+
+        size_t current_base_idx = state->ctx.current_regs_ - state->ctx.stack_;
+        meow::close_upvalues(state->ctx, current_base_idx);
+
+        Value* frame_base = state->ctx.current_regs_;
+        
+        for (size_t i = 0; i < argc && i < num_params; ++i) {
+            frame_base[i] = regs[arg_start + i];
+        }
+        
+        for (size_t i = argc; i < num_params; ++i) {
+            frame_base[i] = Value(null_t{});
+        }
+
+        CallFrame* current_frame = state->ctx.frame_ptr_;
+        current_frame->function_ = closure;
+        current_frame->ip_ = proto->get_chunk().get_code();
+        
+        state->ctx.stack_top_ = frame_base + num_params;
+
+        state->update_pointers();
+
+        return current_frame->ip_;
+    }
+
 } // namespace meow::handlers

@@ -30,9 +30,8 @@ public:
     }
 private:
     std::unordered_map<string_t, module_t> module_cache_;
-    string_t entry_path_;
-
     MemoryManager* heap_;
     Machine* vm_;
+    string_t entry_path_;
 };
 }

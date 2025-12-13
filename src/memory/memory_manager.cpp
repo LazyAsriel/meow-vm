@@ -12,11 +12,12 @@ MemoryManager::~MemoryManager() noexcept = default;
 string_t MemoryManager::new_string(std::string_view str_view) noexcept {
     auto it = string_pool_.find(str_view);
     if (it != string_pool_.end()) {
-        return it->second;
+        return *it;
     }
+    
     std::string s(str_view);
-    string_t new_obj = new_object<ObjString>(s);
-    string_pool_.emplace(std::move(s), new_obj);
+    string_t new_obj = new_object<ObjString>(std::move(s));
+    string_pool_.insert(new_obj);
     return new_obj;
 }
 

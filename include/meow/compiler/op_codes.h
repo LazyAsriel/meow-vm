@@ -29,6 +29,8 @@ enum class OpCode : unsigned char {
     THROW, SETUP_TRY, POP_TRY,
     IMPORT_MODULE, EXPORT, GET_EXPORT, IMPORT_ALL,
 
+    TAIL_CALL,
+
     ADD_B, SUB_B, MUL_B, DIV_B, MOD_B,
     EQ_B, NEQ_B, GT_B, GE_B, LT_B, LE_B,
     JUMP_IF_TRUE_B, JUMP_IF_FALSE_B,

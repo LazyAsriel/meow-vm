@@ -185,7 +185,8 @@ void Assembler::parse_instruction() {
             break;
         }
         
-        case meow::OpCode::CALL: {
+        case meow::OpCode::CALL:
+        case meow::OpCode::TAIL_CALL: {
             for(int i=0; i<4; ++i) parse_u16(); // dst, fn, arg_start, argc
             
             // Padding cho Inline Cache (16 bytes)
@@ -239,7 +240,9 @@ int Assembler::get_arity(meow::OpCode op) {
         case meow::OpCode::INHERIT:
             return 3;
             
-        case meow::OpCode::CALL: return 4;
+        case meow::OpCode::CALL:
+        case meow::OpCode::TAIL_CALL:
+            return 4;
         default: return 0;
     }
 }

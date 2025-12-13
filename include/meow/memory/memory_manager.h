@@ -54,17 +54,24 @@ public:
         object_allocated_ = gc_->collect();
     }
 private:
-    struct StringHash {
+    struct StringPoolHash {
         using is_transparent = void;
         size_t operator()(const char* txt) const { return std::hash<std::string_view>{}(txt); }
         size_t operator()(std::string_view txt) const { return std::hash<std::string_view>{}(txt); }
-        size_t operator()(const std::string& txt) const { return std::hash<std::string>{}(txt); }
+        size_t operator()(string_t s) const { return s->hash(); }
+    };
+
+    struct StringPoolEq {
+        using is_transparent = void;
+        bool operator()(string_t a, string_t b) const { return a == b; }
+        bool operator()(string_t a, std::string_view b) const { return std::string_view(a->c_str(), a->size()) == b; }
+        bool operator()(std::string_view a, string_t b) const { return a == std::string_view(b->c_str(), b->size()); }
     };
 
     std::unique_ptr<GarbageCollector> gc_;
-    std::unordered_map<std::string, string_t, StringHash, std::equal_to<>> string_pool_;
+    std::unordered_set<string_t, StringPoolHash, StringPoolEq> string_pool_;
     
-    Shape* empty_shape_ = nullptr; // [FIX] Cache empty shape
+    Shape* empty_shape_ = nullptr;
 
     size_t gc_threshold_;
     size_t object_allocated_;

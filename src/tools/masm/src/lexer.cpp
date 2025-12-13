@@ -1,33 +1,56 @@
 #include <meow/masm/lexer.h>
+#include <meow/compiler/op_codes.h> // Cần để lấy OpCode enum
 #include <cctype>
+#include <string_view>
+#include <utility> // std::index_sequence
 
 namespace meow::masm {
 
 std::unordered_map<std::string_view, meow::OpCode> OP_MAP;
 
+// ============================================================================
+// MAGIC ENUM (Embedded Version)
+// Tự động map OpCode::ADD -> chuỗi "ADD" ngay tại thời điểm biên dịch
+// ============================================================================
+namespace {
+    template <auto V>
+    consteval std::string_view get_raw_name() {
+#if defined(__clang__) || defined(__GNUC__)
+        return __PRETTY_FUNCTION__;
+#elif defined(_MSC_VER)
+        return __FUNCSIG__;
+#else
+        return "";
+#endif
+    }
+
+    template <auto V>
+    consteval std::string_view get_enum_name() {
+        constexpr std::string_view raw = get_raw_name<V>();
+        
+#if defined(__clang__) || defined(__GNUC__)
+        constexpr auto end_pos = raw.size() - 1;
+        constexpr auto last_colon = raw.find_last_of(':', end_pos);
+        if (last_colon == std::string_view::npos) return ""; 
+        return raw.substr(last_colon + 1, end_pos - (last_colon + 1));
+#else
+        return "UNKNOWN";
+#endif
+    }
+    template <size_t... Is>
+    void build_map_impl(std::index_sequence<Is...>) {
+        (..., (OP_MAP[get_enum_name<static_cast<meow::OpCode>(Is)>()] = static_cast<meow::OpCode>(Is)));
+    }
+}
+
 void init_op_map() {
     if (!OP_MAP.empty()) return;
-    #define O(x) OP_MAP[#x] = meow::OpCode::x;
-    
-    O(LOAD_CONST) O(LOAD_NULL) O(LOAD_TRUE) O(LOAD_FALSE) O(LOAD_INT) O(LOAD_FLOAT) O(MOVE)
-    O(ADD) O(SUB) O(MUL) O(DIV) O(MOD) O(POW)
-    O(EQ) O(NEQ) O(GT) O(GE) O(LT) O(LE)
-    O(NEG) O(NOT)
-    O(GET_GLOBAL) O(SET_GLOBAL) O(GET_UPVALUE) O(SET_UPVALUE) O(CLOSURE) O(CLOSE_UPVALUES)
-    O(JUMP) O(JUMP_IF_FALSE) O(JUMP_IF_TRUE)
-    O(CALL) O(CALL_VOID) O(RETURN) O(HALT)
-    O(NEW_ARRAY) O(NEW_HASH) O(GET_INDEX) O(SET_INDEX) O(GET_KEYS) O(GET_VALUES)
-    O(NEW_CLASS) O(NEW_INSTANCE) O(GET_PROP) O(SET_PROP) O(SET_METHOD) O(INHERIT) O(GET_SUPER)
-    O(BIT_AND) O(BIT_OR) O(BIT_XOR) O(BIT_NOT) O(LSHIFT) O(RSHIFT)
-    O(THROW) O(SETUP_TRY) O(POP_TRY)
-    O(IMPORT_MODULE) O(EXPORT) O(GET_EXPORT) O(IMPORT_ALL)
-    
-    // Bytecode optimized versions
-    O(ADD_B) O(SUB_B) O(MUL_B) O(DIV_B) O(MOD_B)
-    O(LT_B)
-    O(JUMP_IF_TRUE_B) O(JUMP_IF_FALSE_B)
 
-    #undef O
+    constexpr size_t Count = static_cast<size_t>(meow::OpCode::TOTAL_OPCODES);
+    build_map_impl(std::make_index_sequence<Count>{});
+
+    OP_MAP.erase("__BEGIN_OPERATOR__");
+    OP_MAP.erase("__END_OPERATOR__");
 }
 
 std::vector<Token> Lexer::tokenize() {
@@ -115,7 +138,9 @@ Token Lexer::scan_identifier() {
         return {TokenType::LABEL_DEF, src_.substr(start, pos_ - start - 1), line_};
     }
     std::string_view text = src_.substr(start, pos_ - start);
+    
     if (OP_MAP.count(text)) return {TokenType::OPCODE, text, line_};
+    
     return {TokenType::IDENTIFIER, text, line_};
 }
 
