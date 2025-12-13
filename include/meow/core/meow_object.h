@@ -1,7 +1,16 @@
 #pragma once
 
+#include <cstdint>
+
 namespace meow {
 struct GCVisitor;
+
+// [NEW] Trạng thái GC dùng chung cho mọi thuật toán
+enum class GCState : uint8_t {
+    UNMARKED = 0, // Trắng (White) / Young (Mới tạo)
+    MARKED   = 1, // Đen (Black) / Young (Còn sống)
+    OLD      = 2  // Già (Old Gen)
+};
 
 enum class ObjectType : uint8_t {
     ARRAY = 6,
@@ -19,7 +28,9 @@ enum class ObjectType : uint8_t {
 
 struct MeowObject {
     const ObjectType type;
-    bool marked = false; 
+    
+    // [NEW] Thay thế bool marked bằng enum đa năng
+    GCState gc_state = GCState::UNMARKED; 
 
     explicit MeowObject(ObjectType type_tag) noexcept : type(type_tag) {}
     
@@ -28,10 +39,15 @@ struct MeowObject {
 
     inline ObjectType get_type() const noexcept { return type; }
     
-    // GC Helper
-    inline bool is_marked() const noexcept { return marked; }
-    inline void mark() noexcept { marked = true; }
-    inline void unmark() noexcept { marked = false; }
+    inline bool is_marked() const noexcept { return gc_state != GCState::UNMARKED; }
+    
+    inline void mark() noexcept { 
+        if (gc_state == GCState::UNMARKED) gc_state = GCState::MARKED; 
+    }
+    
+    inline void unmark() noexcept { 
+        if (gc_state != GCState::OLD) gc_state = GCState::UNMARKED; 
+    }
 };
 
 template <ObjectType type_tag>

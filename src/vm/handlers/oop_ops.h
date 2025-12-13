@@ -153,24 +153,33 @@ inline static void update_inline_cache(InlineCache* ic, const Shape* shape, uint
         instance_t inst = obj.as_instance();
         Shape* current_shape = inst->get_shape();
 
-        // 1. FAST PATH
+        // 1. FAST PATH: Inline Cache Hit
         for (int i = 0; i < IC_CAPACITY; ++i) {
             if (ic->entries[i].shape == current_shape) {
+                // Gán giá trị siêu tốc
                 inst->set_field_at(ic->entries[i].offset, val);
+                
+                // 🔥 [NEW] Write Barrier: Bảo vệ Old Gen
+                // (Nếu inst là Già, val là Trẻ -> Ghi nhớ lại)
+                state->heap.write_barrier(inst, val);
+                
                 return ip;
             }
         }
 
-        // 2. SLOW PATH
+        // 2. SLOW PATH: Cache Miss
         string_t name = constants[name_idx].as_string();
         int offset = current_shape->get_offset(name);
 
         if (offset != -1) {
+            // Case A: Field đã tồn tại -> Update Cache & Value
             update_inline_cache(ic, current_shape, static_cast<uint32_t>(offset));
             inst->set_field_at(offset, val);
+            
+            // 🔥 [NEW] Write Barrier
+            state->heap.write_barrier(inst, val);
         } else {
-            // Transition logic (Tạo field mới)
-            // Lưu ý: Không cache transition ở đây vì shape sẽ thay đổi ngay sau đó.
+            // Case B: Field mới -> Transition (Đổi Shape)
             Shape* next_shape = current_shape->get_transition(name);
             if (next_shape == nullptr) {
                 next_shape = current_shape->add_transition(name, &state->heap);
@@ -178,6 +187,9 @@ inline static void update_inline_cache(InlineCache* ic, const Shape* shape, uint
 
             inst->set_shape(next_shape);
             inst->get_fields_raw().push_back(val);
+            
+            // 🔥 [NEW] Write Barrier
+            state->heap.write_barrier(inst, val);
         }
     } else {
         state->error("SET_PROP: Chỉ có thể gán thuộc tính cho Instance.");

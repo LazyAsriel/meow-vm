@@ -169,7 +169,9 @@ namespace meow::handlers {
         if (static_cast<size_t>(idx) >= arr->size()) {
             arr->resize(idx + 1);
         }
+        
         arr->set(idx, val);
+        state->heap.write_barrier(src.as_object(), val);
     }
     else if (src.is_hash_table()) {
         if (!key.is_string()) {
@@ -177,6 +179,8 @@ namespace meow::handlers {
             return impl_PANIC(ip, regs, constants, state);
         }
         src.as_hash_table()->set(key.as_string(), val);
+        
+        state->heap.write_barrier(src.as_object(), val);
     }
     else {
         state->error("Không thể gán index [] trên kiểu dữ liệu này.");
@@ -184,7 +188,6 @@ namespace meow::handlers {
     }
     return ip;
 }
-
 [[gnu::always_inline]] static const uint8_t* impl_GET_KEYS(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t src_reg = read_u16(ip);

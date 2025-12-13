@@ -53,6 +53,13 @@ public:
     inline void collect() noexcept {
         object_allocated_ = gc_->collect();
     }
+
+    [[gnu::always_inline]]
+    inline void write_barrier(MeowObject* owner, Value value) noexcept {
+        if (gc_enabled_) {
+            gc_->write_barrier(owner, value);
+        }
+    }
 private:
     struct StringPoolHash {
         using is_transparent = void;
