@@ -325,50 +325,56 @@ namespace meow::handlers {
         return do_call<true>(ip, regs, constants, state);
     }
 
-    [[gnu::always_inline]] 
-    static const uint8_t* impl_TAIL_CALL(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
-        uint16_t dst = read_u16(ip); (void)dst;
-        uint16_t fn_reg = read_u16(ip);
-        uint16_t arg_start = read_u16(ip);
-        uint16_t argc = read_u16(ip);
-        
-        ip += 16;
+[[gnu::always_inline]] 
+static const uint8_t* impl_TAIL_CALL(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+    // 1. Decode (Inline)
+    uint16_t dst = read_u16(ip); (void)dst;
+    uint16_t fn_reg = read_u16(ip);
+    uint16_t arg_start = read_u16(ip);
+    uint16_t argc = read_u16(ip);
+    
+    ip += 16; // Skip Cache
 
-        Value& callee = regs[fn_reg];
-
-        std::println("Tail calling with {}", to_string(callee));
-
-        if (!callee.is_function()) {
-            state->error("TAIL_CALL: Chỉ hỗ trợ hàm người dùng (Meow Function).");
-            return nullptr;
-        }
-
-        function_t closure = callee.as_function();
-        proto_t proto = closure->get_proto();
-        size_t num_params = proto->get_num_registers();
-
-        size_t current_base_idx = state->ctx.current_regs_ - state->ctx.stack_;
-        meow::close_upvalues(state->ctx, current_base_idx);
-
-        Value* frame_base = state->ctx.current_regs_;
-        
-        for (size_t i = 0; i < argc && i < num_params; ++i) {
-            frame_base[i] = regs[arg_start + i];
-        }
-        
-        for (size_t i = argc; i < num_params; ++i) {
-            frame_base[i] = Value(null_t{});
-        }
-
-        CallFrame* current_frame = state->ctx.frame_ptr_;
-        current_frame->function_ = closure;
-        current_frame->ip_ = proto->get_chunk().get_code();
-        
-        state->ctx.stack_top_ = frame_base + num_params;
-
-        state->update_pointers();
-
-        return current_frame->ip_;
+    // 2. Check Function (Unlikely fail)
+    Value& callee = regs[fn_reg];
+    if (!callee.is_function()) [[unlikely]] {
+        state->error("TAIL_CALL: Target không phải là Function.");
+        return nullptr;
     }
+
+    function_t closure = callee.as_function();
+    proto_t proto = closure->get_proto();
+    size_t num_params = proto->get_num_registers();
+
+    // 3. Close Upvalues (Bắt buộc)
+    size_t current_base_idx = regs - state->ctx.stack_;
+    meow::close_upvalues(state->ctx, current_base_idx);
+
+    // 4. [SPEED OPTIMIZATION] DIRECT COPY
+    // Vì arg_start (src) luôn >= 0 (dst), ta copy xuôi chiều trực tiếp.
+    // Không cần mảng tạm, không cần malloc, không cần check điều kiện.
+    size_t copy_count = (argc < num_params) ? argc : num_params;
+
+    for (size_t i = 0; i < copy_count; ++i) {
+        regs[i] = regs[arg_start + i]; // Overwrite trực tiếp an toàn
+    }
+
+    // 5. Clean up (Xóa rác ở các thanh ghi thừa)
+    // Rất quan trọng để logic function mới không bị sai do rác cũ
+    for (size_t i = copy_count; i < num_params; ++i) {
+        regs[i] = Value(null_t{});
+    }
+
+    // 6. Update Frame (Reuse frame cũ, giữ nguyên Return Address)
+    CallFrame* current_frame = state->ctx.frame_ptr_;
+    current_frame->function_ = closure;
+    
+    // 7. Update VM State
+    state->ctx.stack_top_ = regs + num_params;
+    state->update_pointers();
+
+    // 8. Jump
+    return proto->get_chunk().get_code();
+}
 
 } // namespace meow::handlers
