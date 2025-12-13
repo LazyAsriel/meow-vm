@@ -1,19 +1,19 @@
 ; ==========================================
-; MEOW C COMPILER (Bootstrap Stage 1 - v0.2)
-; Tính năng: Arithmetic (+, -)
-; Cú pháp: return 10 + 20 - 5;
+; MEOW C COMPILER (Bootstrap Stage 1 - v0.3)
+; Update: Hỗ trợ nhân (*), Comments (#), và tối ưu Lexer
+; Cú pháp: return 10 * 5 + 2 - 3;
 ; ==========================================
 
 section .bss
-    input_buf   resb 10240
+    input_buf   resb 20480      ; Tăng buffer lên 20KB
     input_end   resq 1
-    output_buf  resb 10240
+    output_buf  resb 20480
     output_ptr  resq 1
     token_buf   resb 256
     
     ; --- BIẾN TRẠNG THÁI (STATE) ---
-    is_first_num resb 1     ; 1 = Số đầu tiên (mov), 0 = Số sau (add/sub)
-    pending_op   resb 1     ; Lưu dấu '+' hoặc '-' đang chờ
+    is_first_num resb 1     ; 1 = Số đầu (MOV), 0 = Số sau (ADD/SUB/IMUL)
+    pending_op   resb 1     ; Lưu dấu (+, -, *) đang chờ
 
 section .data
     ; ASM Templates
@@ -24,15 +24,16 @@ section .data
     asm_mov_rdi db "    mov rdi, ", 0
     asm_add_rdi db "    add rdi, ", 0
     asm_sub_rdi db "    sub rdi, ", 0
+    asm_mul_rdi db "    imul rdi, ", 0  ; <--- [NEW] Template cho phép nhân
     newline     db 0xA, 0
 
     kw_return   db "return", 0
-    msg_prompt  db "MeowC v0.2> ", 0
+    msg_prompt  db "MeowC v0.3 (Supports +, -, *)> ", 0 
 
 section .text
     global _start
 
-; --- Helper: Copy string to output ---
+; --- Helper: Copy string to output buffer ---
 emit:
     push rsi
     push rbx
@@ -56,7 +57,7 @@ _start:
     mov rax, 1
     mov rdi, 2
     mov rsi, msg_prompt
-    mov rdx, 12
+    mov rdx, 31
     syscall
 
     mov r14, output_buf
@@ -69,7 +70,7 @@ _start:
     mov rax, 0
     mov rdi, 0
     mov rsi, input_buf
-    mov rdx, 10240
+    mov rdx, 20480
     syscall
     
     cmp rax, 0
@@ -79,7 +80,6 @@ _start:
     mov [input_end], r12
     add [input_end], rax
 
-    ; Mặc định chưa có toán tử nào
     mov byte [pending_op], 0
 
 lexer_loop:
@@ -88,23 +88,26 @@ lexer_loop:
 
     movzx rax, byte [r12]
     
-    ; --- XỬ LÝ KÝ TỰ ---
+    ; --- XỬ LÝ KÝ TỰ ĐẶC BIỆT ---
+    cmp al, '#'                 ; <--- [NEW] Bỏ qua comment
+    je skip_comment
+
     cmp al, ' '
     je next_char
-    cmp al, 0xA
+    cmp al, 0x9                 ; Tab
+    je next_char
+    cmp al, 0xA                 ; Newline
     je next_char
     cmp al, ';'
-    je next_char
-    cmp al, '{'
     je next_char
     
     cmp al, '+'
     je found_plus
     cmp al, '-'
     je found_minus
-    cmp al, '}'
-    je found_brace_close
-
+    cmp al, '*'                 ; <--- [NEW] Phát hiện dấu nhân
+    je found_star
+    
     cmp al, '0'
     jl check_alpha
     cmp al, '9'
@@ -122,6 +125,16 @@ next_char:
     inc r12
     jmp lexer_loop
 
+; --- XỬ LÝ COMMENT ---
+skip_comment:
+    inc r12
+    cmp r12, [input_end]
+    jge done_compiling
+    movzx rax, byte [r12]
+    cmp al, 0xA                 ; Tìm đến hết dòng
+    je next_char
+    jmp skip_comment
+
 ; --- XỬ LÝ TOÁN TỬ ---
 found_plus:
     mov byte [pending_op], '+'
@@ -130,6 +143,11 @@ found_plus:
 
 found_minus:
     mov byte [pending_op], '-'
+    inc r12
+    jmp lexer_loop
+
+found_star:                     ; <--- [NEW] Handler cho dấu *
+    mov byte [pending_op], '*'
     inc r12
     jmp lexer_loop
 
@@ -160,15 +178,14 @@ parse_word:
     jmp lexer_loop
 
 found_return:
-    ; Reset trạng thái cho biểu thức mới
     mov byte [is_first_num], 1
-    mov byte [pending_op], 0    ; Clear old ops
+    mov byte [pending_op], 0
     
-    mov rdi, asm_exit           ; "mov rax, 60"
+    mov rdi, asm_exit
     call emit
     jmp lexer_loop
 
-; --- XỬ LÝ SỐ & SINH CODE TÍNH TOÁN ---
+; --- XỬ LÝ SỐ & SINH CODE ---
 parse_number:
     mov rdi, token_buf
     mov r13, r12
@@ -188,16 +205,16 @@ parse_number:
 
     ; -- LOGIC SINH CODE --
     cmp byte [is_first_num], 1
-    je .emit_mov                ; Số đầu tiên -> dùng MOV
+    je .emit_mov
 
-    ; Số tiếp theo -> Kiểm tra dấu
     cmp byte [pending_op], '+'
     je .emit_add
     cmp byte [pending_op], '-'
     je .emit_sub
+    cmp byte [pending_op], '*'  ; <--- [NEW] Check dấu nhân
+    je .emit_mul
     
-    ; Mặc định (nếu không có dấu mà có số, ví dụ lỗi cú pháp) -> Kệ, cứ MOV
-    jmp .emit_mov
+    jmp .emit_mov               ; Fallback an toàn
 
 .emit_mov:
     mov rdi, asm_mov_rdi
@@ -214,24 +231,27 @@ parse_number:
     call emit
     jmp .emit_val
 
+.emit_mul:                      ; <--- [NEW] Emit lệnh imul
+    mov rdi, asm_mul_rdi
+    call emit
+    jmp .emit_val
+
 .emit_val:
-    mov rdi, token_buf          ; In con số ra (VD: "10")
+    mov rdi, token_buf          ; In giá trị số
     call emit
     mov rdi, newline
     call emit
     
-    ; Đánh dấu đã xong số đầu tiên
     mov byte [is_first_num], 0
-    mov byte [pending_op], 0    ; Reset dấu sau khi dùng
-    jmp lexer_loop
-
-found_brace_close:
-    mov rdi, asm_syscall
-    call emit
-    inc r12
+    mov byte [pending_op], 0
     jmp lexer_loop
 
 done_compiling:
+    ; Kết thúc bằng syscall exit để chương trình hợp lệ
+    mov rdi, asm_syscall
+    call emit
+
+    ; Ghi ra stdout
     mov rax, 1
     mov rdi, 1
     mov rsi, output_buf
@@ -244,6 +264,7 @@ exit_prog:
     xor rdi, rdi
     syscall
 
+; --- Helper So sánh chuỗi ---
 strcmp:
     push rsi
     push rdi

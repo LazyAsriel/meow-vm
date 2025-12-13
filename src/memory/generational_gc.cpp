@@ -3,14 +3,17 @@
 #include <meow/value.h>
 #include "runtime/execution_context.h"
 #include <meow/core/meow_object.h>
+#include "meow_heap.h"
 
 namespace meow {
 
 GenerationalGC::~GenerationalGC() noexcept {
-    for (auto obj : young_gen_) delete obj;
-    for (auto obj : old_gen_) delete obj;
+    // [FIX] Use heap destroy
+    if (heap_) {
+        for (auto obj : young_gen_) heap_->destroy(obj);
+        for (auto obj : old_gen_) heap_->destroy(obj);
+    }
 }
-
 void GenerationalGC::register_object(const MeowObject* object) {
     auto* obj = const_cast<MeowObject*>(object);
     // Mặc định là UNMARKED (Young)
@@ -40,7 +43,6 @@ size_t GenerationalGC::collect() noexcept {
     // [NEW] Nếu chỉ quét Young Gen, cần thêm Remembered Set làm Root
     if (old_gen_.size() <= old_gen_threshold_) {
         for (auto* old_obj : remembered_set_) {
-            // Mark object già này để nó trace xuống con (Young) của nó
             if (old_obj) old_obj->trace(*this); 
         }
     }
@@ -53,9 +55,7 @@ size_t GenerationalGC::collect() noexcept {
         sweep_young();
     }
 
-    // Clear remembered set sau khi GC xong (vì Young survivors đã lên Old)
     remembered_set_.clear();
-
     return young_gen_.size() + old_gen_.size();
 }
 
@@ -65,52 +65,38 @@ void GenerationalGC::sweep_young() {
 
     for (auto obj : young_gen_) {
         if (obj->gc_state == GCState::MARKED) {
-            // Sống sót -> Promote lên Old ngay lập tức (đơn giản hoá)
             obj->gc_state = GCState::OLD;
             old_gen_.push_back(obj);
         } else {
-            // Chết -> Xoá
-            delete obj;
+            // [FIX] Destroy bằng heap
+            if (heap_) heap_->destroy(obj);
         }
     }
-    // Xoá danh sách Young cũ
     young_gen_.clear(); 
-    // Reset survivors nếu cần (ở đây ta đã move hết lên Old)
 }
 
 void GenerationalGC::sweep_full() {
-    // Dọn Old Gen
     std::vector<MeowObject*> old_survivors;
     old_survivors.reserve(old_gen_.size());
     
     for (auto obj : old_gen_) {
-        // Với Old Gen, ta phải check xem có được mark không
-        // Lưu ý: MarkSweepGC dùng gc_state == MARKED.
-        // Ở đây, Old Gen mặc định gc_state == OLD.
-        // Khi trace(), ta sẽ đổi nó thành MARKED?
-        // -> Cần chỉnh lại logic mark_root một chút.
-        
-        // Logic thực tế: 
-        // Trước khi Mark: Old Gen đang là OLD. Young là UNMARKED.
-        // Khi Mark: Đổi thành MARKED (bất kể Old hay Young).
-        
         if (obj->gc_state == GCState::MARKED) {
-            obj->gc_state = GCState::OLD; // Reset về trạng thái Old
+            obj->gc_state = GCState::OLD; 
             old_survivors.push_back(obj);
         } else {
-            // Không được mark -> Chết
-            delete obj;
+            // [FIX] Destroy bằng heap
+            if (heap_) heap_->destroy(obj);
         }
     }
     old_gen_ = std::move(old_survivors);
 
-    // Dọn Young Gen (giống logic trên)
     for (auto obj : young_gen_) {
         if (obj->gc_state == GCState::MARKED) {
-            obj->gc_state = GCState::OLD; // Promote
+            obj->gc_state = GCState::OLD;
             old_gen_.push_back(obj);
         } else {
-            delete obj;
+            // [FIX] Destroy bằng heap
+            if (heap_) heap_->destroy(obj);
         }
     }
     young_gen_.clear();

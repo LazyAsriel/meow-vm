@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <vector>
 #include <string>
-#include <variant>
+#include <unordered_set>
 #include <memory>
 #include <meow/core/objects.h>
 #include <meow/definitions.h>
@@ -11,11 +11,16 @@
 #include <meow/core/shape.h>
 #include <meow/core/string.h>
 
+#include "meow_heap.h"
+#include "meow_allocator.h"
+
 namespace meow {
 class MemoryManager {
 public:
     explicit MemoryManager(std::unique_ptr<GarbageCollector> gc) noexcept;
     ~MemoryManager() noexcept;
+
+    // --- Factory Methods ---
     array_t new_array(const std::vector<Value>& elements = {}) noexcept;
     string_t new_string(std::string_view str_view) noexcept;
     string_t new_string(const char* chars, size_t length) noexcept;
@@ -27,39 +32,23 @@ public:
     module_t new_module(string_t file_name, string_t file_path, proto_t main_proto = nullptr) noexcept;
     class_t new_class(string_t name = nullptr) noexcept;
     instance_t new_instance(class_t klass, Shape* shape) noexcept;
-    
     bound_method_t new_bound_method(instance_t instance, function_t function) noexcept;
-
-    // --- Shape Management ---
     Shape* new_shape() noexcept;
 
-    // void deallocate_raw(void* ptr, size_t size) noexcept {
-    //     ::operator delete(ptr, size);
-    // }
-    
-    inline Shape* get_empty_shape() noexcept {
-        if (!empty_shape_) [[unlikely]] {
-            empty_shape_ = new_shape();
-        }
-        return empty_shape_;
-    }
+    Shape* get_empty_shape() noexcept;
 
-    inline void enable_gc() noexcept {
-        gc_enabled_ = true;
-    }
-    inline void disable_gc() noexcept {
-        gc_enabled_ = false;
-    }
-    inline void collect() noexcept {
-        object_allocated_ = gc_->collect();
-    }
+    // --- GC Control ---
+    void enable_gc() noexcept { gc_enabled_ = true; }
+    void disable_gc() noexcept { gc_enabled_ = false; }
+    void collect() noexcept { object_allocated_ = gc_->collect(); }
 
     [[gnu::always_inline]]
-    inline void write_barrier(MeowObject* owner, Value value) noexcept {
+    void write_barrier(MeowObject* owner, Value value) noexcept {
         if (gc_enabled_) {
             gc_->write_barrier(owner, value);
         }
     }
+
 private:
     struct StringPoolHash {
         using is_transparent = void;
@@ -75,9 +64,11 @@ private:
         bool operator()(std::string_view a, string_t b) const { return a == std::string_view(b->c_str(), b->size()); }
     };
 
+    meow::arena arena_;
+    meow::heap heap_; 
+
     std::unique_ptr<GarbageCollector> gc_;
     std::unordered_set<string_t, StringPoolHash, StringPoolEq> string_pool_;
-    
     Shape* empty_shape_ = nullptr;
 
     size_t gc_threshold_;
@@ -88,12 +79,14 @@ private:
     T* new_object(Args&&... args) noexcept {
         if (object_allocated_ >= gc_threshold_ && gc_enabled_) {
             collect();
-            gc_threshold_ *= 2;
+            gc_threshold_ = std::max(gc_threshold_ * 2, object_allocated_ * 2);
         }
-        T* new_object = new T(std::forward<Args>(args)...);
-        gc_->register_object(static_cast<MeowObject*>(new_object));
+        
+        T* obj = heap_.create<T>(std::forward<Args>(args)...);
+        
+        gc_->register_object(static_cast<MeowObject*>(obj));
         ++object_allocated_;
-        return new_object;
+        return obj;
     }
 };
 }

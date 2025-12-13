@@ -1,13 +1,21 @@
 #include <meow/memory/memory_manager.h>
 #include <meow/core/objects.h>
-// #include <meow/core/shape.h> // Đã include trong header
 
 namespace meow {
 
-MemoryManager::MemoryManager(std::unique_ptr<GarbageCollector> gc) noexcept : gc_(std::move(gc)), gc_threshold_(1024), object_allocated_(0) {
+MemoryManager::MemoryManager(std::unique_ptr<GarbageCollector> gc) noexcept 
+    : arena_(64 * 1024), 
+      heap_(arena_),
+      gc_(std::move(gc)), 
+      gc_threshold_(1024), 
+      object_allocated_(0) {
+          
+    if (gc_) {
+        gc_->set_heap(&heap_);
+    }
 }
 
-MemoryManager::~MemoryManager() noexcept = default;
+MemoryManager::~MemoryManager() noexcept {}
 
 string_t MemoryManager::new_string(std::string_view str_view) noexcept {
     auto it = string_pool_.find(str_view);
@@ -26,7 +34,9 @@ string_t MemoryManager::new_string(const char* chars, size_t length) noexcept {
 }
 
 array_t MemoryManager::new_array(const std::vector<Value>& elements) noexcept {
-    return new_object<ObjArray>(elements);
+    meow::allocator<Value> alloc(arena_);
+    
+    return new_object<ObjArray>(elements, alloc);
 }
 
 hash_table_t MemoryManager::new_hash(const std::unordered_map<string_t, Value, ObjStringHasher>& fields) noexcept {

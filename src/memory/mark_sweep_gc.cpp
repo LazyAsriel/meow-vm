@@ -2,24 +2,21 @@
 #include "memory/mark_sweep_gc.h"
 #include <meow/value.h>
 #include "runtime/execution_context.h"
+#include "meow_heap.h"
 
 namespace meow {
 
 MarkSweepGC::~MarkSweepGC() noexcept {
-    // std::printl("[destroy] Đang xử lí các object khi hủy GC");
     for (auto const& [obj, data] : metadata_) {
-        delete obj;
+        if (heap_) heap_->destroy(const_cast<MeowObject*>(obj));
     }
 }
 
 void MarkSweepGC::register_object(const MeowObject* object) {
-    // std::println("[register] Đang đăng kí object: {:p}", static_cast<const void*>(object));
     metadata_.emplace(object, GCMetadata{});
 }
 
 size_t MarkSweepGC::collect() noexcept {
-    // std::cout << "[collect] Đang collect các object" << std::endl;
-
     context_->trace(*this);
 
     for (auto it = metadata_.begin(); it != metadata_.end();) {
@@ -30,7 +27,8 @@ size_t MarkSweepGC::collect() noexcept {
             data.is_marked_ = false;
             ++it;
         } else {
-            delete object;
+            if (heap_) heap_->destroy(const_cast<MeowObject*>(object));
+            
             it = metadata_.erase(it);
         }
     }
