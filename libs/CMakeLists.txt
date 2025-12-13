@@ -9,6 +9,7 @@ add_library(meow_libs INTERFACE)
 target_link_libraries(meow_libs INTERFACE
     meow::variant
     meow::allocator
+    meow::flat_map
     meow::expected
     meow::optional
 )

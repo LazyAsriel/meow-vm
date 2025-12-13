@@ -41,7 +41,9 @@ void Assembler::parse_func() {
     Token name = consume(TokenType::IDENTIFIER, "Expected func name");
     std::string func_name(name.lexeme);
     if (func_name.starts_with("@")) func_name = func_name.substr(1);
-    protos_.push_back(Prototype{.name = func_name});
+    protos_.emplace_back();
+    protos_.back().name = func_name;
+    
     curr_proto_ = &protos_.back();
     proto_name_map_[func_name] = protos_.size() - 1;
 }

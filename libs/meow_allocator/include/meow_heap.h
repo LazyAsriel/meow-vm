@@ -36,7 +36,7 @@ public:
     [[nodiscard]] __attribute__((always_inline)) void* allocate_raw(size_t size) {
         [[assume(size > 0)]];
 
-        if ([[unlikely]] size > MAX_SMALL_OBJ_SIZE) {
+        if (size > MAX_SMALL_OBJ_SIZE) [[unlikely]] {
             return arena_.allocate(size);
         }
 
@@ -72,7 +72,7 @@ public:
     }
 
     __attribute__((always_inline)) void deallocate_raw(void* ptr, size_t size) {
-        if ([[unlikely]] !ptr || size > MAX_SMALL_OBJ_SIZE) return;
+        if (!ptr || size > MAX_SMALL_OBJ_SIZE) [[unlikely]] return;
 
         size_t bin_idx = get_bin_index(size);
         if (bin_idx > 0) bin_idx--;

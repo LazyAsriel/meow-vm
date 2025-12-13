@@ -79,4 +79,11 @@ Shape* MemoryManager::new_shape() noexcept {
     return new_object<Shape>();
 }
 
+Shape* MemoryManager::get_empty_shape() noexcept {
+    if (empty_shape_ == nullptr) {
+        empty_shape_ = new_shape();
+    }
+    return empty_shape_;
+}
+
 }

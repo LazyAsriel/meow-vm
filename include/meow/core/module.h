@@ -16,6 +16,7 @@
 #include <meow/definitions.h>
 #include <meow/value.h>
 #include <meow/memory/gc_visitor.h>
+#include <meow_flat_map.h> // [NEW]
 
 namespace meow {
 class ObjModule : public ObjBase<ObjectType::MODULE> {
@@ -27,9 +28,12 @@ private:
     enum class State { EXECUTING, EXECUTED };
 
     std::vector<Value> globals_store_;
-    std::unordered_map<string_t, uint32_t> global_names_;
+    
+    using GlobalNameMap = meow::flat_map<string_t, uint32_t>;
+    using ExportMap = meow::flat_map<string_t, value_t>;
 
-    std::unordered_map<string_t, value_t> exports_;
+    GlobalNameMap global_names_;
+    ExportMap exports_;
     
     string_t file_name_;
     string_t file_path_;
@@ -41,7 +45,7 @@ public:
     explicit ObjModule(string_t file_name, string_t file_path, proto_t main_proto = nullptr) noexcept 
         : file_name_(file_name), file_path_(file_path), main_proto_(main_proto), state(State::EXECUTING) {}
 
-    // --- Globals (Optimized) ---
+    // --- Globals ---
     
     [[gnu::always_inline]]
     inline return_t get_global_by_index(uint32_t index) const noexcept {
@@ -54,11 +58,14 @@ public:
     }
 
     uint32_t intern_global(string_t name) {
-        if (auto it = global_names_.find(name); it != global_names_.end()) {
-            return it->second;
+        auto idx = global_names_.index_of(name);
+        if (idx != GlobalNameMap::npos) {
+            return global_names_.unsafe_get(idx);
         }
+        
         uint32_t index = static_cast<uint32_t>(globals_store_.size());
         globals_store_.push_back(Value(null_t{}));
+        
         global_names_[name] = index;
         return index;
     }
@@ -68,8 +75,9 @@ public:
     }
 
     inline return_t get_global(string_t name) noexcept {
-        if (auto it = global_names_.find(name); it != global_names_.end()) {
-            return globals_store_[it->second];
+        auto idx = global_names_.index_of(name);
+        if (idx != GlobalNameMap::npos) {
+            return globals_store_[global_names_.unsafe_get(idx)];
         }
         return Value(null_t{});
     }
@@ -80,24 +88,35 @@ public:
     }
 
     inline void import_all_global(const module_t other) noexcept {
-        for (const auto& [name, idx] : other->global_names_) {
-            set_global(name, other->globals_store_[idx]);
+        const auto& other_keys = other->global_names_.keys();
+        const auto& other_vals = other->global_names_.values();
+        
+        for (size_t i = 0; i < other_keys.size(); ++i) {
+            set_global(other_keys[i], other->globals_store_[other_vals[i]]);
         }
     }
 
     // --- Exports ---
     inline return_t get_export(string_t name) noexcept {
-        return exports_[name];
+        auto idx = exports_.index_of(name);
+        if (idx != ExportMap::npos) return exports_.unsafe_get(idx);
+        return Value(null_t{});
     }
+    
     inline void set_export(string_t name, param_t value) noexcept {
         exports_[name] = value;
     }
+    
     inline bool has_export(string_t name) {
         return exports_.contains(name);
     }
+    
     inline void import_all_export(const module_t other) noexcept {
-        for (const auto& [key, value] : other->exports_) {
-            exports_[key] = value;
+        const auto& other_keys = other->exports_.keys();
+        const auto& other_vals = other->exports_.values();
+        
+        for (size_t i = 0; i < other_keys.size(); ++i) {
+            exports_[other_keys[i]] = other_vals[i];
         }
     }
 
@@ -113,7 +132,12 @@ public:
     inline bool is_executing() const noexcept { return state == State::EXECUTING; }
     inline bool is_executed() const noexcept { return state == State::EXECUTED; }
 
-    // [FIX] Chỉ khai báo, implementation nằm trong .cpp
+    // Friend để trace truy cập private members
+    friend void obj_module_trace(const ObjModule* mod, visitor_t& visitor);
     void trace(visitor_t& visitor) const noexcept override;
+    
+    // Getter raw cho trace
+    const auto& get_global_names_raw() const { return global_names_; }
+    const auto& get_exports_raw() const { return exports_; }
 };
 }

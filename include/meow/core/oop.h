@@ -20,13 +20,14 @@
 #include <meow/value.h>
 #include <meow/memory/gc_visitor.h>
 #include <meow/core/shape.h>
+#include <meow_flat_map.h> // [NEW]
 
 namespace meow {
 class ObjClass : public ObjBase<ObjectType::CLASS> {
    private:
     using string_t = string_t;
     using class_t = class_t;
-    using method_map = std::unordered_map<string_t, value_t>;
+    using method_map = meow::flat_map<string_t, value_t>;
     using visitor_t = GCVisitor;
 
     string_t name_;
@@ -50,14 +51,22 @@ class ObjClass : public ObjBase<ObjectType::CLASS> {
 
     // --- Methods ---
     inline bool has_method(string_t name) const noexcept {
-        return methods_.find(name) != methods_.end();
+        return methods_.contains(name);
     }
+    
     inline return_t get_method(string_t name) noexcept {
-        return methods_[name];
+        auto idx = methods_.index_of(name);
+        if (idx != method_map::npos) {
+            return methods_.unsafe_get(idx);
+        }
+        return Value(null_t{});
     }
+    
     inline void set_method(string_t name, return_t value) noexcept {
         methods_[name] = value;
     }
+
+    inline const method_map& get_methods_raw() const { return methods_; }
 
     void trace(visitor_t& visitor) const noexcept override;
 };
@@ -69,11 +78,10 @@ class ObjInstance : public ObjBase<ObjectType::INSTANCE> {
     using visitor_t = GCVisitor;
 
     class_t klass_;
-    Shape* shape_;              // <--- Con trỏ Shape
-    std::vector<Value> fields_; // <--- Mảng giá trị tuyến tính
+    Shape* shape_;              
+    std::vector<Value> fields_; 
 
    public:
-    // Constructor nhận vào Empty Shape ban đầu
     explicit ObjInstance(class_t k, Shape* empty_shape) noexcept 
         : klass_(k), shape_(empty_shape) {
     }
@@ -86,7 +94,6 @@ class ObjInstance : public ObjBase<ObjectType::INSTANCE> {
     inline void set_shape(Shape* s) noexcept { shape_ = s; }
 
     // --- Fast Field Access (By Index) ---
-    // Dùng cho Inline Caching hoặc khi đã biết offset
     inline Value get_field_at(int offset) const noexcept {
         return fields_[offset];
     }
@@ -98,7 +105,7 @@ class ObjInstance : public ObjBase<ObjectType::INSTANCE> {
     // --- Raw Field Access (Cho Transition) ---
     inline std::vector<Value>& get_fields_raw() { return fields_; }
 
-    // --- Slow API (Tương thích ngược) ---
+    // --- Slow API ---
     inline bool has_field(string_t name) const {
         return shape_->get_offset(name) != -1;
     }
@@ -111,7 +118,7 @@ class ObjInstance : public ObjBase<ObjectType::INSTANCE> {
 
     void trace(visitor_t& visitor) const noexcept override {
         visitor.visit_object(klass_);
-        visitor.visit_object(shape_); // Trace Shape
+        visitor.visit_object(shape_);
         for (const auto& val : fields_) {
             visitor.visit_value(val);
         }

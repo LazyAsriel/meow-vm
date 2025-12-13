@@ -3,31 +3,46 @@
 
 namespace meow {
 
+int Shape::get_offset(string_t name) const {
+    auto idx = property_offsets_.index_of(name);
+    if (idx != PropertyMap::npos) {
+        return static_cast<int>(property_offsets_.unsafe_get(idx));
+    }
+    return -1;
+}
+
+Shape* Shape::get_transition(string_t name) const {
+    auto idx = transitions_.index_of(name);
+    if (idx != TransitionMap::npos) {
+        return transitions_.unsafe_get(idx);
+    }
+    return nullptr;
+}
+
 Shape* Shape::add_transition(string_t name, MemoryManager* heap) {
-    // 1. Tạo Shape mới
     Shape* new_shape = heap->new_shape();
     
-    // 2. Kế thừa toàn bộ offset của shape hiện tại
     new_shape->copy_from(this);
     
-    // 3. Đăng ký offset cho thuộc tính mới
     new_shape->add_property(name);
 
-    // 4. Lưu vào bảng chuyển đổi của shape hiện tại (Memoization)
     transitions_[name] = new_shape;
     
     return new_shape;
 }
 
 void Shape::trace(GCVisitor& visitor) const noexcept {
-    // Trace các key trong property map để tránh GC thu hồi string
-    for (auto& [key, _] : property_offsets_) {
+    const auto& prop_keys = property_offsets_.keys();
+    for (auto key : prop_keys) {
         visitor.visit_object(key);
     }
-    // Trace các transitions để giữ các shape con
-    for (auto& [key, shape] : transitions_) {
-        visitor.visit_object(key);
-        visitor.visit_object(shape);
+
+    const auto& trans_keys = transitions_.keys();
+    const auto& trans_vals = transitions_.values();
+    
+    for (size_t i = 0; i < trans_keys.size(); ++i) {
+        visitor.visit_object(trans_keys[i]);
+        visitor.visit_object(trans_vals[i]);
     }
 }
 

@@ -44,7 +44,7 @@ public:
         char* result = reinterpret_cast<char*>(aligned_addr);
         char* new_ptr = result + bytes;
 
-        if ([[likely]] new_ptr <= end_) {
+        if (new_ptr <= end_) [[likely]] {
             ptr_ = new_ptr;
             return result;
         }
@@ -56,7 +56,7 @@ public:
         std::size_t size = std::max(default_block_size_, bytes + sizeof(block_header) + align);
         
         void* mem = std::aligned_alloc(alignof(std::max_align_t), size);
-        if ([[unlikely]] !mem) throw std::bad_alloc();
+        if (!mem) [[unlikely]] throw std::bad_alloc();
 
         block_header* new_block = static_cast<block_header*>(mem);
         new_block->next = head_;
