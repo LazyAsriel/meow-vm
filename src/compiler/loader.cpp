@@ -87,7 +87,6 @@ Value Loader::read_constant(size_t current_proto_idx, size_t current_const_idx) 
         
         case ConstantTag::PROTO_REF_T: {
             uint32_t target_proto_index = read_u32();
-            // Lưu lại vị trí để vá sau khi load xong hết proto
             patches_.push_back({current_proto_idx, current_const_idx, target_proto_index});
             return Value(null_t{}); 
         }
@@ -187,10 +186,6 @@ proto_t Loader::load_module() {
     return loaded_protos_[main_proto_index];
 }
 
-// ----------------------------------------------------------------------------
-// [OPTIMIZATION] Linker Phase
-// ----------------------------------------------------------------------------
-
 static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unordered_set<proto_t>& visited) {
     if (!proto || visited.contains(proto)) return;
     visited.insert(proto);
@@ -289,6 +284,11 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
                 ip += 16; // Skip Inline Cache (16 bytes)
                 break;
             
+            case OpCode::TAIL_CALL:
+                ip += 8;
+                ip += 16;
+                break;
+                
             case OpCode::CALL_VOID:
                 ip += 6;  // 3 args * 2
                 ip += 16; // Skip Inline Cache (16 bytes)
