@@ -336,7 +336,9 @@ namespace meow::handlers {
 
         Value& callee = regs[fn_reg];
 
-        if (!callee.is_function()) [[unlikely]] {
+        std::println("Tail calling with {}", to_string(callee));
+
+        if (!callee.is_function()) {
             state->error("TAIL_CALL: Chỉ hỗ trợ hàm người dùng (Meow Function).");
             return nullptr;
         }
