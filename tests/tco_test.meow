@@ -1,12 +1,13 @@
 .func @add_recursive_tco
     .registers 4
     .const "add_recursive_tco"
+    
     LOAD_INT 2, 1
     LT 2, 0, 2          
     JUMP_IF_TRUE 2, stop
     
-    LOAD_INT 2, 1
-    SUB 2, 0, 2         
+    MOVE 2, 0
+    DEC 2
     
     ADD 3, 1, 0         
     
@@ -44,8 +45,7 @@ loop_start:
     
     CALL 3, 0, 1, 2     
 
-    LOAD_INT 0, 1
-    ADD 4, 4, 0
+    INC 4
     
     JUMP loop_start
 

@@ -1,74 +1,98 @@
 #pragma once
 
-#include "meow_allocator.h"
-#include <vector>
+#include "meow_arena.h"
+#include <memory>
 #include <bit>
-#include <algorithm>
-#include <concepts>
+#include <array>
+#include <cassert>
 
 namespace meow {
 
 class heap {
 private:
-    static constexpr size_t MIN_ALIGN = 16;
+    static constexpr size_t MIN_ALIGN_SHIFT = 3;
+    static constexpr size_t MIN_ALIGN = 1 << MIN_ALIGN_SHIFT;
     static constexpr size_t MAX_SMALL_OBJ_SIZE = 256;
-    static constexpr size_t NUM_BINS = MAX_SMALL_OBJ_SIZE / MIN_ALIGN;
+    static constexpr size_t NUM_BINS = MAX_SMALL_OBJ_SIZE >> MIN_ALIGN_SHIFT;
+
+    struct FreeNode {
+        FreeNode* next;
+    };
 
     meow::arena& arena_;
+    
+    alignas(64) FreeNode* free_bins_[NUM_BINS] = {nullptr};
 
-    using BinType = std::vector<void*, meow::allocator<void*>>;
-    std::vector<BinType, meow::allocator<BinType>> free_bins_;
+    static constexpr size_t get_bin_index(size_t size) {
+        return (size + MIN_ALIGN - 1) >> MIN_ALIGN_SHIFT;
+    }
+
 public:
-    explicit heap(meow::arena& a) 
-        : arena_(a), 
-          free_bins_(NUM_BINS, BinType(meow::allocator<void*>(a)), meow::allocator<BinType>(a)) 
-    {}
+    explicit heap(meow::arena& a) noexcept : arena_(a) {}
 
     heap(const heap&) = delete;
     heap& operator=(const heap&) = delete;
 
-    [[nodiscard]] void* allocate_raw(size_t size) {
-        if (size > MAX_SMALL_OBJ_SIZE) {
+    [[nodiscard]] __attribute__((always_inline)) void* allocate_raw(size_t size) {
+        [[assume(size > 0)]];
+
+        if ([[unlikely]] size > MAX_SMALL_OBJ_SIZE) {
             return arena_.allocate(size);
         }
-        size_t aligned_size = (size + MIN_ALIGN - 1) / MIN_ALIGN * MIN_ALIGN;
-        size_t bin_idx = (aligned_size / MIN_ALIGN) - 1;
 
-        if (!free_bins_[bin_idx].empty()) {
-            void* ptr = free_bins_[bin_idx].back();
-            free_bins_[bin_idx].pop_back();
-            return ptr;
+        size_t bin_idx = get_bin_index(size);
+        if (bin_idx > 0) bin_idx--;
+
+        if (FreeNode* node = free_bins_[bin_idx]) {
+            free_bins_[bin_idx] = node->next;
+            return node;
         }
 
-        return arena_.allocate(aligned_size);
+        size_t alloc_size = (bin_idx + 1) << MIN_ALIGN_SHIFT;
+        return arena_.allocate(alloc_size, MIN_ALIGN);
     }
 
-    void deallocate_raw(void* ptr, size_t size) {
-        if (!ptr) return;
-        if (size > MAX_SMALL_OBJ_SIZE) return;
-        size_t aligned_size = (size + MIN_ALIGN - 1) / MIN_ALIGN * MIN_ALIGN;
-        size_t bin_idx = (aligned_size / MIN_ALIGN) - 1;
-        free_bins_[bin_idx].push_back(ptr);
+    template <typename T>
+    [[nodiscard]] __attribute__((always_inline)) void* fast_alloc_raw() {
+        constexpr size_t size = sizeof(T);
+        constexpr size_t aligned_size = (size < MIN_ALIGN) ? MIN_ALIGN : size;
+        
+        if constexpr (aligned_size > MAX_SMALL_OBJ_SIZE) {
+            return arena_.allocate(aligned_size, alignof(T));
+        } else {
+            constexpr size_t idx = get_bin_index(aligned_size) - 1;
+            if (FreeNode* node = free_bins_[idx]) {
+                free_bins_[idx] = node->next;
+                return node;
+            }
+            
+            constexpr size_t alloc_sz = (idx + 1) << MIN_ALIGN_SHIFT;
+            return arena_.allocate(alloc_sz, MIN_ALIGN);
+        }
+    }
+
+    __attribute__((always_inline)) void deallocate_raw(void* ptr, size_t size) {
+        if ([[unlikely]] !ptr || size > MAX_SMALL_OBJ_SIZE) return;
+
+        size_t bin_idx = get_bin_index(size);
+        if (bin_idx > 0) bin_idx--;
+
+        auto* node = reinterpret_cast<FreeNode*>(ptr);
+        node->next = free_bins_[bin_idx];
+        free_bins_[bin_idx] = node;
     }
 
     template <typename T, typename... Args>
-    T* create(Args&&... args) {
-        void* ptr = allocate_raw(sizeof(T));
+    [[nodiscard]] __attribute__((always_inline)) T* create(Args&&... args) {
+        void* ptr = fast_alloc_raw<T>();
         return std::construct_at(static_cast<T*>(ptr), std::forward<Args>(args)...);
     }
 
     template <typename T>
-    void destroy(T* obj) {
+    __attribute__((always_inline)) void destroy(T* obj) {
         if (!obj) return;
-        size_t s = sizeof(T);
         std::destroy_at(obj);
-        deallocate_raw(obj, s);
-    }
-    
-    void destroy_sized(void* obj, size_t size, void (*destructor_fn)(void*)) {
-        if (!obj) return;
-        if (destructor_fn) destructor_fn(obj);
-        deallocate_raw(obj, size);
+        deallocate_raw(obj, sizeof(T));
     }
 };
 

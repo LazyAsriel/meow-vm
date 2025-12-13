@@ -12,6 +12,7 @@
 namespace meow {
 enum class OpCode : unsigned char {
     LOAD_CONST, LOAD_NULL, LOAD_TRUE, LOAD_FALSE, LOAD_INT, LOAD_FLOAT, MOVE,
+    INC, DEC,
     __BEGIN_OPERATOR__,
     ADD, SUB, MUL, DIV, MOD, POW,
     EQ, NEQ, GT, GE, LT, LE,

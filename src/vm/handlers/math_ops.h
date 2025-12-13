@@ -144,6 +144,40 @@ HOT_HANDLER impl_NOT(const uint8_t* ip, Value* regs, Value* constants, VMState* 
     return ip + sizeof(UnaryArgs);
 }
 
+[[gnu::always_inline]] static const uint8_t* impl_INC(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+    uint16_t reg_idx = read_u16(ip);
+    Value& val = regs[reg_idx];
+
+    if (val.is_int()) [[likely]] {
+        val = Value(val.as_int() + 1);
+    } 
+    else if (val.is_float()) {
+        val = Value(val.as_float() + 1.0);
+    }
+    else [[unlikely]] {
+        state->error("INC: Toán hạng phải là số (Int/Real).");
+        return impl_PANIC(ip, regs, constants, state);
+    }
+    return ip;
+}
+
+[[gnu::always_inline]] static const uint8_t* impl_DEC(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+    uint16_t reg_idx = read_u16(ip);
+    Value& val = regs[reg_idx];
+
+    if (val.is_int()) [[likely]] {
+        val = Value(val.as_int() - 1);
+    } 
+    else if (val.is_float()) {
+        val = Value(val.as_float() - 1.0);
+    } 
+    else [[unlikely]] {
+        state->error("DEC: Toán hạng phải là số (Int/Real).");
+        return impl_PANIC(ip, regs, constants, state);
+    }
+    return ip;
+}
+
 #undef BINARY_OP_IMPL
 #undef BINARY_OP_B_IMPL
 #undef CMP_FAST_IMPL

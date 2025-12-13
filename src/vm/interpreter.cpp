@@ -85,6 +85,8 @@ namespace {
             reg(LOAD_CONST); reg(LOAD_NULL); reg(LOAD_TRUE); reg(LOAD_FALSE);
             reg(LOAD_INT); reg(LOAD_FLOAT); reg(MOVE);
 
+            reg(INC); reg(DEC);
+
             // Math
             reg(ADD); reg(SUB); reg(MUL); reg(DIV); reg(MOD); reg(POW);
             reg(EQ); reg(NEQ); reg(GT); reg(GE); reg(LT); reg(LE);

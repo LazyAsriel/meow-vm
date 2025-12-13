@@ -213,6 +213,7 @@ int Assembler::get_arity(meow::OpCode op) {
     switch (op) {
         case meow::OpCode::CLOSE_UPVALUES: case meow::OpCode::IMPORT_ALL: case meow::OpCode::THROW: 
         case meow::OpCode::RETURN: case meow::OpCode::LOAD_NULL: case meow::OpCode::LOAD_TRUE: case meow::OpCode::LOAD_FALSE:
+        case meow::OpCode::INC: case meow::OpCode::DEC:
             return 1;
             
         case meow::OpCode::LOAD_CONST: case meow::OpCode::MOVE: 

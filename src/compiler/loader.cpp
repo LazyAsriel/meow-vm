@@ -244,6 +244,7 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
                 break;
 
             // 1 u16 arg (Total 2 bytes + 1 op = 3)
+            case OpCode::INC: case OpCode::DEC:
             case OpCode::CLOSE_UPVALUES: case OpCode::IMPORT_ALL: case OpCode::THROW: 
             case OpCode::RETURN: 
                 ip += 2; break;
