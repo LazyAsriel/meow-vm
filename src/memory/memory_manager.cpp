@@ -18,13 +18,18 @@ MemoryManager::MemoryManager(std::unique_ptr<GarbageCollector> gc) noexcept
 MemoryManager::~MemoryManager() noexcept {}
 
 string_t MemoryManager::new_string(std::string_view str_view) noexcept {
-    auto it = string_pool_.find(str_view);
-    if (it != string_pool_.end()) {
+    if (auto it = string_pool_.find(str_view); it != string_pool_.end()) {
         return *it;
     }
     
-    std::string s(str_view);
-    string_t new_obj = new_object<ObjString>(std::move(s));
+    size_t length = str_view.size();
+    size_t hash = std::hash<std::string_view>{}(str_view);
+    
+    string_t new_obj = heap_.create_varsize<ObjString>(length, str_view.data(), length, hash);
+    
+    gc_->register_object(new_obj);
+    ++object_allocated_;
+    
     string_pool_.insert(new_obj);
     return new_obj;
 }
@@ -34,9 +39,10 @@ string_t MemoryManager::new_string(const char* chars, size_t length) noexcept {
 }
 
 array_t MemoryManager::new_array(const std::vector<Value>& elements) noexcept {
-    meow::allocator<Value> alloc(arena_);
+    // meow::allocator<Value> alloc(arena_);
     
-    return new_object<ObjArray>(elements, alloc);
+    // return new_object<ObjArray>(elements, alloc);
+    return new_object<ObjArray>(elements);
 }
 
 hash_table_t MemoryManager::new_hash(const std::unordered_map<string_t, Value, ObjStringHasher>& fields) noexcept {

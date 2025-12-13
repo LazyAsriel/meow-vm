@@ -68,6 +68,8 @@ class ObjClass : public ObjBase<ObjectType::CLASS> {
 
     inline const method_map& get_methods_raw() const { return methods_; }
 
+    size_t obj_size() const noexcept override { return sizeof(ObjClass); }
+
     void trace(visitor_t& visitor) const noexcept override;
 };
 
@@ -116,6 +118,8 @@ class ObjInstance : public ObjBase<ObjectType::INSTANCE> {
         return Value(null_t{});
     }
 
+    size_t obj_size() const noexcept override { return sizeof(ObjInstance); }
+
     void trace(visitor_t& visitor) const noexcept override {
         visitor.visit_object(klass_);
         visitor.visit_object(shape_);
@@ -144,6 +148,8 @@ class ObjBoundMethod : public ObjBase<ObjectType::BOUND_METHOD> {
     inline function_t get_function() const noexcept {
         return function_;
     }
+
+    size_t obj_size() const noexcept override { return sizeof(ObjBoundMethod); }
 
     void trace(visitor_t& visitor) const noexcept override;
 };

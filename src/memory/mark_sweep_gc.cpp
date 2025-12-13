@@ -8,7 +8,7 @@ namespace meow {
 
 MarkSweepGC::~MarkSweepGC() noexcept {
     for (auto const& [obj, data] : metadata_) {
-        if (heap_) heap_->destroy(const_cast<MeowObject*>(obj));
+        if (heap_) heap_->destroy_dynamic(const_cast<MeowObject*>(obj), obj->obj_size());
     }
 }
 
@@ -27,7 +27,7 @@ size_t MarkSweepGC::collect() noexcept {
             data.is_marked_ = false;
             ++it;
         } else {
-            if (heap_) heap_->destroy(const_cast<MeowObject*>(object));
+            if (heap_) heap_->destroy_dynamic(const_cast<MeowObject*>(object), object->obj_size());
             
             it = metadata_.erase(it);
         }

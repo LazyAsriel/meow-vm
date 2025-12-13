@@ -8,46 +8,37 @@
 namespace meow {
 
 GenerationalGC::~GenerationalGC() noexcept {
-    // [FIX] Use heap destroy
     if (heap_) {
-        for (auto obj : young_gen_) heap_->destroy(obj);
-        for (auto obj : old_gen_) heap_->destroy(obj);
+        for (auto obj : young_gen_) heap_->destroy_dynamic(obj, obj->obj_size());
+        for (auto obj : old_gen_) heap_->destroy_dynamic(obj, obj->obj_size());
     }
 }
 void GenerationalGC::register_object(const MeowObject* object) {
     auto* obj = const_cast<MeowObject*>(object);
-    // Mặc định là UNMARKED (Young)
     obj->gc_state = GCState::UNMARKED;
     young_gen_.push_back(obj);
 }
 
-// 🔥 [NEW] Rào chắn ghi: Cực nhanh nhờ so sánh Enum
 void GenerationalGC::write_barrier(MeowObject* owner, Value value) noexcept {
-    // 1. Chỉ quan tâm nếu owner là Già (OLD)
     if (owner->gc_state != GCState::OLD) return;
 
-    // 2. Chỉ quan tâm nếu value là Object và nó Trẻ (Khác OLD)
     if (value.is_object()) {
         MeowObject* target = value.as_object();
         if (target && target->gc_state != GCState::OLD) {
-            // Old trỏ Young -> Ghi nhớ để quét
             remembered_set_.push_back(owner);
         }
     }
 }
 
 size_t GenerationalGC::collect() noexcept {
-    // 1. Mark Roots (Stack, Globals)
     context_->trace(*this);
 
-    // [NEW] Nếu chỉ quét Young Gen, cần thêm Remembered Set làm Root
     if (old_gen_.size() <= old_gen_threshold_) {
         for (auto* old_obj : remembered_set_) {
             if (old_obj) old_obj->trace(*this); 
         }
     }
 
-    // 2. Sweep
     if (old_gen_.size() > old_gen_threshold_) {
         sweep_full();
         old_gen_threshold_ = std::max((size_t)100, old_gen_.size() * 2);
@@ -68,8 +59,7 @@ void GenerationalGC::sweep_young() {
             obj->gc_state = GCState::OLD;
             old_gen_.push_back(obj);
         } else {
-            // [FIX] Destroy bằng heap
-            if (heap_) heap_->destroy(obj);
+            if (heap_) heap_->destroy_dynamic(obj, obj->obj_size());
         }
     }
     young_gen_.clear(); 
@@ -84,8 +74,7 @@ void GenerationalGC::sweep_full() {
             obj->gc_state = GCState::OLD; 
             old_survivors.push_back(obj);
         } else {
-            // [FIX] Destroy bằng heap
-            if (heap_) heap_->destroy(obj);
+            if (heap_) heap_->destroy_dynamic(obj, obj->obj_size());
         }
     }
     old_gen_ = std::move(old_survivors);
@@ -95,8 +84,7 @@ void GenerationalGC::sweep_full() {
             obj->gc_state = GCState::OLD;
             old_gen_.push_back(obj);
         } else {
-            // [FIX] Destroy bằng heap
-            if (heap_) heap_->destroy(obj);
+            if (heap_) heap_->destroy_dynamic(obj, obj->obj_size());
         }
     }
     young_gen_.clear();
@@ -113,13 +101,10 @@ void GenerationalGC::visit_object(const MeowObject* object) noexcept {
 void GenerationalGC::mark_root(MeowObject* object) {
     if (object == nullptr) return;
     
-    // Nếu đã được Mark rồi thì thôi
     if (object->gc_state == GCState::MARKED) return;
     
-    // Đánh dấu là MARKED (Dù trước đó là OLD hay UNMARKED)
     object->gc_state = GCState::MARKED;
     
-    // Đệ quy
     object->trace(*this);
 }
 

@@ -1,7 +1,7 @@
 /**
  * @file array.h
  * @author LazyPaws
- * @brief Core definition of Array in TrangMeo (C++23 Refactored with Arena)
+ * @brief Core definition of Array in TrangMeo
  */
 
 #pragma once
@@ -11,23 +11,21 @@
 #include <meow/core/meow_object.h>
 #include <meow/value.h>
 #include <meow/memory/gc_visitor.h>
-#include "meow_allocator.h"
 
 namespace meow {
 class ObjArray : public ObjBase<ObjectType::ARRAY> {
 public:
-    using allocator_t = meow::allocator<value_t>;
-    using container_t = std::vector<value_t, allocator_t>;
+    using container_t = std::vector<value_t>;
     
 private:
     using visitor_t = GCVisitor;
     container_t elements_;
 
 public:
-    explicit ObjArray(allocator_t alloc) : elements_(alloc) {}
+    explicit ObjArray() = default;
 
-    ObjArray(const std::vector<value_t>& elements, allocator_t alloc) 
-        : elements_(elements.begin(), elements.end(), alloc) {}
+    ObjArray(const std::vector<value_t>& elements) 
+        : elements_(elements) {}
 
     ObjArray(container_t&& elements) noexcept 
         : elements_(std::move(elements)) {}
@@ -39,13 +37,16 @@ public:
     ObjArray& operator=(ObjArray&&) = delete;
     ~ObjArray() override = default;
 
+    // --- Size Override ---
+    size_t obj_size() const noexcept override { return sizeof(ObjArray); }
+
     // --- Iterator types ---
     using iterator = container_t::iterator;
     using const_iterator = container_t::const_iterator;
     using reverse_iterator = container_t::reverse_iterator;
     using const_reverse_iterator = container_t::const_reverse_iterator;
 
-    // --- Accessors & Modifiers (Giữ nguyên logic cũ, chỉ thay đổi container type ngầm) ---
+    // --- Accessors & Modifiers ---
     
     template <typename Self>
     inline decltype(auto) get(this Self&& self, size_t index) noexcept {

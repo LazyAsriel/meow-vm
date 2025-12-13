@@ -80,6 +80,9 @@ class ObjHashTable : public ObjBase<ObjectType::HASH_TABLE> {
 
     template <typename Self>
     auto end(this Self&& self) noexcept { return std::forward<Self>(self).fields_.end(); }
+
+    size_t obj_size() const noexcept override { return sizeof(ObjHashTable); }
+
     void trace(visitor_t& visitor) const noexcept override;
 };
 }

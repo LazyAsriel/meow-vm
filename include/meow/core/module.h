@@ -139,5 +139,7 @@ public:
     // Getter raw cho trace
     const auto& get_global_names_raw() const { return global_names_; }
     const auto& get_exports_raw() const { return exports_; }
+
+    size_t obj_size() const noexcept override { return sizeof(ObjModule); }
 };
 }

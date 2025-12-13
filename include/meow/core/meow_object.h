@@ -1,58 +1,37 @@
 #pragma once
-
 #include <cstdint>
 
 namespace meow {
 struct GCVisitor;
 
-// [NEW] Trạng thái GC dùng chung cho mọi thuật toán
 enum class GCState : uint8_t {
-    UNMARKED = 0, // Trắng (White) / Young (Mới tạo)
-    MARKED   = 1, // Đen (Black) / Young (Còn sống)
-    OLD      = 2  // Già (Old Gen)
+    UNMARKED = 0, MARKED = 1, OLD = 2
 };
 
 enum class ObjectType : uint8_t {
-    ARRAY = 6,
-    STRING,
-    HASH_TABLE,
-    INSTANCE,
-    CLASS,
-    BOUND_METHOD,
-    UPVALUE,
-    PROTO,
-    FUNCTION,
-    MODULE,
-    SHAPE
+    ARRAY = 6, STRING, HASH_TABLE, INSTANCE, CLASS,
+    BOUND_METHOD, UPVALUE, PROTO, FUNCTION, MODULE, SHAPE
 };
 
 struct MeowObject {
     const ObjectType type;
-    
-    // [NEW] Thay thế bool marked bằng enum đa năng
-    GCState gc_state = GCState::UNMARKED; 
+    GCState gc_state = GCState::UNMARKED;
 
     explicit MeowObject(ObjectType type_tag) noexcept : type(type_tag) {}
-    
     virtual ~MeowObject() = default;
+    
     virtual void trace(GCVisitor& visitor) const noexcept = 0;
+    
+    virtual size_t obj_size() const noexcept = 0;
 
     inline ObjectType get_type() const noexcept { return type; }
-    
     inline bool is_marked() const noexcept { return gc_state != GCState::UNMARKED; }
-    
-    inline void mark() noexcept { 
-        if (gc_state == GCState::UNMARKED) gc_state = GCState::MARKED; 
-    }
-    
-    inline void unmark() noexcept { 
-        if (gc_state != GCState::OLD) gc_state = GCState::UNMARKED; 
-    }
+    inline void mark() noexcept { if (gc_state == GCState::UNMARKED) gc_state = GCState::MARKED; }
+    inline void unmark() noexcept { if (gc_state != GCState::OLD) gc_state = GCState::UNMARKED; }
 };
 
 template <ObjectType type_tag>
 struct ObjBase : public MeowObject {
     ObjBase() noexcept : MeowObject(type_tag) {}
 };
-
 }

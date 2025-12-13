@@ -44,6 +44,8 @@ public:
         property_offsets_[name] = num_fields_++;
     }
 
+    size_t obj_size() const noexcept override { return sizeof(Shape); }
+
     void trace(GCVisitor& visitor) const noexcept override;
 };
 
