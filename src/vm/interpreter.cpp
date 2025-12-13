@@ -40,9 +40,9 @@ namespace {
     // Các Opcode thay đổi CallFrame bắt buộc phải reload con trỏ
     template <> constexpr bool IsFrameChange<OpCode::CALL>          = true;
     template <> constexpr bool IsFrameChange<OpCode::CALL_VOID>     = true;
+    template <> constexpr bool IsFrameChange<OpCode::TAIL_CALL>     = true;
     template <> constexpr bool IsFrameChange<OpCode::RETURN>        = true;
     template <> constexpr bool IsFrameChange<OpCode::IMPORT_MODULE> = true;
-    // THROW có thể unwind stack -> thay đổi frame -> cần reload
     template <> constexpr bool IsFrameChange<OpCode::THROW>         = true; 
     
     // --- Template Wrapper ---
