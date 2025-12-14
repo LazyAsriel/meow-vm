@@ -137,7 +137,7 @@ module_t create_array_module(Machine* vm, MemoryManager* heap) noexcept {
     reg("size", length); 
     reg("resize", resize);
     reg("slice", slice); // [Đăng ký]
-    
+    reg("length", length);
     return mod;
 }
 }

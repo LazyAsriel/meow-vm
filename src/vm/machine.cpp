@@ -18,8 +18,9 @@ Value Machine::call_callable(Value callable, const std::vector<Value>& args) noe
         closure = callable.as_function();
     } else if (callable.is_bound_method()) {
         auto bm = callable.as_bound_method();
-        self = bm->get_instance();
-        closure = bm->get_function();
+        Value receiver_val = bm->get_receiver();
+        self = receiver_val.is_instance() ? receiver_val.as_instance() : nullptr;
+        closure = bm->get_method().as_function();
     } else if (callable.is_class()) {
         class_t k = callable.as_class();
         self = heap_->new_instance(k, heap_->get_empty_shape());

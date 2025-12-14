@@ -1,0 +1,53 @@
+.func @main
+ .registers 16
+
+ .const @test_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/./tests/test_upvalue.meow_0
+ .const "test"
+ .const "print"
+ .const "he"
+
+ CLOSURE 1 0
+ MOVE 0 1
+ SET_GLOBAL 1 0
+ GET_GLOBAL 4 2
+ MOVE 3 4
+ LOAD_CONST 5 3
+ MOVE 6 5
+ CALL 2 3 6 1
+ GET_GLOBAL 9 2
+ MOVE 8 9
+ MOVE 12 0
+ MOVE 11 12
+ CALL 10 11 13 0
+ MOVE 14 10
+ CALL 7 8 14 1
+ LOAD_NULL 15
+ RETURN 15
+.endfunc
+
+.func @test_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/./tests/test_upvalue.meow_0
+ .registers 15
+
+ LOAD_INT 1 0
+ MOVE 0 1
+ LOAD_INT 3 10000000
+ MOVE 2 3
+ LOAD_INT 5 0
+ MOVE 4 5
+_L1:
+ MOVE 8 4
+ MOVE 9 2
+ LE 7 8 9
+ MOVE 6 7
+ JUMP_IF_FALSE 6 _L0
+ LOAD_INT 11 1
+ ADD 0 0 11
+ MOVE 10 0
+ LOAD_INT 13 1
+ ADD 4 4 13
+ MOVE 12 4
+ JUMP _L1
+_L0:
+ MOVE 14 0
+ RETURN 14
+.endfunc

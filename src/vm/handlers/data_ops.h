@@ -114,12 +114,16 @@ namespace meow::handlers {
         regs[dst] = arr->get(idx);
     } 
     else if (src.is_hash_table()) {
-        if (!key.is_string()) {
-            state->error("Hash key phải là string.");
-            return impl_PANIC(ip, regs, constants, state);
-        }
         hash_table_t hash = src.as_hash_table();
-        string_t k = key.as_string();
+        string_t k = nullptr;
+        
+        if (!key.is_string()) {
+            std::string s = to_string(key);
+            k = state->heap.new_string(s);
+        } else {
+            k = key.as_string();
+        }
+
         if (hash->has(k)) {
             regs[dst] = hash->get(k);
         } else {
@@ -175,15 +179,20 @@ namespace meow::handlers {
         state->heap.write_barrier(src.as_object(), val);
     }
     else if (src.is_hash_table()) {
+        hash_table_t hash = src.as_hash_table();
+        string_t k = nullptr;
+
         if (!key.is_string()) {
-            state->error("Hash key phải là string.");
-            return impl_PANIC(ip, regs, constants, state);
+            std::string s = to_string(key);
+            k = state->heap.new_string(s);
+        } else {
+            k = key.as_string();
         }
-        src.as_hash_table()->set(key.as_string(), val);
+
+        hash->set(k, val);
         
         state->heap.write_barrier(src.as_object(), val);
-    }
-    else {
+    }    else {
         state->error("Không thể gán index [] trên kiểu dữ liệu này.");
         return impl_PANIC(ip, regs, constants, state);
     }

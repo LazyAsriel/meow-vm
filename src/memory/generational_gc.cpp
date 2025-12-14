@@ -12,7 +12,11 @@ GenerationalGC::~GenerationalGC() noexcept {
     if (heap_) {
         for (auto obj : young_gen_) heap_->destroy_dynamic(obj, obj->obj_size());
         for (auto obj : old_gen_) heap_->destroy_dynamic(obj, obj->obj_size());
-        for (auto obj : permanent_gen_) heap_->destroy_dynamic(obj, obj->obj_size());
+        for (auto obj : permanent_gen_) {
+            if (obj && obj->type != ObjectType::STRING) {
+                heap_->destroy_dynamic(obj, obj->obj_size());
+            }
+        }
     }
 }
 

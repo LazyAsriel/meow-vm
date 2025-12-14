@@ -86,8 +86,11 @@ Shape* MemoryManager::new_shape() {
 
 Shape* MemoryManager::get_empty_shape() noexcept {
     if (empty_shape_ == nullptr) {
-        empty_shape_ = new_shape();
-        if(gc_) gc_->register_permanent(empty_shape_);
+        empty_shape_ = heap_.create<Shape>(); 
+        
+        if (gc_) gc_->register_permanent(empty_shape_);
+        
+        object_allocated_++;
     }
     return empty_shape_;
 }

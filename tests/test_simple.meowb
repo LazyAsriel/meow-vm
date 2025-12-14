@@ -1,0 +1,59 @@
+.func @greet_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/./tests/test_simple.meow_8
+ .registers 9
+
+ .const "print"
+ .const "Hello "
+
+ GET_GLOBAL 3 0
+ MOVE 2 3
+ LOAD_CONST 5 1
+ MOVE 6 0
+ ADD 4 5 6
+ MOVE 7 4
+ CALL 1 2 7 1
+ LOAD_NULL 8
+ RETURN 8
+.endfunc
+
+.func @main
+ .registers 22
+
+ .const "x"
+ .const "y"
+ .const @greet_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/./tests/test_simple.meow_8
+ .const "greet"
+ .const "Cat"
+ .const "print"
+ .const "Too small"
+
+ LOAD_INT 1 10
+ MOVE 0 1
+ SET_GLOBAL 0 0
+ MOVE 4 0
+ LOAD_INT 5 5
+ ADD 3 4 5
+ MOVE 2 3
+ SET_GLOBAL 1 2
+ CLOSURE 7 2
+ MOVE 6 7
+ SET_GLOBAL 3 6
+ MOVE 9 2
+ LOAD_INT 10 10
+ GT 8 9 10
+ JUMP_IF_FALSE 8 _L0
+ MOVE 13 6
+ MOVE 12 13
+ LOAD_CONST 14 4
+ MOVE 15 14
+ CALL 11 12 15 1
+ JUMP _L1
+_L0:
+ GET_GLOBAL 18 5
+ MOVE 17 18
+ LOAD_CONST 19 6
+ MOVE 20 19
+ CALL 16 17 20 1
+_L1:
+ LOAD_NULL 21
+ RETURN 21
+.endfunc

@@ -146,6 +146,10 @@ static const uint8_t* impl_GET_PROP(const uint8_t* ip, Value* regs, Value* const
             regs[dst] = method;
             return ip;
         }
+        
+        // [CRITICAL FIX] Nếu là Hash Table và không tìm thấy, trả về null (Thay vì Panic)
+        regs[dst] = Value(null_t{}); 
+        return ip;
     }
     // 3. Module
     else if (obj.is_module()) {

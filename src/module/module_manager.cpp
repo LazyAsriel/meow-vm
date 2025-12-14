@@ -164,6 +164,17 @@ module_t ModuleManager::load_module(string_t module_path_obj, string_t importer_
     module_cache_[module_path_obj] = meow_module;
     module_cache_[binary_file_path_obj] = meow_module;
     
+    // [FIX QUAN TRỌNG] Tự động Inject 'native' vào mọi module mới load
+    // Điều này đảm bảo các hàm như print, len, int... luôn có sẵn trong các file được import
+    if (std::string(filename_obj->c_str()) != "native") {
+        string_t native_name = heap_->new_string("native");
+        // Gọi đệ quy để lấy module native (đã được cache từ lúc khởi động Machine)
+        module_t native_mod = load_module(native_name, nullptr);
+        if (native_mod) {
+            meow_module->import_all_global(native_mod);
+        }
+    }
+    
     return meow_module;
 }
 
