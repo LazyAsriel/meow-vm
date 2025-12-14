@@ -17,8 +17,8 @@ using namespace meow;
 void print_usage() {
     std::println(stderr, "Usage: meow-vm [options] <file>");
     std::println(stderr, "Options:");
-    std::println(stderr, "  -b, --bytecode    Run pre-compiled bytecode (.meowb) [Default]");
-    std::println(stderr, "  -c, --compile     Compile and run source assembly (.meow/.asm)");
+    std::println(stderr, "  -b, --bytecode    Run pre-compiled bytecode (.meowc) [Default]");
+    std::println(stderr, "  -c, --compile     Compile and run source assembly (.meowb/.asm)");
     std::println(stderr, "  -v, --version     Show version info");
     std::println(stderr, "  -h, --help        Show this help message");
 }
@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
     } else {
         // Auto-detect extension
         input_file = args[0];
-        if (input_file.ends_with(".meow") || input_file.ends_with(".asm")) {
+        if (input_file.ends_with(".meowb") || input_file.ends_with(".asm")) {
             mode = Mode::SourceAsm;
         }
     }
@@ -99,7 +99,7 @@ int main(int argc, char* argv[]) {
             // 3. Assemble in-memory
             masm::Lexer lexer(source);
             
-            // [FIX] Lưu tokens ra biến để đảm bảo lifetime
+            // Lưu tokens ra biến để đảm bảo lifetime
             auto tokens = lexer.tokenize(); 
             
             masm::Assembler assembler(tokens);
@@ -108,7 +108,7 @@ int main(int argc, char* argv[]) {
             // 4. Temporary: Write to .meowb để Machine load
             fs::path src_path(input_file);
             fs::path bin_path = src_path;
-            bin_path.replace_extension(".meowb");
+            bin_path.replace_extension(".meowc");
             
             std::ofstream out(bin_path, std::ios::binary);
             out.write(reinterpret_cast<const char*>(bytecode.data()), bytecode.size());

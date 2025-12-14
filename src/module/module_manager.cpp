@@ -37,7 +37,7 @@ module_t ModuleManager::load_module(string_t module_path_obj, string_t importer_
     if (auto it = module_cache_.find(module_path_obj); it != module_cache_.end()) {
         return it->second;
     }
-    const std::vector<std::string> forbidden_extensions = {".meow", ".meowb"};
+    const std::vector<std::string> forbidden_extensions = {".meowb", ".meowc"};
     
     const std::vector<std::string> candidate_extensions = {get_platform_library_extension()};
     std::filesystem::path root_dir =
@@ -109,8 +109,8 @@ module_t ModuleManager::load_module(string_t module_path_obj, string_t importer_
 
     std::filesystem::path binary_file_path_fs = normalize_path(base_dir / module_path);
 
-    if (binary_file_path_fs.extension() != ".meowb") {
-        binary_file_path_fs.replace_extension(".meowb");
+    if (binary_file_path_fs.extension() != ".meowc") {
+        binary_file_path_fs.replace_extension(".meowc");
     }
 
     std::string binary_file_path = binary_file_path_fs.string();

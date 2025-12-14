@@ -17,10 +17,10 @@ int main(int argc, char* argv[]) {
     init_op_map();
 
     std::string input_path = argv[1];
-    std::string output_path = (argc >= 3) ? argv[2] : "out.meowb";
+    std::string output_path = (argc >= 3) ? argv[2] : "out.meowc";
     
-    if (argc < 3 && input_path.size() > 5 && input_path.ends_with(".meow")) {
-        output_path = input_path.substr(0, input_path.size()-5) + ".meowb";
+    if (argc < 3 && input_path.size() > 6 && input_path.ends_with(".meowb")) {
+        output_path = input_path.substr(0, input_path.size()-6) + ".meowc";
     }
 
     std::ifstream f(input_path, std::ios::ate); // Mở ở cuối để lấy size

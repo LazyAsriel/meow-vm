@@ -6,8 +6,8 @@ if [ -z "$1" ]; then
 fi
 
 FILE="$1"
-MEOW_FILE="tests/$FILE.meow"
-BYTECODE_FILE="tests/$FILE.meowb"
+MEOW_FILE="tests/$FILE.meowb"
+BYTECODE_FILE="tests/$FILE.meowc"
 
 CONFIG="${2:-debug}"
 
