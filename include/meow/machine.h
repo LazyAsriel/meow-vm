@@ -31,6 +31,7 @@ public:
     void interpret() noexcept;
     
     void execute(function_t func);
+    Value call_callable(Value callable, const std::vector<Value>& args) noexcept;
 
     inline MemoryManager* get_heap() const noexcept { return heap_.get(); }
     inline const VMArgs& get_args() const noexcept { return args_; }

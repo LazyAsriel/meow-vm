@@ -10,6 +10,7 @@
 #include <meow/memory/memory_manager.h>
 #include "module/module_manager.h"
 #include <meow/cast.h>
+#include "vm/stdlib/stdlib.h"
 #include "debug/print.h"
 
 namespace meow {
@@ -188,6 +189,8 @@ void Machine::load_builtins() {
     reg("clock", natives::clock_fn);
 
     mod_manager_->add_cache(name_native, mod);
+    mod_manager_->add_cache(heap_->new_string("io"), stdlib::create_io_module(this, heap_.get()));
+    mod_manager_->add_cache(heap_->new_string("system"), stdlib::create_system_module(this, heap_.get()));
     // printl("Loaded built-in 'native' module");
 }
 
