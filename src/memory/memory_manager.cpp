@@ -76,7 +76,7 @@ instance_t MemoryManager::new_instance(class_t klass, Shape* shape) {
     return new_object<ObjInstance>(klass, shape);
 }
 
-bound_method_t MemoryManager::new_bound_method(instance_t instance, function_t function) {
+bound_method_t MemoryManager::new_bound_method(Value instance, Value function) {
     return new_object<ObjBoundMethod>(instance, function);
 }
 

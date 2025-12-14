@@ -131,26 +131,23 @@ class ObjInstance : public ObjBase<ObjectType::INSTANCE> {
 
 class ObjBoundMethod : public ObjBase<ObjectType::BOUND_METHOD> {
    private:
-    using instance_t = instance_t;
-    using function_t = function_t;
+    Value receiver_; 
+    Value method_;   
+
     using visitor_t = GCVisitor;
 
-    instance_t instance_;
-    function_t function_;
-
    public:
-    explicit ObjBoundMethod(instance_t instance = nullptr, function_t function = nullptr) noexcept : instance_(instance), function_(function) {
-    }
+    explicit ObjBoundMethod(Value receiver, Value method) noexcept 
+        : receiver_(receiver), method_(method) {}
 
-    inline instance_t get_instance() const noexcept {
-        return instance_;
-    }
-    inline function_t get_function() const noexcept {
-        return function_;
-    }
+    inline Value get_receiver() const noexcept { return receiver_; }
+    inline Value get_method() const noexcept { return method_; }
 
     size_t obj_size() const noexcept override { return sizeof(ObjBoundMethod); }
 
-    void trace(visitor_t& visitor) const noexcept override;
+    void trace(visitor_t& visitor) const noexcept override {
+        visitor.visit_value(receiver_);
+        visitor.visit_value(method_);
+    }
 };
 }

@@ -1,6 +1,7 @@
 #pragma once
 #include "vm/handlers/utils.h"
 #include <meow/core/objects.h>
+#include <meow/machine.h>
 #include <cstring>
 
 namespace meow::handlers {
@@ -266,9 +267,48 @@ namespace meow::handlers {
         } 
         else if (callee.is_bound_method()) {
             bound_method_t bound = callee.as_bound_method();
-            self = bound->get_instance();
-            closure = bound->get_function();
-        } 
+            Value receiver = bound->get_receiver(); // Lấy đối tượng (VD: mảng argv)
+            Value method = bound->get_method();     // Lấy hàm (VD: native len)
+
+            // Trường hợp 1: Hàm Native (VD: array.size)
+            if (method.is_native()) {
+                native_t fn = method.as_native();
+                
+                // [FIX] Chèn 'receiver' vào đầu danh sách tham số
+                std::vector<Value> args;
+                args.reserve(argc + 1);
+                args.push_back(receiver); // Đây chính là 'this' (argv[0])
+                
+                // Copy các tham số còn lại từ thanh ghi
+                for (size_t i = 0; i < argc; ++i) {
+                    args.push_back(regs[arg_start + i]);
+                }
+
+                // Gọi hàm native với danh sách tham số mới (đã có this)
+                Value result = fn(&state->machine, static_cast<int>(args.size()), args.data());
+                
+                // [FIX ADD-ON] Kiểm tra lỗi ngay lập tức để tránh chạy tiếp nếu native fail
+                if (state->machine.has_error()) {
+                     state->error(std::string(state->machine.get_error_message()));
+                     state->machine.clear_error();
+                     return impl_PANIC(ip, regs, constants, state);
+                }
+
+                if constexpr (!IsVoid) regs[dst] = result;
+                return ip;
+            }
+            
+            // Trường hợp 2: Hàm Meow (Script Function)
+            else if (method.is_function()) {
+                closure = method.as_function();
+                // Nếu receiver là instance (Class), gán vào self để logic cũ hoạt động
+                // (Hoặc bạn có thể truyền receiver vào stack[0] luôn ở đây cũng được)
+                if (receiver.is_instance()) self = receiver.as_instance();
+                
+                // Lưu ý: Nếu muốn hỗ trợ method mở rộng cho primitive bằng code Meow, 
+                // bạn cần xử lý push receiver vào stack tại đây tương tự logic class.
+            }
+        }
         else if (callee.is_class()) {
             class_t klass = callee.as_class();
             self = state->heap.new_instance(klass, state->heap.get_empty_shape());

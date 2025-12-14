@@ -32,7 +32,7 @@ public:
     module_t new_module(string_t file_name, string_t file_path, proto_t main_proto = nullptr);
     class_t new_class(string_t name = nullptr);
     instance_t new_instance(class_t klass, Shape* shape);
-    bound_method_t new_bound_method(instance_t instance, function_t function);
+    bound_method_t new_bound_method(Value instance, Value function);
     Shape* new_shape();
 
     Shape* get_empty_shape() noexcept;

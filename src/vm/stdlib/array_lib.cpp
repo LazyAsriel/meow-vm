@@ -5,6 +5,7 @@
 #include <meow/memory/memory_manager.h>
 #include <meow/core/module.h>
 #include <meow/core/array.h> 
+#include <meow/cast.h>
 #include <format> 
 
 namespace meow::natives::array {
@@ -48,6 +49,7 @@ static Value clear(Machine* vm, int argc, Value* argv) {
 }
 
 static Value length(Machine* vm, int argc, Value* argv) {
+    std::println("[DEBUG] {}.size() is called", meow::to_string(argv[0]));
     CHECK_SELF();
     return Value((int64_t)self->size());
 }

@@ -167,7 +167,8 @@ static const uint8_t* impl_GET_PROP(const uint8_t* ip, Value* regs, Value* const
     else {
         Value method = find_primitive_method(state, obj, name);
         if (!method.is_null()) {
-            regs[dst] = method;
+            auto bound = state->heap.new_bound_method(obj, method); 
+            regs[dst] = Value(bound);
             return ip;
         }
     }
