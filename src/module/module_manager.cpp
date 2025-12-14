@@ -29,12 +29,12 @@ ModuleManager::ModuleManager(MemoryManager* heap, Machine* vm) noexcept
     : heap_(heap), vm_(vm), entry_path_(nullptr) {}
 
 module_t ModuleManager::load_module(string_t module_path_obj, string_t importer_path_obj) {
-    if (!module_path_obj || !importer_path_obj) {
-        throw std::runtime_error("ModuleManager::load_module: Đường dẫn module hoặc importer là null.");
+    if (!module_path_obj) {
+        throw std::runtime_error("ModuleManager::load_module: Đường dẫn module là null.");
     }
 
     std::string module_path = module_path_obj->c_str();
-    std::string importer_path = importer_path_obj->c_str();
+    std::string importer_path = importer_path_obj ? importer_path_obj->c_str() : "";
 
     if (auto it = module_cache_.find(module_path_obj); it != module_cache_.end()) {
         return it->second;
