@@ -24,4 +24,5 @@ compile_commands.json
 *.temp
 *.tmp
 *.html
+*.meowc
 # *.meowb
