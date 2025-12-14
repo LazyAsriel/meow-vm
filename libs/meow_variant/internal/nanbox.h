@@ -9,8 +9,6 @@
 #include <variant> 
 #include <stdexcept>
 #include "internal/utils.h"
-
-// 👇 INCLUDE FILE LAYOUT MỚI VÀO ĐÂY NÈ
 #include "meow_nanbox_layout.h" 
 
 namespace meow::utils {
@@ -215,7 +213,6 @@ private:
         else return U{};
     }
 
-    // ... (Phần Visit giữ nguyên không thay đổi logic) ...
     template <typename Visitor, std::size_t... Is>
     decltype(auto) visit_table(Visitor&& vis, std::size_t idx, std::index_sequence<Is...>) const {
         using R = std::invoke_result_t<Visitor, typename detail::nth_type<0, flat_list>::type>;

@@ -37,7 +37,6 @@ struct ops {
 };
 
 // --- Destructor Mixin ---
-// Giúp tự động xóa bỏ Destructor nếu kiểu Trivial -> Enable Trivial Destructibility
 template <typename Derived, bool IsTrivial>
 struct DestructorMixin {};
 
@@ -53,7 +52,6 @@ struct DestructorMixin<Derived, false> {
     }
 };
 
-// --- FallbackVariant (Optimized) ---
 template <typename... Args>
 class FallbackVariant : public DestructorMixin<FallbackVariant<Args...>, (std::is_trivially_destructible_v<Args> && ...)> {
     friend struct DestructorMixin<FallbackVariant<Args...>, false>;
@@ -61,7 +59,6 @@ class FallbackVariant : public DestructorMixin<FallbackVariant<Args...>, (std::i
     using flat_list = meow::utils::flattened_unique_t<Args...>;
     static constexpr std::size_t count = detail::type_list_length<flat_list>::value;
     
-    // Tối ưu kích thước biến index
     using index_t = std::conditional_t<(count < 255), uint8_t, std::size_t>;
     static constexpr index_t npos = static_cast<index_t>(-1);
 
@@ -76,12 +73,7 @@ public:
 
     // Default Constructor
     FallbackVariant() noexcept : index_(npos) {}
-
-    // --- 1. COPY CONSTRUCTOR ---
-    // Trường hợp Trivial: Compiler tự sinh code copy siêu tốc (memcpy/register move)
     FallbackVariant(const FallbackVariant&) requires AllTrivialCopy = default;
-
-    // Trường hợp Phức tạp: Copy thủ công qua bảng hàm
     FallbackVariant(const FallbackVariant& o) requires (!AllTrivialCopy) : index_(npos) {
         if (o.index_ != npos) {
             full_ops::copy_table[o.index_](storage_, o.storage_);
@@ -149,12 +141,18 @@ public:
         return *this;
     }
 
-    // --- VISIT (Tối ưu Switch-Case + Unreachable) ---
     template <typename Self, typename Visitor>
     decltype(auto) visit(this Self&& self, Visitor&& vis) {
-        // Bỏ check an toàn để tối đa hóa tốc độ (UB nếu variant rỗng)
-        // if (self.index_ == npos) [[unlikely]] std::unreachable();
         return self.visit_switch(std::forward<Visitor>(vis));
+    }
+
+    uint64_t raw() const noexcept { 
+        return 0;
+    }
+
+    [[nodiscard]] __attribute__((always_inline))
+    static FallbackVariant from_raw([[maybe_unused]] uint64_t bits) noexcept {
+        return FallbackVariant();
     }
 
     std::size_t index() const noexcept { return static_cast<std::size_t>(index_); }

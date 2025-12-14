@@ -36,12 +36,13 @@ HOT_HANDLER impl_ADD(const uint8_t* ip, Value* regs, Value* constants, VMState* 
     const auto& args = *reinterpret_cast<const BinaryArgs*>(ip);
     Value& left = regs[args.r1];
     Value& right = regs[args.r2];
-    if (left.is_int() && right.is_int()) [[likely]] {
-        int64_t res = left.as_int() + right.as_int();
-        regs[args.dst] = Value::from_raw_u64(
-            NanboxLayout::QNAN_POS | (uint64_t(ValueType::Int) << NanboxLayout::TAG_SHIFT) | (uint64_t(res) & NanboxLayout::PAYLOAD_MASK)
-        );
-    }
+    // if (left.is_int() && right.is_int()) [[likely]] {
+    //     int64_t res = left.as_int() + right.as_int();
+    //     regs[args.dst] = Value::from_raw_u64(
+    //         NanboxLayout::QNAN_POS | (uint64_t(ValueType::Int) << NanboxLayout::TAG_SHIFT) | (uint64_t(res) & NanboxLayout::PAYLOAD_MASK)
+    //     );
+    // }
+    if (left.is_int() && right.is_int()) [[likely]] regs[args.dst] = left.as_int() + right.as_int();
     else if (left.is_float() && right.is_float()) regs[args.dst] = Value(left.as_float() + right.as_float());
     else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
     return ip + sizeof(BinaryArgs);
@@ -51,18 +52,18 @@ HOT_HANDLER impl_ADD_B(const uint8_t* ip, Value* regs, Value* constants, VMState
     const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip);
     Value& left = regs[args.r1];
     Value& right = regs[args.r2];
-    if (left.is_int() && right.is_int()) [[likely]] {
-        int64_t res = left.as_int() + right.as_int();
-        regs[args.dst] = Value::from_raw_u64(
-            NanboxLayout::QNAN_POS | (uint64_t(ValueType::Int) << NanboxLayout::TAG_SHIFT) | (uint64_t(res) & NanboxLayout::PAYLOAD_MASK)
-        );
-    }
+    // if (left.is_int() && right.is_int()) [[likely]] {
+    //     int64_t res = left.as_int() + right.as_int();
+    //     regs[args.dst] = Value::from_raw_u64(
+    //         NanboxLayout::QNAN_POS | (uint64_t(ValueType::Int) << NanboxLayout::TAG_SHIFT) | (uint64_t(res) & NanboxLayout::PAYLOAD_MASK)
+    //     );
+    // }
+    if (left.is_int() && right.is_int()) [[likely]] regs[args.dst] = left.as_int() + right.as_int();
     else if (left.is_float() && right.is_float()) regs[args.dst] = Value(left.as_float() + right.as_float());
     else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
     return ip + sizeof(BinaryArgsB);
 }
 
-// (SUB, MUL, DIV, MOD, POW giữ nguyên macro hoặc tối ưu tương tự nếu thích)
 BINARY_OP_IMPL(SUB, SUB)
 BINARY_OP_IMPL(MUL, MUL)
 BINARY_OP_IMPL(DIV, DIV)
@@ -103,11 +104,10 @@ BINARY_OP_B_IMPL(MOD, MOD)
         return ip + sizeof(BinaryArgsB); \
     }
 
-// Triển khai toàn bộ (Đã bao gồm GE để fix lỗi loop)
 CMP_FAST_IMPL(EQ, EQ, ==)
 CMP_FAST_IMPL(NEQ, NEQ, !=)
 CMP_FAST_IMPL(GT, GT, >)
-CMP_FAST_IMPL(GE, GE, >=) // <--- FIX LỖI Ở ĐÂY
+CMP_FAST_IMPL(GE, GE, >=)
 CMP_FAST_IMPL(LT, LT, <)
 CMP_FAST_IMPL(LE, LE, <=)
 
