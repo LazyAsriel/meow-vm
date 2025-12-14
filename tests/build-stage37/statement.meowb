@@ -1,0 +1,4647 @@
+.func @__fn_10_@visitImportStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_103_328
+ .registers 23
+ .upvalues 4
+
+ .const "emit"
+ .const "currentState"
+ .const "proto"
+ .const "IMPORT_MODULE"
+
+ .upvalue 0 parent_upvalue 2
+ .upvalue 1 local 0
+ .upvalue 2 parent_upvalue 3
+ .upvalue 3 local 8
+
+ GET_UPVALUE 4 0
+ MOVE 3 4
+ GET_EXPORT 5 3 0
+ MOVE 2 5
+ GET_UPVALUE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 6 9
+ GET_PROP 10 6 2
+ GET_UPVALUE 12 2
+ MOVE 11 12
+ GET_PROP 13 11 3
+ MOVE 16 0
+ MOVE 14 16
+ GET_UPVALUE 17 3
+ MOVE 15 17
+ NEW_ARRAY 18 14 2
+ MOVE 19 10
+ MOVE 20 13
+ MOVE 21 18
+ CALL 1 2 19 3
+ LOAD_NULL 22
+ RETURN 22
+.endfunc
+
+.func @__fn_5_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_12
+ .registers 199
+ .upvalues 2
+
+ .const "name"
+ .const "name"
+ .const "assert"
+ .const "resolution"
+ .const "type"
+ .const "local"
+ .const "Lỗi: LetStatement "
+ .const " không được resolve là local"
+ .const "symbol"
+ .const "index"
+ .const "currentState"
+ .const "scope"
+ .const "size"
+ .const "allocator"
+ .const "ralloc"
+ .const "regToLocalIndex"
+ .const "str"
+ .const "localIndexToReg"
+ .const "value"
+ .const "visitExpression"
+ .const "emit"
+ .const "proto"
+ .const "MOVE"
+ .const "LOAD_NULL"
+ .const "states"
+ .const "pool"
+ .const "add"
+ .const "SET_GLOBAL"
+
+ .upvalue 0 local 2
+ .upvalue 1 local 4
+
+ MOVE 5 1
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ GET_PROP 7 3 1
+ MOVE 2 7
+ GET_GLOBAL 10 2
+ MOVE 9 10
+ MOVE 14 1
+ MOVE 13 14
+ GET_PROP 15 13 1
+ MOVE 12 15
+ GET_PROP 16 12 3
+ MOVE 11 16
+ JUMP_IF_FALSE 16 _L0
+ MOVE 21 1
+ MOVE 20 21
+ GET_PROP 22 20 1
+ MOVE 19 22
+ GET_PROP 23 19 3
+ MOVE 18 23
+ GET_PROP 24 18 4
+ LOAD_CONST 25 5
+ EQ 17 24 25
+ MOVE 11 17
+_L0:
+ LOAD_CONST 28 6
+ MOVE 29 2
+ ADD 27 28 29
+ LOAD_CONST 30 7
+ ADD 26 27 30
+ MOVE 31 11
+ MOVE 32 26
+ CALL 8 9 31 2
+ MOVE 38 1
+ MOVE 37 38
+ GET_PROP 39 37 1
+ MOVE 36 39
+ GET_PROP 40 36 3
+ MOVE 35 40
+ GET_PROP 41 35 8
+ MOVE 34 41
+ GET_PROP 42 34 9
+ MOVE 33 42
+ MOVE 50 0
+ MOVE 49 50
+ GET_PROP 51 49 10
+ MOVE 48 51
+ GET_PROP 52 48 11
+ MOVE 47 52
+ GET_PROP 53 47 12
+ MOVE 46 53
+ CALL 45 46 54 0
+ LOAD_INT 55 1
+ SUB 44 45 55
+ MOVE 43 44
+ MOVE 60 0
+ MOVE 59 60
+ GET_PROP 61 59 10
+ MOVE 58 61
+ GET_PROP 62 58 11
+ MOVE 63 43
+ GET_INDEX 57 62 63
+ MOVE 56 57
+ MOVE 70 0
+ MOVE 69 70
+ GET_PROP 71 69 10
+ MOVE 68 71
+ GET_PROP 72 68 13
+ MOVE 67 72
+ GET_PROP 73 67 14
+ MOVE 66 73
+ CALL 65 66 74 0
+ MOVE 64 65
+ MOVE 77 0
+ MOVE 76 77
+ GET_PROP 78 76 10
+ MOVE 75 78
+ GET_PROP 79 75 15
+ GET_GLOBAL 82 16
+ MOVE 81 82
+ MOVE 83 64
+ MOVE 84 83
+ CALL 80 81 84 1
+ MOVE 85 33
+ SET_INDEX 79 80 85
+ MOVE 88 0
+ MOVE 87 88
+ GET_PROP 89 87 10
+ MOVE 86 89
+ GET_PROP 90 86 17
+ MOVE 91 33
+ MOVE 92 64
+ SET_INDEX 90 91 92
+ MOVE 93 56
+ MOVE 94 2
+ MOVE 95 33
+ SET_INDEX 93 94 95
+ MOVE 98 1
+ MOVE 97 98
+ GET_PROP 99 97 18
+ LOAD_NULL 100
+ NEQ 96 99 100
+ JUMP_IF_FALSE 96 _L1
+ MOVE 105 0
+ MOVE 104 105
+ GET_PROP 106 104 19
+ MOVE 103 106
+ MOVE 108 1
+ MOVE 107 108
+ GET_PROP 109 107 18
+ MOVE 110 109
+ CALL 102 103 110 1
+ MOVE 101 102
+ GET_UPVALUE 114 0
+ MOVE 113 114
+ GET_EXPORT 115 113 20
+ MOVE 112 115
+ MOVE 118 0
+ MOVE 117 118
+ GET_PROP 119 117 10
+ MOVE 116 119
+ GET_PROP 120 116 21
+ GET_UPVALUE 122 1
+ MOVE 121 122
+ GET_PROP 123 121 22
+ MOVE 126 64
+ MOVE 124 126
+ MOVE 127 101
+ MOVE 125 127
+ NEW_ARRAY 128 124 2
+ MOVE 129 120
+ MOVE 130 123
+ MOVE 131 128
+ CALL 111 112 129 3
+ JUMP _L2
+_L1:
+ GET_UPVALUE 135 0
+ MOVE 134 135
+ GET_EXPORT 136 134 20
+ MOVE 133 136
+ MOVE 139 0
+ MOVE 138 139
+ GET_PROP 140 138 10
+ MOVE 137 140
+ GET_PROP 141 137 21
+ GET_UPVALUE 143 1
+ MOVE 142 143
+ GET_PROP 144 142 23
+ MOVE 146 64
+ MOVE 145 146
+ NEW_ARRAY 147 145 1
+ MOVE 148 141
+ MOVE 149 144
+ MOVE 150 147
+ CALL 132 133 148 3
+_L2:
+ MOVE 153 43
+ LOAD_INT 154 0
+ EQ 152 153 154
+ MOVE 151 152
+ JUMP_IF_FALSE 152 _L3
+ MOVE 160 0
+ MOVE 159 160
+ GET_PROP 161 159 24
+ MOVE 158 161
+ GET_PROP 162 158 12
+ MOVE 157 162
+ CALL 156 157 163 0
+ LOAD_INT 164 1
+ EQ 155 156 164
+ MOVE 151 155
+_L3:
+ JUMP_IF_FALSE 151 _L4
+ MOVE 171 0
+ MOVE 170 171
+ GET_PROP 172 170 10
+ MOVE 169 172
+ GET_PROP 173 169 25
+ MOVE 168 173
+ GET_PROP 174 168 26
+ MOVE 167 174
+ MOVE 175 2
+ MOVE 176 175
+ CALL 166 167 176 1
+ MOVE 165 166
+ GET_UPVALUE 180 0
+ MOVE 179 180
+ GET_EXPORT 181 179 20
+ MOVE 178 181
+ MOVE 184 0
+ MOVE 183 184
+ GET_PROP 185 183 10
+ MOVE 182 185
+ GET_PROP 186 182 21
+ GET_UPVALUE 188 1
+ MOVE 187 188
+ GET_PROP 189 187 27
+ MOVE 192 165
+ MOVE 190 192
+ MOVE 193 64
+ MOVE 191 193
+ NEW_ARRAY 194 190 2
+ MOVE 195 186
+ MOVE 196 189
+ MOVE 197 194
+ CALL 177 178 195 3
+_L4:
+ LOAD_NULL 198
+ RETURN 198
+.endfunc
+
+.func @__fn_6_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_16
+ .registers 179
+ .upvalues 2
+
+ .const "name"
+ .const "name"
+ .const "func"
+ .const "assert"
+ .const "resolution"
+ .const "type"
+ .const "local"
+ .const "Lỗi: FunctionStatement "
+ .const " không được resolve là local"
+ .const "symbol"
+ .const "index"
+ .const "currentState"
+ .const "scope"
+ .const "size"
+ .const "allocator"
+ .const "ralloc"
+ .const "regToLocalIndex"
+ .const "str"
+ .const "localIndexToReg"
+ .const "visitExpression"
+ .const "emit"
+ .const "proto"
+ .const "MOVE"
+ .const "states"
+ .const "pool"
+ .const "add"
+ .const "SET_GLOBAL"
+
+ .upvalue 0 local 2
+ .upvalue 1 local 4
+
+ MOVE 5 1
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ GET_PROP 7 3 1
+ MOVE 2 7
+ MOVE 9 1
+ MOVE 8 9
+ GET_PROP 10 8 2
+ MOVE 11 2
+ SET_PROP 10 1 11
+ GET_GLOBAL 14 3
+ MOVE 13 14
+ MOVE 18 1
+ MOVE 17 18
+ GET_PROP 19 17 1
+ MOVE 16 19
+ GET_PROP 20 16 4
+ MOVE 15 20
+ JUMP_IF_FALSE 20 _L0
+ MOVE 25 1
+ MOVE 24 25
+ GET_PROP 26 24 1
+ MOVE 23 26
+ GET_PROP 27 23 4
+ MOVE 22 27
+ GET_PROP 28 22 5
+ LOAD_CONST 29 6
+ EQ 21 28 29
+ MOVE 15 21
+_L0:
+ LOAD_CONST 32 7
+ MOVE 33 2
+ ADD 31 32 33
+ LOAD_CONST 34 8
+ ADD 30 31 34
+ MOVE 35 15
+ MOVE 36 30
+ CALL 12 13 35 2
+ MOVE 42 1
+ MOVE 41 42
+ GET_PROP 43 41 1
+ MOVE 40 43
+ GET_PROP 44 40 4
+ MOVE 39 44
+ GET_PROP 45 39 9
+ MOVE 38 45
+ GET_PROP 46 38 10
+ MOVE 37 46
+ MOVE 54 0
+ MOVE 53 54
+ GET_PROP 55 53 11
+ MOVE 52 55
+ GET_PROP 56 52 12
+ MOVE 51 56
+ GET_PROP 57 51 13
+ MOVE 50 57
+ CALL 49 50 58 0
+ LOAD_INT 59 1
+ SUB 48 49 59
+ MOVE 47 48
+ MOVE 64 0
+ MOVE 63 64
+ GET_PROP 65 63 11
+ MOVE 62 65
+ GET_PROP 66 62 12
+ MOVE 67 47
+ GET_INDEX 61 66 67
+ MOVE 60 61
+ MOVE 74 0
+ MOVE 73 74
+ GET_PROP 75 73 11
+ MOVE 72 75
+ GET_PROP 76 72 14
+ MOVE 71 76
+ GET_PROP 77 71 15
+ MOVE 70 77
+ CALL 69 70 78 0
+ MOVE 68 69
+ MOVE 81 0
+ MOVE 80 81
+ GET_PROP 82 80 11
+ MOVE 79 82
+ GET_PROP 83 79 16
+ GET_GLOBAL 86 17
+ MOVE 85 86
+ MOVE 87 68
+ MOVE 88 87
+ CALL 84 85 88 1
+ MOVE 89 37
+ SET_INDEX 83 84 89
+ MOVE 92 0
+ MOVE 91 92
+ GET_PROP 93 91 11
+ MOVE 90 93
+ GET_PROP 94 90 18
+ MOVE 95 37
+ MOVE 96 68
+ SET_INDEX 94 95 96
+ MOVE 97 60
+ MOVE 98 2
+ MOVE 99 37
+ SET_INDEX 97 98 99
+ MOVE 104 0
+ MOVE 103 104
+ GET_PROP 105 103 19
+ MOVE 102 105
+ MOVE 107 1
+ MOVE 106 107
+ GET_PROP 108 106 2
+ MOVE 109 108
+ CALL 101 102 109 1
+ MOVE 100 101
+ GET_UPVALUE 113 0
+ MOVE 112 113
+ GET_EXPORT 114 112 20
+ MOVE 111 114
+ MOVE 117 0
+ MOVE 116 117
+ GET_PROP 118 116 11
+ MOVE 115 118
+ GET_PROP 119 115 21
+ GET_UPVALUE 121 1
+ MOVE 120 121
+ GET_PROP 122 120 22
+ MOVE 125 68
+ MOVE 123 125
+ MOVE 126 100
+ MOVE 124 126
+ NEW_ARRAY 127 123 2
+ MOVE 128 119
+ MOVE 129 122
+ MOVE 130 127
+ CALL 110 111 128 3
+ MOVE 133 47
+ LOAD_INT 134 0
+ EQ 132 133 134
+ MOVE 131 132
+ JUMP_IF_FALSE 132 _L1
+ MOVE 140 0
+ MOVE 139 140
+ GET_PROP 141 139 23
+ MOVE 138 141
+ GET_PROP 142 138 13
+ MOVE 137 142
+ CALL 136 137 143 0
+ LOAD_INT 144 1
+ EQ 135 136 144
+ MOVE 131 135
+_L1:
+ JUMP_IF_FALSE 131 _L2
+ MOVE 151 0
+ MOVE 150 151
+ GET_PROP 152 150 11
+ MOVE 149 152
+ GET_PROP 153 149 24
+ MOVE 148 153
+ GET_PROP 154 148 25
+ MOVE 147 154
+ MOVE 155 2
+ MOVE 156 155
+ CALL 146 147 156 1
+ MOVE 145 146
+ GET_UPVALUE 160 0
+ MOVE 159 160
+ GET_EXPORT 161 159 20
+ MOVE 158 161
+ MOVE 164 0
+ MOVE 163 164
+ GET_PROP 165 163 11
+ MOVE 162 165
+ GET_PROP 166 162 21
+ GET_UPVALUE 168 1
+ MOVE 167 168
+ GET_PROP 169 167 26
+ MOVE 172 145
+ MOVE 170 172
+ MOVE 173 68
+ MOVE 171 173
+ NEW_ARRAY 174 170 2
+ MOVE 175 166
+ MOVE 176 169
+ MOVE 177 174
+ CALL 157 158 175 3
+_L2:
+ LOAD_NULL 178
+ RETURN 178
+.endfunc
+
+.func @__fn_7_@visitForStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_52_96
+ .registers 58
+ .upvalues 5
+
+ .const "visitExpression"
+ .const "condition"
+ .const "emit"
+ .const "currentState"
+ .const "proto"
+ .const "MOVE"
+ .const "JUMP_IF_FALSE"
+ .const "label"
+
+ .upvalue 0 local 0
+ .upvalue 1 local 1
+ .upvalue 2 parent_upvalue 0
+ .upvalue 3 parent_upvalue 1
+ .upvalue 4 local 43
+
+ GET_UPVALUE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ GET_UPVALUE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ MOVE 1 2
+ GET_UPVALUE 14 2
+ MOVE 13 14
+ GET_EXPORT 15 13 2
+ MOVE 12 15
+ GET_UPVALUE 18 0
+ MOVE 17 18
+ GET_PROP 19 17 3
+ MOVE 16 19
+ GET_PROP 20 16 4
+ GET_UPVALUE 22 3
+ MOVE 21 22
+ GET_PROP 23 21 5
+ MOVE 26 0
+ MOVE 24 26
+ MOVE 27 1
+ MOVE 25 27
+ NEW_ARRAY 28 24 2
+ MOVE 29 20
+ MOVE 30 23
+ MOVE 31 28
+ CALL 11 12 29 3
+ GET_UPVALUE 35 2
+ MOVE 34 35
+ GET_EXPORT 36 34 2
+ MOVE 33 36
+ GET_UPVALUE 39 0
+ MOVE 38 39
+ GET_PROP 40 38 3
+ MOVE 37 40
+ GET_PROP 41 37 4
+ GET_UPVALUE 43 3
+ MOVE 42 43
+ GET_PROP 44 42 6
+ MOVE 47 0
+ MOVE 45 47
+ LOAD_CONST 50 7
+ MOVE 48 50
+ GET_UPVALUE 51 4
+ MOVE 49 51
+ NEW_HASH 52 48 1
+ MOVE 46 52
+ NEW_ARRAY 53 45 2
+ MOVE 54 41
+ MOVE 55 44
+ MOVE 56 53
+ CALL 32 33 54 3
+ LOAD_NULL 57
+ RETURN 57
+.endfunc
+
+.func @__fn_8_@visitForInStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_56_367
+ .registers 46
+ .upvalues 4
+
+ .const "emit"
+ .const "currentState"
+ .const "proto"
+ .const "LOAD_INT"
+ .const "emit"
+ .const "ADD"
+
+ .upvalue 0 parent_upvalue 0
+ .upvalue 1 local 0
+ .upvalue 2 parent_upvalue 1
+ .upvalue 3 local 55
+
+ GET_UPVALUE 4 0
+ MOVE 3 4
+ GET_EXPORT 5 3 0
+ MOVE 2 5
+ GET_UPVALUE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 6 9
+ GET_PROP 10 6 2
+ GET_UPVALUE 12 2
+ MOVE 11 12
+ GET_PROP 13 11 3
+ MOVE 16 0
+ MOVE 14 16
+ LOAD_INT 17 1
+ MOVE 15 17
+ NEW_ARRAY 18 14 2
+ MOVE 19 10
+ MOVE 20 13
+ MOVE 21 18
+ CALL 1 2 19 3
+ GET_UPVALUE 25 0
+ MOVE 24 25
+ GET_EXPORT 26 24 4
+ MOVE 23 26
+ GET_UPVALUE 29 1
+ MOVE 28 29
+ GET_PROP 30 28 1
+ MOVE 27 30
+ GET_PROP 31 27 2
+ GET_UPVALUE 33 2
+ MOVE 32 33
+ GET_PROP 34 32 5
+ GET_UPVALUE 38 3
+ MOVE 35 38
+ GET_UPVALUE 39 3
+ MOVE 36 39
+ MOVE 40 0
+ MOVE 37 40
+ NEW_ARRAY 41 35 3
+ MOVE 42 31
+ MOVE 43 34
+ MOVE 44 41
+ CALL 22 23 42 3
+ LOAD_NULL 45
+ RETURN 45
+.endfunc
+
+.func @__fn_9_@visitImportStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_103_316
+ .registers 200
+ .upvalues 5
+
+ .const "emit"
+ .const "currentState"
+ .const "proto"
+ .const "IMPORT_MODULE"
+ .const "namedImports"
+ .const "length"
+ .const "name"
+ .const "pool"
+ .const "add"
+ .const "assert"
+ .const "resolution"
+ .const "type"
+ .const "local"
+ .const "Lỗi: Import "
+ .const " không được resolve là local"
+ .const "symbol"
+ .const "index"
+ .const "allocator"
+ .const "ralloc"
+ .const "emit"
+ .const "GET_EXPORT"
+ .const "regToLocalIndex"
+ .const "str"
+ .const "localIndexToReg"
+ .const "scope"
+ .const "size"
+ .const "states"
+ .const "SET_GLOBAL"
+ .const "importedVariables"
+
+ .upvalue 0 parent_upvalue 2
+ .upvalue 1 local 0
+ .upvalue 2 parent_upvalue 3
+ .upvalue 3 local 8
+ .upvalue 4 local 1
+
+ GET_UPVALUE 4 0
+ MOVE 3 4
+ GET_EXPORT 5 3 0
+ MOVE 2 5
+ GET_UPVALUE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 6 9
+ GET_PROP 10 6 2
+ GET_UPVALUE 12 2
+ MOVE 11 12
+ GET_PROP 13 11 3
+ MOVE 16 0
+ MOVE 14 16
+ GET_UPVALUE 17 3
+ MOVE 15 17
+ NEW_ARRAY 18 14 2
+ MOVE 19 10
+ MOVE 20 13
+ MOVE 21 18
+ CALL 1 2 19 3
+ GET_UPVALUE 23 4
+ MOVE 22 23
+ GET_PROP 24 22 4
+ GET_VALUES 25 24
+ LOAD_INT 26 0
+ GET_PROP 27 25 5
+_L4:
+ LT 28 26 27
+ JUMP_IF_FALSE 28 _L0
+ GET_INDEX 29 25 26
+ MOVE 32 29
+ MOVE 31 32
+ GET_PROP 33 31 6
+ MOVE 30 33
+ GET_UPVALUE 40 1
+ MOVE 39 40
+ GET_PROP 41 39 1
+ MOVE 38 41
+ GET_PROP 42 38 7
+ MOVE 37 42
+ GET_PROP 43 37 8
+ MOVE 36 43
+ MOVE 44 30
+ MOVE 45 44
+ CALL 35 36 45 1
+ MOVE 34 35
+ GET_GLOBAL 48 9
+ MOVE 47 48
+ MOVE 51 29
+ MOVE 50 51
+ GET_PROP 52 50 10
+ MOVE 49 52
+ JUMP_IF_FALSE 52 _L1
+ MOVE 56 29
+ MOVE 55 56
+ GET_PROP 57 55 10
+ MOVE 54 57
+ GET_PROP 58 54 11
+ LOAD_CONST 59 12
+ EQ 53 58 59
+ MOVE 49 53
+_L1:
+ LOAD_CONST 62 13
+ MOVE 63 30
+ ADD 61 62 63
+ LOAD_CONST 64 14
+ ADD 60 61 64
+ MOVE 65 49
+ MOVE 66 60
+ CALL 46 47 65 2
+ MOVE 71 29
+ MOVE 70 71
+ GET_PROP 72 70 10
+ MOVE 69 72
+ GET_PROP 73 69 15
+ MOVE 68 73
+ GET_PROP 74 68 16
+ MOVE 67 74
+ GET_UPVALUE 81 1
+ MOVE 80 81
+ GET_PROP 82 80 1
+ MOVE 79 82
+ GET_PROP 83 79 17
+ MOVE 78 83
+ GET_PROP 84 78 18
+ MOVE 77 84
+ CALL 76 77 85 0
+ MOVE 75 76
+ GET_UPVALUE 89 0
+ MOVE 88 89
+ GET_EXPORT 90 88 19
+ MOVE 87 90
+ GET_UPVALUE 93 1
+ MOVE 92 93
+ GET_PROP 94 92 1
+ MOVE 91 94
+ GET_PROP 95 91 2
+ GET_UPVALUE 97 2
+ MOVE 96 97
+ GET_PROP 98 96 20
+ MOVE 102 75
+ MOVE 99 102
+ MOVE 103 0
+ MOVE 100 103
+ MOVE 104 34
+ MOVE 101 104
+ NEW_ARRAY 105 99 3
+ MOVE 106 95
+ MOVE 107 98
+ MOVE 108 105
+ CALL 86 87 106 3
+ GET_UPVALUE 111 1
+ MOVE 110 111
+ GET_PROP 112 110 1
+ MOVE 109 112
+ GET_PROP 113 109 21
+ GET_GLOBAL 116 22
+ MOVE 115 116
+ MOVE 117 75
+ MOVE 118 117
+ CALL 114 115 118 1
+ MOVE 119 67
+ SET_INDEX 113 114 119
+ GET_UPVALUE 122 1
+ MOVE 121 122
+ GET_PROP 123 121 1
+ MOVE 120 123
+ GET_PROP 124 120 23
+ MOVE 125 67
+ MOVE 126 75
+ SET_INDEX 124 125 126
+ GET_UPVALUE 130 1
+ MOVE 129 130
+ GET_PROP 131 129 1
+ MOVE 128 131
+ GET_PROP 132 128 24
+ GET_UPVALUE 139 1
+ MOVE 138 139
+ GET_PROP 140 138 1
+ MOVE 137 140
+ GET_PROP 141 137 24
+ MOVE 136 141
+ GET_PROP 142 136 25
+ MOVE 135 142
+ CALL 134 135 143 0
+ LOAD_INT 144 1
+ SUB 133 134 144
+ GET_INDEX 127 132 133
+ MOVE 145 30
+ MOVE 146 67
+ SET_INDEX 127 145 146
+ GET_UPVALUE 154 1
+ MOVE 153 154
+ GET_PROP 155 153 1
+ MOVE 152 155
+ GET_PROP 156 152 24
+ MOVE 151 156
+ GET_PROP 157 151 25
+ MOVE 150 157
+ CALL 149 150 158 0
+ LOAD_INT 159 1
+ EQ 148 149 159
+ MOVE 147 148
+ JUMP_IF_FALSE 148 _L2
+ GET_UPVALUE 165 1
+ MOVE 164 165
+ GET_PROP 166 164 26
+ MOVE 163 166
+ GET_PROP 167 163 25
+ MOVE 162 167
+ CALL 161 162 168 0
+ LOAD_INT 169 1
+ EQ 160 161 169
+ MOVE 147 160
+_L2:
+ JUMP_IF_FALSE 147 _L3
+ GET_UPVALUE 173 0
+ MOVE 172 173
+ GET_EXPORT 174 172 19
+ MOVE 171 174
+ GET_UPVALUE 177 1
+ MOVE 176 177
+ GET_PROP 178 176 1
+ MOVE 175 178
+ GET_PROP 179 175 2
+ GET_UPVALUE 181 2
+ MOVE 180 181
+ GET_PROP 182 180 27
+ MOVE 185 34
+ MOVE 183 185
+ MOVE 186 75
+ MOVE 184 186
+ NEW_ARRAY 187 183 2
+ MOVE 188 179
+ MOVE 189 182
+ MOVE 190 187
+ CALL 170 171 188 3
+_L3:
+ GET_UPVALUE 193 1
+ MOVE 192 193
+ GET_PROP 194 192 1
+ MOVE 191 194
+ GET_PROP 195 191 28
+ MOVE 196 30
+ LOAD_TRUE 197
+ SET_INDEX 195 196 197
+ LOAD_INT 198 1
+ ADD 26 26 198
+ JUMP _L4
+_L0:
+ LOAD_NULL 199
+ RETURN 199
+.endfunc
+
+.func @_endScopeAndCloseUpvalues_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_9
+ .registers 133
+ .upvalues 2
+
+ .const "currentState"
+ .const "scope"
+ .const "currentState"
+ .const "size"
+ .const "keys"
+ .const "length"
+ .const "capturedLocals"
+ .const "localIndexToReg"
+ .const "regToLocalIndex"
+ .const "str"
+ .const "emit"
+ .const "proto"
+ .const "CLOSE_UPVALUES"
+ .const "pop"
+
+ .upvalue 0 local 2
+ .upvalue 1 local 4
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ GET_PROP 7 3 1
+ MOVE 14 0
+ MOVE 13 14
+ GET_PROP 15 13 2
+ MOVE 12 15
+ GET_PROP 16 12 1
+ MOVE 11 16
+ GET_PROP 17 11 3
+ MOVE 10 17
+ CALL 9 10 18 0
+ LOAD_INT 19 1
+ SUB 8 9 19
+ GET_INDEX 2 7 8
+ MOVE 1 2
+ LOAD_INT 22 1
+ NEG 21 22
+ MOVE 20 21
+ MOVE 26 1
+ MOVE 25 26
+ GET_PROP 27 25 4
+ MOVE 24 27
+ CALL 23 24 28 0
+ GET_VALUES 29 23
+ LOAD_INT 30 0
+ GET_PROP 31 29 5
+_L5:
+ LT 32 30 31
+ JUMP_IF_FALSE 32 _L0
+ GET_INDEX 33 29 30
+ MOVE 36 1
+ MOVE 37 33
+ GET_INDEX 35 36 37
+ MOVE 34 35
+ MOVE 40 34
+ LOAD_NULL 41
+ NEQ 39 40 41
+ MOVE 38 39
+ JUMP_IF_FALSE 39 _L1
+ MOVE 45 0
+ MOVE 44 45
+ GET_PROP 46 44 2
+ MOVE 43 46
+ GET_PROP 47 43 6
+ MOVE 48 34
+ GET_INDEX 42 47 48
+ MOVE 38 42
+_L1:
+ JUMP_IF_FALSE 38 _L2
+ MOVE 53 0
+ MOVE 52 53
+ GET_PROP 54 52 2
+ MOVE 51 54
+ GET_PROP 55 51 7
+ MOVE 56 34
+ GET_INDEX 50 55 56
+ MOVE 49 50
+ MOVE 58 49
+ LOAD_NULL 59
+ NEQ 57 58 59
+ JUMP_IF_FALSE 57 _L2
+ MOVE 62 20
+ LOAD_INT 64 1
+ NEG 63 64
+ EQ 61 62 63
+ MOVE 60 61
+ JUMP_IF_TRUE 61 _L3
+ MOVE 66 49
+ MOVE 67 20
+ LT 65 66 67
+ MOVE 60 65
+_L3:
+ JUMP_IF_FALSE 60 _L2
+ MOVE 68 49
+ MOVE 20 68
+_L2:
+ MOVE 73 0
+ MOVE 72 73
+ GET_PROP 74 72 2
+ MOVE 71 74
+ GET_PROP 75 71 7
+ MOVE 76 34
+ GET_INDEX 70 75 76
+ MOVE 69 70
+ MOVE 78 69
+ LOAD_NULL 79
+ NEQ 77 78 79
+ JUMP_IF_FALSE 77 _L4
+ MOVE 82 0
+ MOVE 81 82
+ GET_PROP 83 81 2
+ MOVE 80 83
+ GET_PROP 84 80 7
+ MOVE 85 34
+ LOAD_NULL 86
+ SET_INDEX 84 85 86
+ MOVE 89 0
+ MOVE 88 89
+ GET_PROP 90 88 2
+ MOVE 87 90
+ GET_PROP 91 87 8
+ GET_GLOBAL 94 9
+ MOVE 93 94
+ MOVE 95 69
+ MOVE 96 95
+ CALL 92 93 96 1
+ LOAD_NULL 97
+ SET_INDEX 91 92 97
+_L4:
+ LOAD_INT 98 1
+ ADD 30 30 98
+ JUMP _L5
+_L0:
+ MOVE 100 20
+ LOAD_INT 102 1
+ NEG 101 102
+ NEQ 99 100 101
+ JUMP_IF_FALSE 99 _L6
+ GET_UPVALUE 106 0
+ MOVE 105 106
+ GET_EXPORT 107 105 10
+ MOVE 104 107
+ MOVE 110 0
+ MOVE 109 110
+ GET_PROP 111 109 2
+ MOVE 108 111
+ GET_PROP 112 108 11
+ GET_UPVALUE 114 1
+ MOVE 113 114
+ GET_PROP 115 113 12
+ MOVE 117 20
+ MOVE 116 117
+ NEW_ARRAY 118 116 1
+ MOVE 119 112
+ MOVE 120 115
+ MOVE 121 118
+ CALL 103 104 119 3
+_L6:
+ MOVE 127 0
+ MOVE 126 127
+ GET_PROP 128 126 2
+ MOVE 125 128
+ GET_PROP 129 125 1
+ MOVE 124 129
+ GET_PROP 130 124 13
+ MOVE 123 130
+ CALL 122 123 131 0
+ LOAD_NULL 132
+ RETURN 132
+.endfunc
+
+.func @_getDirectoryPath_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_100
+ .registers 44
+ .upvalues 1
+
+ .const "getFileName"
+ .const "size"
+ .const ""
+ .const "slice"
+
+ .upvalue 0 local 0
+
+ GET_UPVALUE 5 0
+ MOVE 4 5
+ GET_EXPORT 6 4 0
+ MOVE 3 6
+ MOVE 7 0
+ MOVE 8 7
+ CALL 2 3 8 1
+ MOVE 1 2
+ MOVE 13 1
+ MOVE 12 13
+ GET_PROP 14 12 1
+ MOVE 11 14
+ CALL 10 11 15 0
+ MOVE 19 0
+ MOVE 18 19
+ GET_PROP 20 18 1
+ MOVE 17 20
+ CALL 16 17 21 0
+ GE 9 10 16
+ JUMP_IF_FALSE 9 _L0
+ LOAD_CONST 22 2
+ RETURN 22
+_L0:
+ MOVE 26 0
+ MOVE 25 26
+ GET_PROP 27 25 3
+ MOVE 24 27
+ LOAD_INT 28 0
+ MOVE 33 0
+ MOVE 32 33
+ GET_PROP 34 32 1
+ MOVE 31 34
+ CALL 30 31 35 0
+ MOVE 39 1
+ MOVE 38 39
+ GET_PROP 40 38 1
+ MOVE 37 40
+ CALL 36 37 41 0
+ SUB 29 30 36
+ MOVE 42 28
+ MOVE 43 29
+ CALL 23 24 42 2
+ RETURN 23
+.endfunc
+
+.func @main
+ .registers 72
+
+ .const "io"
+ .const "Io"
+ .const "json"
+ .const "Json"
+ .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/emitter.meowb"
+ .const "Emitter"
+ .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/opCodes.meowb"
+ .const "OpCodes"
+ .const @_endScopeAndCloseUpvalues_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_9
+ .const "_endScopeAndCloseUpvalues"
+ .const @__fn_5_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_12
+ .const "visitLetStatement"
+ .const @__fn_6_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_16
+ .const "visitFunctionStatement"
+ .const @visitClassStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_20
+ .const "visitClassStatement"
+ .const @visitReturnStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_24
+ .const "visitReturnStatement"
+ .const @visitIfStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_28
+ .const "visitIfStatement"
+ .const @visitWhileStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_32
+ .const "visitWhileStatement"
+ .const @visitBreakStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_36
+ .const "visitBreakStatement"
+ .const @visitContinueStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_40
+ .const "visitContinueStatement"
+ .const @visitBlockStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_44
+ .const "visitBlockStatement"
+ .const @visitExpressionStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_48
+ .const "visitExpressionStatement"
+ .const @visitForStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_52
+ .const "visitForStatement"
+ .const @visitForInStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_56
+ .const "visitForInStatement"
+ .const @visitThrowStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_60
+ .const "visitThrowStatement"
+ .const @visitTryStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_64
+ .const "visitTryStatement"
+ .const @visitExportStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_68
+ .const "visitExportStatement"
+ .const "io"
+ .const "array"
+ .const "object"
+ .const "string"
+ .const "system"
+ .const "stdlib"
+ .const @_getDirectoryPath_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_100
+ .const "_getDirectoryPath"
+ .const @visitImportStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_103
+ .const "visitImportStatement"
+ .const @visitDoWhileStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_107
+ .const "visitDoWhileStatement"
+ .const @visitSwitchStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_111
+ .const "visitSwitchStatement"
+
+ IMPORT_MODULE 0 0
+ SET_GLOBAL 1 0
+ IMPORT_MODULE 1 2
+ SET_GLOBAL 3 1
+ IMPORT_MODULE 2 4
+ SET_GLOBAL 5 2
+ IMPORT_MODULE 3 6
+ GET_EXPORT 4 3 7
+ SET_GLOBAL 7 4
+ CLOSURE 6 8
+ MOVE 5 6
+ SET_GLOBAL 9 5
+ CLOSURE 8 10
+ MOVE 7 8
+ SET_GLOBAL 11 7
+ EXPORT 11 7
+ CLOSURE 10 12
+ MOVE 9 10
+ SET_GLOBAL 13 9
+ EXPORT 13 9
+ CLOSURE 12 14
+ MOVE 11 12
+ SET_GLOBAL 15 11
+ EXPORT 15 11
+ CLOSURE 14 16
+ MOVE 13 14
+ SET_GLOBAL 17 13
+ EXPORT 17 13
+ CLOSURE 16 18
+ MOVE 15 16
+ SET_GLOBAL 19 15
+ EXPORT 19 15
+ CLOSURE 18 20
+ MOVE 17 18
+ SET_GLOBAL 21 17
+ EXPORT 21 17
+ CLOSURE 20 22
+ MOVE 19 20
+ SET_GLOBAL 23 19
+ EXPORT 23 19
+ CLOSURE 22 24
+ MOVE 21 22
+ SET_GLOBAL 25 21
+ EXPORT 25 21
+ CLOSURE 24 26
+ MOVE 23 24
+ SET_GLOBAL 27 23
+ EXPORT 27 23
+ CLOSURE 26 28
+ MOVE 25 26
+ SET_GLOBAL 29 25
+ EXPORT 29 25
+ CLOSURE 28 30
+ MOVE 27 28
+ SET_GLOBAL 31 27
+ EXPORT 31 27
+ CLOSURE 30 32
+ MOVE 29 30
+ SET_GLOBAL 33 29
+ EXPORT 33 29
+ CLOSURE 32 34
+ MOVE 31 32
+ SET_GLOBAL 35 31
+ EXPORT 35 31
+ CLOSURE 34 36
+ MOVE 33 34
+ SET_GLOBAL 37 33
+ EXPORT 37 33
+ CLOSURE 36 38
+ MOVE 35 36
+ SET_GLOBAL 39 35
+ EXPORT 39 35
+ LOAD_CONST 50 40
+ MOVE 38 50
+ LOAD_TRUE 51
+ MOVE 39 51
+ LOAD_CONST 52 41
+ MOVE 40 52
+ LOAD_TRUE 53
+ MOVE 41 53
+ LOAD_CONST 54 2
+ MOVE 42 54
+ LOAD_TRUE 55
+ MOVE 43 55
+ LOAD_CONST 56 42
+ MOVE 44 56
+ LOAD_TRUE 57
+ MOVE 45 57
+ LOAD_CONST 58 43
+ MOVE 46 58
+ LOAD_TRUE 59
+ MOVE 47 59
+ LOAD_CONST 60 44
+ MOVE 48 60
+ LOAD_TRUE 61
+ MOVE 49 61
+ NEW_HASH 62 38 6
+ MOVE 37 62
+ SET_GLOBAL 45 37
+ EXPORT 45 37
+ CLOSURE 64 46
+ MOVE 63 64
+ SET_GLOBAL 47 63
+ CLOSURE 66 48
+ MOVE 65 66
+ SET_GLOBAL 49 65
+ EXPORT 49 65
+ CLOSURE 68 50
+ MOVE 67 68
+ SET_GLOBAL 51 67
+ EXPORT 51 67
+ CLOSURE 70 52
+ MOVE 69 70
+ SET_GLOBAL 53 69
+ EXPORT 53 69
+ LOAD_NULL 71
+ RETURN 71
+.endfunc
+
+.func @visitBlockStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_44
+ .registers 35
+ .upvalues 1
+
+ .const "currentState"
+ .const "scope"
+ .const "push"
+ .const "statements"
+ .const "length"
+ .const "visitStatement"
+
+ .upvalue 0 local 5
+
+ MOVE 7 0
+ MOVE 6 7
+ GET_PROP 8 6 0
+ MOVE 5 8
+ GET_PROP 9 5 1
+ MOVE 4 9
+ GET_PROP 10 4 2
+ MOVE 3 10
+ NEW_HASH 11 0 0
+ MOVE 12 11
+ CALL 2 3 12 1
+ MOVE 14 1
+ MOVE 13 14
+ GET_PROP 15 13 3
+ GET_VALUES 16 15
+ LOAD_INT 17 0
+ GET_PROP 18 16 4
+_L1:
+ LT 19 17 18
+ JUMP_IF_FALSE 19 _L0
+ GET_INDEX 20 16 17
+ MOVE 24 0
+ MOVE 23 24
+ GET_PROP 25 23 5
+ MOVE 22 25
+ MOVE 26 20
+ MOVE 27 26
+ CALL 21 22 27 1
+ LOAD_INT 28 1
+ ADD 17 17 28
+ JUMP _L1
+_L0:
+ GET_UPVALUE 31 0
+ MOVE 30 31
+ MOVE 32 0
+ MOVE 33 32
+ CALL 29 30 33 1
+ LOAD_NULL 34
+ RETURN 34
+.endfunc
+
+.func @visitBreakStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_36
+ .registers 74
+ .upvalues 2
+
+ .const "assert"
+ .const "currentState"
+ .const "loopLabels"
+ .const "size"
+ .const "Lỗi: 'break' chỉ có thể được dùng trong vòng lặp!"
+ .const "assert"
+ .const "breakTarget"
+ .const "Lỗi logic: Vòng lặp không có nhãn 'break'."
+ .const "emit"
+ .const "proto"
+ .const "JUMP"
+ .const "label"
+
+ .upvalue 0 local 2
+ .upvalue 1 local 4
+
+ GET_GLOBAL 4 0
+ MOVE 3 4
+ MOVE 11 0
+ MOVE 10 11
+ GET_PROP 12 10 1
+ MOVE 9 12
+ GET_PROP 13 9 2
+ MOVE 8 13
+ GET_PROP 14 8 3
+ MOVE 7 14
+ CALL 6 7 15 0
+ LOAD_INT 16 0
+ GT 5 6 16
+ LOAD_CONST 17 4
+ MOVE 18 5
+ MOVE 19 17
+ CALL 2 3 18 2
+ MOVE 24 0
+ MOVE 23 24
+ GET_PROP 25 23 1
+ MOVE 22 25
+ GET_PROP 26 22 2
+ MOVE 33 0
+ MOVE 32 33
+ GET_PROP 34 32 1
+ MOVE 31 34
+ GET_PROP 35 31 2
+ MOVE 30 35
+ GET_PROP 36 30 3
+ MOVE 29 36
+ CALL 28 29 37 0
+ LOAD_INT 38 1
+ SUB 27 28 38
+ GET_INDEX 21 26 27
+ MOVE 20 21
+ GET_GLOBAL 41 5
+ MOVE 40 41
+ MOVE 43 20
+ MOVE 42 43
+ GET_PROP 44 42 6
+ LOAD_CONST 45 7
+ MOVE 46 44
+ MOVE 47 45
+ CALL 39 40 46 2
+ GET_UPVALUE 51 0
+ MOVE 50 51
+ GET_EXPORT 52 50 8
+ MOVE 49 52
+ MOVE 55 0
+ MOVE 54 55
+ GET_PROP 56 54 1
+ MOVE 53 56
+ GET_PROP 57 53 9
+ GET_UPVALUE 59 1
+ MOVE 58 59
+ GET_PROP 60 58 10
+ LOAD_CONST 64 11
+ MOVE 62 64
+ MOVE 66 20
+ MOVE 65 66
+ GET_PROP 67 65 6
+ MOVE 63 67
+ NEW_HASH 68 62 1
+ MOVE 61 68
+ NEW_ARRAY 69 61 1
+ MOVE 70 57
+ MOVE 71 60
+ MOVE 72 69
+ CALL 48 49 70 3
+ LOAD_NULL 73
+ RETURN 73
+.endfunc
+
+.func @visitClassStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_20
+ .registers 269
+ .upvalues 2
+
+ .const "name"
+ .const "name"
+ .const "currentState"
+ .const "pool"
+ .const "add"
+ .const "assert"
+ .const "resolution"
+ .const "type"
+ .const "local"
+ .const "Lỗi: ClassStatement "
+ .const " không được resolve là local"
+ .const "symbol"
+ .const "index"
+ .const "allocator"
+ .const "ralloc"
+ .const "regToLocalIndex"
+ .const "str"
+ .const "localIndexToReg"
+ .const "scope"
+ .const "size"
+ .const "emit"
+ .const "proto"
+ .const "NEW_CLASS"
+ .const "superclass"
+ .const "visitExpression"
+ .const "INHERIT"
+ .const "isInsideClass"
+ .const "methods"
+ .const "length"
+ .const "func"
+ .const "."
+ .const "SET_METHOD"
+ .const "SET_GLOBAL"
+
+ .upvalue 0 local 2
+ .upvalue 1 local 4
+
+ MOVE 5 1
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ GET_PROP 7 3 1
+ MOVE 2 7
+ MOVE 14 0
+ MOVE 13 14
+ GET_PROP 15 13 2
+ MOVE 12 15
+ GET_PROP 16 12 3
+ MOVE 11 16
+ GET_PROP 17 11 4
+ MOVE 10 17
+ MOVE 18 2
+ MOVE 19 18
+ CALL 9 10 19 1
+ MOVE 8 9
+ GET_GLOBAL 22 5
+ MOVE 21 22
+ MOVE 26 1
+ MOVE 25 26
+ GET_PROP 27 25 1
+ MOVE 24 27
+ GET_PROP 28 24 6
+ MOVE 23 28
+ JUMP_IF_FALSE 28 _L0
+ MOVE 33 1
+ MOVE 32 33
+ GET_PROP 34 32 1
+ MOVE 31 34
+ GET_PROP 35 31 6
+ MOVE 30 35
+ GET_PROP 36 30 7
+ LOAD_CONST 37 8
+ EQ 29 36 37
+ MOVE 23 29
+_L0:
+ LOAD_CONST 40 9
+ MOVE 41 2
+ ADD 39 40 41
+ LOAD_CONST 42 10
+ ADD 38 39 42
+ MOVE 43 23
+ MOVE 44 38
+ CALL 20 21 43 2
+ MOVE 50 1
+ MOVE 49 50
+ GET_PROP 51 49 1
+ MOVE 48 51
+ GET_PROP 52 48 6
+ MOVE 47 52
+ GET_PROP 53 47 11
+ MOVE 46 53
+ GET_PROP 54 46 12
+ MOVE 45 54
+ MOVE 61 0
+ MOVE 60 61
+ GET_PROP 62 60 2
+ MOVE 59 62
+ GET_PROP 63 59 13
+ MOVE 58 63
+ GET_PROP 64 58 14
+ MOVE 57 64
+ CALL 56 57 65 0
+ MOVE 55 56
+ MOVE 68 0
+ MOVE 67 68
+ GET_PROP 69 67 2
+ MOVE 66 69
+ GET_PROP 70 66 15
+ GET_GLOBAL 73 16
+ MOVE 72 73
+ MOVE 74 55
+ MOVE 75 74
+ CALL 71 72 75 1
+ MOVE 76 45
+ SET_INDEX 70 71 76
+ MOVE 79 0
+ MOVE 78 79
+ GET_PROP 80 78 2
+ MOVE 77 80
+ GET_PROP 81 77 17
+ MOVE 82 45
+ MOVE 83 55
+ SET_INDEX 81 82 83
+ MOVE 88 0
+ MOVE 87 88
+ GET_PROP 89 87 2
+ MOVE 86 89
+ GET_PROP 90 86 18
+ MOVE 97 0
+ MOVE 96 97
+ GET_PROP 98 96 2
+ MOVE 95 98
+ GET_PROP 99 95 18
+ MOVE 94 99
+ GET_PROP 100 94 19
+ MOVE 93 100
+ CALL 92 93 101 0
+ LOAD_INT 102 1
+ SUB 91 92 102
+ GET_INDEX 85 90 91
+ MOVE 84 85
+ MOVE 103 84
+ MOVE 104 2
+ MOVE 105 45
+ SET_INDEX 103 104 105
+ GET_UPVALUE 109 0
+ MOVE 108 109
+ GET_EXPORT 110 108 20
+ MOVE 107 110
+ MOVE 113 0
+ MOVE 112 113
+ GET_PROP 114 112 2
+ MOVE 111 114
+ GET_PROP 115 111 21
+ GET_UPVALUE 117 1
+ MOVE 116 117
+ GET_PROP 118 116 22
+ MOVE 121 55
+ MOVE 119 121
+ MOVE 122 8
+ MOVE 120 122
+ NEW_ARRAY 123 119 2
+ MOVE 124 115
+ MOVE 125 118
+ MOVE 126 123
+ CALL 106 107 124 3
+ MOVE 129 1
+ MOVE 128 129
+ GET_PROP 130 128 23
+ LOAD_NULL 131
+ NEQ 127 130 131
+ JUMP_IF_FALSE 127 _L1
+ MOVE 136 0
+ MOVE 135 136
+ GET_PROP 137 135 24
+ MOVE 134 137
+ MOVE 139 1
+ MOVE 138 139
+ GET_PROP 140 138 23
+ MOVE 141 140
+ CALL 133 134 141 1
+ MOVE 132 133
+ GET_UPVALUE 145 0
+ MOVE 144 145
+ GET_EXPORT 146 144 20
+ MOVE 143 146
+ MOVE 149 0
+ MOVE 148 149
+ GET_PROP 150 148 2
+ MOVE 147 150
+ GET_PROP 151 147 21
+ GET_UPVALUE 153 1
+ MOVE 152 153
+ GET_PROP 154 152 25
+ MOVE 157 55
+ MOVE 155 157
+ MOVE 158 132
+ MOVE 156 158
+ NEW_ARRAY 159 155 2
+ MOVE 160 151
+ MOVE 161 154
+ MOVE 162 159
+ CALL 142 143 160 3
+_L1:
+ MOVE 163 0
+ LOAD_TRUE 164
+ SET_PROP 163 26 164
+ MOVE 166 1
+ MOVE 165 166
+ GET_PROP 167 165 27
+ GET_VALUES 168 167
+ LOAD_INT 169 0
+ GET_PROP 170 168 28
+_L3:
+ LT 171 169 170
+ JUMP_IF_FALSE 171 _L2
+ GET_INDEX 172 168 169
+ MOVE 176 172
+ MOVE 175 176
+ GET_PROP 177 175 1
+ MOVE 174 177
+ GET_PROP 178 174 1
+ MOVE 173 178
+ MOVE 180 172
+ MOVE 179 180
+ GET_PROP 181 179 29
+ MOVE 184 2
+ LOAD_CONST 185 30
+ ADD 183 184 185
+ MOVE 186 173
+ ADD 182 183 186
+ SET_PROP 181 1 182
+ MOVE 191 0
+ MOVE 190 191
+ GET_PROP 192 190 24
+ MOVE 189 192
+ MOVE 194 172
+ MOVE 193 194
+ GET_PROP 195 193 29
+ MOVE 196 195
+ CALL 188 189 196 1
+ MOVE 187 188
+ MOVE 203 0
+ MOVE 202 203
+ GET_PROP 204 202 2
+ MOVE 201 204
+ GET_PROP 205 201 3
+ MOVE 200 205
+ GET_PROP 206 200 4
+ MOVE 199 206
+ MOVE 207 173
+ MOVE 208 207
+ CALL 198 199 208 1
+ MOVE 197 198
+ GET_UPVALUE 212 0
+ MOVE 211 212
+ GET_EXPORT 213 211 20
+ MOVE 210 213
+ MOVE 216 0
+ MOVE 215 216
+ GET_PROP 217 215 2
+ MOVE 214 217
+ GET_PROP 218 214 21
+ GET_UPVALUE 220 1
+ MOVE 219 220
+ GET_PROP 221 219 31
+ MOVE 225 55
+ MOVE 222 225
+ MOVE 226 197
+ MOVE 223 226
+ MOVE 227 187
+ MOVE 224 227
+ NEW_ARRAY 228 222 3
+ MOVE 229 218
+ MOVE 230 221
+ MOVE 231 228
+ CALL 209 210 229 3
+ LOAD_INT 232 1
+ ADD 169 169 232
+ JUMP _L3
+_L2:
+ MOVE 233 0
+ LOAD_FALSE 234
+ SET_PROP 233 26 234
+ MOVE 241 0
+ MOVE 240 241
+ GET_PROP 242 240 2
+ MOVE 239 242
+ GET_PROP 243 239 18
+ MOVE 238 243
+ GET_PROP 244 238 19
+ MOVE 237 244
+ CALL 236 237 245 0
+ LOAD_INT 246 1
+ EQ 235 236 246
+ JUMP_IF_FALSE 235 _L4
+ GET_UPVALUE 250 0
+ MOVE 249 250
+ GET_EXPORT 251 249 20
+ MOVE 248 251
+ MOVE 254 0
+ MOVE 253 254
+ GET_PROP 255 253 2
+ MOVE 252 255
+ GET_PROP 256 252 21
+ GET_UPVALUE 258 1
+ MOVE 257 258
+ GET_PROP 259 257 32
+ MOVE 262 8
+ MOVE 260 262
+ MOVE 263 55
+ MOVE 261 263
+ NEW_ARRAY 264 260 2
+ MOVE 265 256
+ MOVE 266 259
+ MOVE 267 264
+ CALL 247 248 265 3
+_L4:
+ LOAD_NULL 268
+ RETURN 268
+.endfunc
+
+.func @visitContinueStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_40
+ .registers 74
+ .upvalues 2
+
+ .const "assert"
+ .const "currentState"
+ .const "loopLabels"
+ .const "size"
+ .const "Lỗi: 'continue' chỉ có thể được dùng trong vòng lặp!"
+ .const "assert"
+ .const "continueTarget"
+ .const "Lỗi logic: Vòng lặp không hỗ trợ 'continue'."
+ .const "emit"
+ .const "proto"
+ .const "JUMP"
+ .const "label"
+
+ .upvalue 0 local 2
+ .upvalue 1 local 4
+
+ GET_GLOBAL 4 0
+ MOVE 3 4
+ MOVE 11 0
+ MOVE 10 11
+ GET_PROP 12 10 1
+ MOVE 9 12
+ GET_PROP 13 9 2
+ MOVE 8 13
+ GET_PROP 14 8 3
+ MOVE 7 14
+ CALL 6 7 15 0
+ LOAD_INT 16 0
+ GT 5 6 16
+ LOAD_CONST 17 4
+ MOVE 18 5
+ MOVE 19 17
+ CALL 2 3 18 2
+ MOVE 24 0
+ MOVE 23 24
+ GET_PROP 25 23 1
+ MOVE 22 25
+ GET_PROP 26 22 2
+ MOVE 33 0
+ MOVE 32 33
+ GET_PROP 34 32 1
+ MOVE 31 34
+ GET_PROP 35 31 2
+ MOVE 30 35
+ GET_PROP 36 30 3
+ MOVE 29 36
+ CALL 28 29 37 0
+ LOAD_INT 38 1
+ SUB 27 28 38
+ GET_INDEX 21 26 27
+ MOVE 20 21
+ GET_GLOBAL 41 5
+ MOVE 40 41
+ MOVE 43 20
+ MOVE 42 43
+ GET_PROP 44 42 6
+ LOAD_CONST 45 7
+ MOVE 46 44
+ MOVE 47 45
+ CALL 39 40 46 2
+ GET_UPVALUE 51 0
+ MOVE 50 51
+ GET_EXPORT 52 50 8
+ MOVE 49 52
+ MOVE 55 0
+ MOVE 54 55
+ GET_PROP 56 54 1
+ MOVE 53 56
+ GET_PROP 57 53 9
+ GET_UPVALUE 59 1
+ MOVE 58 59
+ GET_PROP 60 58 10
+ LOAD_CONST 64 11
+ MOVE 62 64
+ MOVE 66 20
+ MOVE 65 66
+ GET_PROP 67 65 6
+ MOVE 63 67
+ NEW_HASH 68 62 1
+ MOVE 61 68
+ NEW_ARRAY 69 61 1
+ MOVE 70 57
+ MOVE 71 60
+ MOVE 72 69
+ CALL 48 49 70 3
+ LOAD_NULL 73
+ RETURN 73
+.endfunc
+
+.func @visitDoWhileStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_107
+ .registers 118
+ .upvalues 2
+
+ .const "createLabel"
+ .const "L_DOWHILE_START"
+ .const "createLabel"
+ .const "L_DOWHILE_END"
+ .const "currentState"
+ .const "loopLabels"
+ .const "push"
+ .const "continueTarget"
+ .const "breakTarget"
+ .const "defineLabel"
+ .const "proto"
+ .const "visitStatement"
+ .const "body"
+ .const "visitExpression"
+ .const "condition"
+ .const "emit"
+ .const "JUMP_IF_TRUE"
+ .const "label"
+ .const "pop"
+
+ .upvalue 0 local 2
+ .upvalue 1 local 4
+
+ GET_UPVALUE 6 0
+ MOVE 5 6
+ GET_EXPORT 7 5 0
+ MOVE 4 7
+ LOAD_CONST 8 1
+ MOVE 9 8
+ CALL 3 4 9 1
+ MOVE 2 3
+ GET_UPVALUE 14 0
+ MOVE 13 14
+ GET_EXPORT 15 13 2
+ MOVE 12 15
+ LOAD_CONST 16 3
+ MOVE 17 16
+ CALL 11 12 17 1
+ MOVE 10 11
+ MOVE 23 0
+ MOVE 22 23
+ GET_PROP 24 22 4
+ MOVE 21 24
+ GET_PROP 25 21 5
+ MOVE 20 25
+ GET_PROP 26 20 6
+ MOVE 19 26
+ LOAD_CONST 31 7
+ MOVE 27 31
+ MOVE 32 2
+ MOVE 28 32
+ LOAD_CONST 33 8
+ MOVE 29 33
+ MOVE 34 10
+ MOVE 30 34
+ NEW_HASH 35 27 2
+ MOVE 36 35
+ CALL 18 19 36 1
+ GET_UPVALUE 40 0
+ MOVE 39 40
+ GET_EXPORT 41 39 9
+ MOVE 38 41
+ MOVE 44 0
+ MOVE 43 44
+ GET_PROP 45 43 4
+ MOVE 42 45
+ GET_PROP 46 42 10
+ MOVE 47 2
+ MOVE 48 46
+ MOVE 49 47
+ CALL 37 38 48 2
+ MOVE 53 0
+ MOVE 52 53
+ GET_PROP 54 52 11
+ MOVE 51 54
+ MOVE 56 1
+ MOVE 55 56
+ GET_PROP 57 55 12
+ MOVE 58 57
+ CALL 50 51 58 1
+ MOVE 63 0
+ MOVE 62 63
+ GET_PROP 64 62 13
+ MOVE 61 64
+ MOVE 66 1
+ MOVE 65 66
+ GET_PROP 67 65 14
+ MOVE 68 67
+ CALL 60 61 68 1
+ MOVE 59 60
+ GET_UPVALUE 72 0
+ MOVE 71 72
+ GET_EXPORT 73 71 15
+ MOVE 70 73
+ MOVE 76 0
+ MOVE 75 76
+ GET_PROP 77 75 4
+ MOVE 74 77
+ GET_PROP 78 74 10
+ GET_UPVALUE 80 1
+ MOVE 79 80
+ GET_PROP 81 79 16
+ MOVE 84 59
+ MOVE 82 84
+ LOAD_CONST 87 17
+ MOVE 85 87
+ MOVE 88 2
+ MOVE 86 88
+ NEW_HASH 89 85 1
+ MOVE 83 89
+ NEW_ARRAY 90 82 2
+ MOVE 91 78
+ MOVE 92 81
+ MOVE 93 90
+ CALL 69 70 91 3
+ GET_UPVALUE 97 0
+ MOVE 96 97
+ GET_EXPORT 98 96 9
+ MOVE 95 98
+ MOVE 101 0
+ MOVE 100 101
+ GET_PROP 102 100 4
+ MOVE 99 102
+ GET_PROP 103 99 10
+ MOVE 104 10
+ MOVE 105 103
+ MOVE 106 104
+ CALL 94 95 105 2
+ MOVE 112 0
+ MOVE 111 112
+ GET_PROP 113 111 4
+ MOVE 110 113
+ GET_PROP 114 110 5
+ MOVE 109 114
+ GET_PROP 115 109 18
+ MOVE 108 115
+ CALL 107 108 116 0
+ LOAD_NULL 117
+ RETURN 117
+.endfunc
+
+.func @visitExportStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_68
+ .registers 112
+ .upvalues 2
+
+ .const "visitStatement"
+ .const "declaration"
+ .const "name"
+ .const "currentState"
+ .const "scope"
+ .const "size"
+ .const "assert"
+ .const "Lỗi logic: Biến '"
+ .const "' không có trong scope sau khi khai báo."
+ .const "localIndexToReg"
+ .const "Lỗi nghiêm trọng: Không tìm thấy thanh ghi cho biến được export '"
+ .const "'"
+ .const "pool"
+ .const "add"
+ .const "emit"
+ .const "proto"
+ .const "EXPORT"
+
+ .upvalue 0 local 2
+ .upvalue 1 local 4
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ MOVE 15 1
+ MOVE 14 15
+ GET_PROP 16 14 1
+ MOVE 13 16
+ GET_PROP 17 13 2
+ MOVE 12 17
+ GET_PROP 18 12 2
+ MOVE 11 18
+ MOVE 23 0
+ MOVE 22 23
+ GET_PROP 24 22 3
+ MOVE 21 24
+ GET_PROP 25 21 4
+ MOVE 32 0
+ MOVE 31 32
+ GET_PROP 33 31 3
+ MOVE 30 33
+ GET_PROP 34 30 4
+ MOVE 29 34
+ GET_PROP 35 29 5
+ MOVE 28 35
+ CALL 27 28 36 0
+ LOAD_INT 37 1
+ SUB 26 27 37
+ GET_INDEX 20 25 26
+ MOVE 19 20
+ GET_GLOBAL 40 6
+ MOVE 39 40
+ MOVE 43 19
+ MOVE 44 11
+ GET_INDEX 42 43 44
+ LOAD_NULL 45
+ NEQ 41 42 45
+ LOAD_CONST 48 7
+ MOVE 49 11
+ ADD 47 48 49
+ LOAD_CONST 50 8
+ ADD 46 47 50
+ MOVE 51 41
+ MOVE 52 46
+ CALL 38 39 51 2
+ MOVE 55 19
+ MOVE 56 11
+ GET_INDEX 54 55 56
+ MOVE 53 54
+ MOVE 61 0
+ MOVE 60 61
+ GET_PROP 62 60 3
+ MOVE 59 62
+ GET_PROP 63 59 9
+ MOVE 64 53
+ GET_INDEX 58 63 64
+ MOVE 57 58
+ GET_GLOBAL 67 6
+ MOVE 66 67
+ MOVE 69 57
+ LOAD_NULL 70
+ NEQ 68 69 70
+ LOAD_CONST 73 10
+ MOVE 74 11
+ ADD 72 73 74
+ LOAD_CONST 75 11
+ ADD 71 72 75
+ MOVE 76 68
+ MOVE 77 71
+ CALL 65 66 76 2
+ MOVE 84 0
+ MOVE 83 84
+ GET_PROP 85 83 3
+ MOVE 82 85
+ GET_PROP 86 82 12
+ MOVE 81 86
+ GET_PROP 87 81 13
+ MOVE 80 87
+ MOVE 88 11
+ MOVE 89 88
+ CALL 79 80 89 1
+ MOVE 78 79
+ GET_UPVALUE 93 0
+ MOVE 92 93
+ GET_EXPORT 94 92 14
+ MOVE 91 94
+ MOVE 97 0
+ MOVE 96 97
+ GET_PROP 98 96 3
+ MOVE 95 98
+ GET_PROP 99 95 15
+ GET_UPVALUE 101 1
+ MOVE 100 101
+ GET_PROP 102 100 16
+ MOVE 105 78
+ MOVE 103 105
+ MOVE 106 57
+ MOVE 104 106
+ NEW_ARRAY 107 103 2
+ MOVE 108 99
+ MOVE 109 102
+ MOVE 110 107
+ CALL 90 91 108 3
+ LOAD_NULL 111
+ RETURN 111
+.endfunc
+
+.func @visitExpressionStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_48
+ .registers 12
+
+ .const "visitExpression"
+ .const "expression"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ LOAD_NULL 11
+ RETURN 11
+.endfunc
+
+.func @visitForInStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_56
+ .registers 425
+ .upvalues 3
+
+ .const "currentState"
+ .const "scope"
+ .const "push"
+ .const "visitExpression"
+ .const "collection"
+ .const "currentState"
+ .const "allocator"
+ .const "ralloc"
+ .const "emit"
+ .const "proto"
+ .const "GET_VALUES"
+ .const "LOAD_INT"
+ .const "pool"
+ .const "add"
+ .const "length"
+ .const "GET_PROP"
+ .const "createLabel"
+ .const "L_FORIN_START"
+ .const "L_FORIN_END"
+ .const "loopLabels"
+ .const "continueTarget"
+ .const "breakTarget"
+ .const "defineLabel"
+ .const "LT"
+ .const "JUMP_IF_FALSE"
+ .const "label"
+ .const "GET_INDEX"
+ .const "variable"
+ .const "name"
+ .const "assert"
+ .const "resolution"
+ .const "type"
+ .const "local"
+ .const "Lỗi: Biến ForIn "
+ .const " không được resolve là local"
+ .const "symbol"
+ .const "index"
+ .const "regToLocalIndex"
+ .const "str"
+ .const "localIndexToReg"
+ .const "size"
+ .const "visitStatement"
+ .const "body"
+ .const "withTemp"
+ .const @__fn_8_@visitForInStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_56_367
+ .const "JUMP"
+ .const "pop"
+
+ .upvalue 0 local 2
+ .upvalue 1 local 4
+ .upvalue 2 local 5
+
+ MOVE 7 0
+ MOVE 6 7
+ GET_PROP 8 6 0
+ MOVE 5 8
+ GET_PROP 9 5 1
+ MOVE 4 9
+ GET_PROP 10 4 2
+ MOVE 3 10
+ NEW_HASH 11 0 0
+ MOVE 12 11
+ CALL 2 3 12 1
+ MOVE 17 0
+ MOVE 16 17
+ GET_PROP 18 16 3
+ MOVE 15 18
+ MOVE 20 1
+ MOVE 19 20
+ GET_PROP 21 19 4
+ MOVE 22 21
+ CALL 14 15 22 1
+ MOVE 13 14
+ MOVE 29 0
+ MOVE 28 29
+ GET_PROP 30 28 5
+ MOVE 27 30
+ GET_PROP 31 27 6
+ MOVE 26 31
+ GET_PROP 32 26 7
+ MOVE 25 32
+ CALL 24 25 33 0
+ MOVE 23 24
+ GET_UPVALUE 37 0
+ MOVE 36 37
+ GET_EXPORT 38 36 8
+ MOVE 35 38
+ MOVE 41 0
+ MOVE 40 41
+ GET_PROP 42 40 5
+ MOVE 39 42
+ GET_PROP 43 39 9
+ GET_UPVALUE 45 1
+ MOVE 44 45
+ GET_PROP 46 44 10
+ MOVE 49 23
+ MOVE 47 49
+ MOVE 50 13
+ MOVE 48 50
+ NEW_ARRAY 51 47 2
+ MOVE 52 43
+ MOVE 53 46
+ MOVE 54 51
+ CALL 34 35 52 3
+ MOVE 61 0
+ MOVE 60 61
+ GET_PROP 62 60 5
+ MOVE 59 62
+ GET_PROP 63 59 6
+ MOVE 58 63
+ GET_PROP 64 58 7
+ MOVE 57 64
+ CALL 56 57 65 0
+ MOVE 55 56
+ GET_UPVALUE 69 0
+ MOVE 68 69
+ GET_EXPORT 70 68 8
+ MOVE 67 70
+ MOVE 73 0
+ MOVE 72 73
+ GET_PROP 74 72 5
+ MOVE 71 74
+ GET_PROP 75 71 9
+ GET_UPVALUE 77 1
+ MOVE 76 77
+ GET_PROP 78 76 11
+ MOVE 81 55
+ MOVE 79 81
+ LOAD_INT 82 0
+ MOVE 80 82
+ NEW_ARRAY 83 79 2
+ MOVE 84 75
+ MOVE 85 78
+ MOVE 86 83
+ CALL 66 67 84 3
+ MOVE 93 0
+ MOVE 92 93
+ GET_PROP 94 92 5
+ MOVE 91 94
+ GET_PROP 95 91 6
+ MOVE 90 95
+ GET_PROP 96 90 7
+ MOVE 89 96
+ CALL 88 89 97 0
+ MOVE 87 88
+ MOVE 104 0
+ MOVE 103 104
+ GET_PROP 105 103 5
+ MOVE 102 105
+ GET_PROP 106 102 12
+ MOVE 101 106
+ GET_PROP 107 101 13
+ MOVE 100 107
+ LOAD_CONST 108 14
+ MOVE 109 108
+ CALL 99 100 109 1
+ MOVE 98 99
+ GET_UPVALUE 113 0
+ MOVE 112 113
+ GET_EXPORT 114 112 8
+ MOVE 111 114
+ MOVE 117 0
+ MOVE 116 117
+ GET_PROP 118 116 5
+ MOVE 115 118
+ GET_PROP 119 115 9
+ GET_UPVALUE 121 1
+ MOVE 120 121
+ GET_PROP 122 120 15
+ MOVE 126 87
+ MOVE 123 126
+ MOVE 127 23
+ MOVE 124 127
+ MOVE 128 98
+ MOVE 125 128
+ NEW_ARRAY 129 123 3
+ MOVE 130 119
+ MOVE 131 122
+ MOVE 132 129
+ CALL 110 111 130 3
+ GET_UPVALUE 137 0
+ MOVE 136 137
+ GET_EXPORT 138 136 16
+ MOVE 135 138
+ LOAD_CONST 139 17
+ MOVE 140 139
+ CALL 134 135 140 1
+ MOVE 133 134
+ GET_UPVALUE 145 0
+ MOVE 144 145
+ GET_EXPORT 146 144 16
+ MOVE 143 146
+ LOAD_CONST 147 18
+ MOVE 148 147
+ CALL 142 143 148 1
+ MOVE 141 142
+ MOVE 154 0
+ MOVE 153 154
+ GET_PROP 155 153 5
+ MOVE 152 155
+ GET_PROP 156 152 19
+ MOVE 151 156
+ GET_PROP 157 151 2
+ MOVE 150 157
+ LOAD_CONST 162 20
+ MOVE 158 162
+ MOVE 163 133
+ MOVE 159 163
+ LOAD_CONST 164 21
+ MOVE 160 164
+ MOVE 165 141
+ MOVE 161 165
+ NEW_HASH 166 158 2
+ MOVE 167 166
+ CALL 149 150 167 1
+ GET_UPVALUE 171 0
+ MOVE 170 171
+ GET_EXPORT 172 170 22
+ MOVE 169 172
+ MOVE 175 0
+ MOVE 174 175
+ GET_PROP 176 174 5
+ MOVE 173 176
+ GET_PROP 177 173 9
+ MOVE 178 133
+ MOVE 179 177
+ MOVE 180 178
+ CALL 168 169 179 2
+ MOVE 187 0
+ MOVE 186 187
+ GET_PROP 188 186 5
+ MOVE 185 188
+ GET_PROP 189 185 6
+ MOVE 184 189
+ GET_PROP 190 184 7
+ MOVE 183 190
+ CALL 182 183 191 0
+ MOVE 181 182
+ GET_UPVALUE 195 0
+ MOVE 194 195
+ GET_EXPORT 196 194 8
+ MOVE 193 196
+ MOVE 199 0
+ MOVE 198 199
+ GET_PROP 200 198 5
+ MOVE 197 200
+ GET_PROP 201 197 9
+ GET_UPVALUE 203 1
+ MOVE 202 203
+ GET_PROP 204 202 23
+ MOVE 208 181
+ MOVE 205 208
+ MOVE 209 55
+ MOVE 206 209
+ MOVE 210 87
+ MOVE 207 210
+ NEW_ARRAY 211 205 3
+ MOVE 212 201
+ MOVE 213 204
+ MOVE 214 211
+ CALL 192 193 212 3
+ GET_UPVALUE 218 0
+ MOVE 217 218
+ GET_EXPORT 219 217 8
+ MOVE 216 219
+ MOVE 222 0
+ MOVE 221 222
+ GET_PROP 223 221 5
+ MOVE 220 223
+ GET_PROP 224 220 9
+ GET_UPVALUE 226 1
+ MOVE 225 226
+ GET_PROP 227 225 24
+ MOVE 230 181
+ MOVE 228 230
+ LOAD_CONST 233 25
+ MOVE 231 233
+ MOVE 234 141
+ MOVE 232 234
+ NEW_HASH 235 231 1
+ MOVE 229 235
+ NEW_ARRAY 236 228 2
+ MOVE 237 224
+ MOVE 238 227
+ MOVE 239 236
+ CALL 215 216 237 3
+ MOVE 246 0
+ MOVE 245 246
+ GET_PROP 247 245 5
+ MOVE 244 247
+ GET_PROP 248 244 6
+ MOVE 243 248
+ GET_PROP 249 243 7
+ MOVE 242 249
+ CALL 241 242 250 0
+ MOVE 240 241
+ GET_UPVALUE 254 0
+ MOVE 253 254
+ GET_EXPORT 255 253 8
+ MOVE 252 255
+ MOVE 258 0
+ MOVE 257 258
+ GET_PROP 259 257 5
+ MOVE 256 259
+ GET_PROP 260 256 9
+ GET_UPVALUE 262 1
+ MOVE 261 262
+ GET_PROP 263 261 26
+ MOVE 267 240
+ MOVE 264 267
+ MOVE 268 23
+ MOVE 265 268
+ MOVE 269 55
+ MOVE 266 269
+ NEW_ARRAY 270 264 3
+ MOVE 271 260
+ MOVE 272 263
+ MOVE 273 270
+ CALL 251 252 271 3
+ MOVE 277 1
+ MOVE 276 277
+ GET_PROP 278 276 27
+ MOVE 275 278
+ GET_PROP 279 275 28
+ MOVE 274 279
+ GET_GLOBAL 282 29
+ MOVE 281 282
+ MOVE 286 1
+ MOVE 285 286
+ GET_PROP 287 285 27
+ MOVE 284 287
+ GET_PROP 288 284 30
+ MOVE 283 288
+ JUMP_IF_FALSE 288 _L0
+ MOVE 293 1
+ MOVE 292 293
+ GET_PROP 294 292 27
+ MOVE 291 294
+ GET_PROP 295 291 30
+ MOVE 290 295
+ GET_PROP 296 290 31
+ LOAD_CONST 297 32
+ EQ 289 296 297
+ MOVE 283 289
+_L0:
+ LOAD_CONST 300 33
+ MOVE 301 274
+ ADD 299 300 301
+ LOAD_CONST 302 34
+ ADD 298 299 302
+ MOVE 303 283
+ MOVE 304 298
+ CALL 280 281 303 2
+ MOVE 310 1
+ MOVE 309 310
+ GET_PROP 311 309 27
+ MOVE 308 311
+ GET_PROP 312 308 30
+ MOVE 307 312
+ GET_PROP 313 307 35
+ MOVE 306 313
+ GET_PROP 314 306 36
+ MOVE 305 314
+ MOVE 317 0
+ MOVE 316 317
+ GET_PROP 318 316 5
+ MOVE 315 318
+ GET_PROP 319 315 37
+ GET_GLOBAL 322 38
+ MOVE 321 322
+ MOVE 323 240
+ MOVE 324 323
+ CALL 320 321 324 1
+ MOVE 325 305
+ SET_INDEX 319 320 325
+ MOVE 328 0
+ MOVE 327 328
+ GET_PROP 329 327 5
+ MOVE 326 329
+ GET_PROP 330 326 39
+ MOVE 331 305
+ MOVE 332 240
+ SET_INDEX 330 331 332
+ MOVE 336 0
+ MOVE 335 336
+ GET_PROP 337 335 5
+ MOVE 334 337
+ GET_PROP 338 334 1
+ MOVE 345 0
+ MOVE 344 345
+ GET_PROP 346 344 5
+ MOVE 343 346
+ GET_PROP 347 343 1
+ MOVE 342 347
+ GET_PROP 348 342 40
+ MOVE 341 348
+ CALL 340 341 349 0
+ LOAD_INT 350 1
+ SUB 339 340 350
+ GET_INDEX 333 338 339
+ MOVE 351 274
+ MOVE 352 305
+ SET_INDEX 333 351 352
+ MOVE 356 0
+ MOVE 355 356
+ GET_PROP 357 355 41
+ MOVE 354 357
+ MOVE 359 1
+ MOVE 358 359
+ GET_PROP 360 358 42
+ MOVE 361 360
+ CALL 353 354 361 1
+ MOVE 367 0
+ MOVE 366 367
+ GET_PROP 368 366 5
+ MOVE 365 368
+ GET_PROP 369 365 6
+ MOVE 364 369
+ GET_PROP 370 364 43
+ MOVE 363 370
+ CLOSURE 371 44
+ MOVE 372 371
+ CALL 362 363 372 1
+ GET_UPVALUE 376 0
+ MOVE 375 376
+ GET_EXPORT 377 375 8
+ MOVE 374 377
+ MOVE 380 0
+ MOVE 379 380
+ GET_PROP 381 379 5
+ MOVE 378 381
+ GET_PROP 382 378 9
+ GET_UPVALUE 384 1
+ MOVE 383 384
+ GET_PROP 385 383 45
+ LOAD_CONST 389 25
+ MOVE 387 389
+ MOVE 390 133
+ MOVE 388 390
+ NEW_HASH 391 387 1
+ MOVE 386 391
+ NEW_ARRAY 392 386 1
+ MOVE 393 382
+ MOVE 394 385
+ MOVE 395 392
+ CALL 373 374 393 3
+ GET_UPVALUE 399 0
+ MOVE 398 399
+ GET_EXPORT 400 398 22
+ MOVE 397 400
+ MOVE 403 0
+ MOVE 402 403
+ GET_PROP 404 402 5
+ MOVE 401 404
+ GET_PROP 405 401 9
+ MOVE 406 141
+ MOVE 407 405
+ MOVE 408 406
+ CALL 396 397 407 2
+ MOVE 414 0
+ MOVE 413 414
+ GET_PROP 415 413 5
+ MOVE 412 415
+ GET_PROP 416 412 19
+ MOVE 411 416
+ GET_PROP 417 411 46
+ MOVE 410 417
+ CALL 409 410 418 0
+ GET_UPVALUE 421 2
+ MOVE 420 421
+ MOVE 422 0
+ MOVE 423 422
+ CALL 419 420 423 1
+ CLOSE_UPVALUES 55
+ LOAD_NULL 424
+ RETURN 424
+.endfunc
+
+.func @visitForStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_52
+ .registers 187
+ .upvalues 3
+
+ .const "currentState"
+ .const "scope"
+ .const "push"
+ .const "init"
+ .const "visitStatement"
+ .const "createLabel"
+ .const "L_FOR_COND"
+ .const "L_FOR_UPDATE"
+ .const "L_FOR_END"
+ .const "currentState"
+ .const "loopLabels"
+ .const "continueTarget"
+ .const "breakTarget"
+ .const "defineLabel"
+ .const "proto"
+ .const "condition"
+ .const "allocator"
+ .const "withTemp"
+ .const @__fn_7_@visitForStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_52_96
+ .const "body"
+ .const "update"
+ .const "visitExpression"
+ .const "emit"
+ .const "JUMP"
+ .const "label"
+ .const "pop"
+
+ .upvalue 0 local 2
+ .upvalue 1 local 4
+ .upvalue 2 local 5
+
+ MOVE 7 0
+ MOVE 6 7
+ GET_PROP 8 6 0
+ MOVE 5 8
+ GET_PROP 9 5 1
+ MOVE 4 9
+ GET_PROP 10 4 2
+ MOVE 3 10
+ NEW_HASH 11 0 0
+ MOVE 12 11
+ CALL 2 3 12 1
+ MOVE 15 1
+ MOVE 14 15
+ GET_PROP 16 14 3
+ LOAD_NULL 17
+ NEQ 13 16 17
+ JUMP_IF_FALSE 13 _L0
+ MOVE 21 0
+ MOVE 20 21
+ GET_PROP 22 20 4
+ MOVE 19 22
+ MOVE 24 1
+ MOVE 23 24
+ GET_PROP 25 23 3
+ MOVE 26 25
+ CALL 18 19 26 1
+_L0:
+ GET_UPVALUE 31 0
+ MOVE 30 31
+ GET_EXPORT 32 30 5
+ MOVE 29 32
+ LOAD_CONST 33 6
+ MOVE 34 33
+ CALL 28 29 34 1
+ MOVE 27 28
+ GET_UPVALUE 39 0
+ MOVE 38 39
+ GET_EXPORT 40 38 5
+ MOVE 37 40
+ LOAD_CONST 41 7
+ MOVE 42 41
+ CALL 36 37 42 1
+ MOVE 35 36
+ GET_UPVALUE 47 0
+ MOVE 46 47
+ GET_EXPORT 48 46 5
+ MOVE 45 48
+ LOAD_CONST 49 8
+ MOVE 50 49
+ CALL 44 45 50 1
+ MOVE 43 44
+ MOVE 56 0
+ MOVE 55 56
+ GET_PROP 57 55 9
+ MOVE 54 57
+ GET_PROP 58 54 10
+ MOVE 53 58
+ GET_PROP 59 53 2
+ MOVE 52 59
+ LOAD_CONST 64 11
+ MOVE 60 64
+ MOVE 65 35
+ MOVE 61 65
+ LOAD_CONST 66 12
+ MOVE 62 66
+ MOVE 67 43
+ MOVE 63 67
+ NEW_HASH 68 60 2
+ MOVE 69 68
+ CALL 51 52 69 1
+ GET_UPVALUE 73 0
+ MOVE 72 73
+ GET_EXPORT 74 72 13
+ MOVE 71 74
+ MOVE 77 0
+ MOVE 76 77
+ GET_PROP 78 76 9
+ MOVE 75 78
+ GET_PROP 79 75 14
+ MOVE 80 27
+ MOVE 81 79
+ MOVE 82 80
+ CALL 70 71 81 2
+ MOVE 85 1
+ MOVE 84 85
+ GET_PROP 86 84 15
+ LOAD_NULL 87
+ NEQ 83 86 87
+ JUMP_IF_FALSE 83 _L1
+ MOVE 93 0
+ MOVE 92 93
+ GET_PROP 94 92 9
+ MOVE 91 94
+ GET_PROP 95 91 16
+ MOVE 90 95
+ GET_PROP 96 90 17
+ MOVE 89 96
+ CLOSURE 97 18
+ MOVE 98 97
+ CALL 88 89 98 1
+_L1:
+ MOVE 102 0
+ MOVE 101 102
+ GET_PROP 103 101 4
+ MOVE 100 103
+ MOVE 105 1
+ MOVE 104 105
+ GET_PROP 106 104 19
+ MOVE 107 106
+ CALL 99 100 107 1
+ GET_UPVALUE 111 0
+ MOVE 110 111
+ GET_EXPORT 112 110 13
+ MOVE 109 112
+ MOVE 115 0
+ MOVE 114 115
+ GET_PROP 116 114 9
+ MOVE 113 116
+ GET_PROP 117 113 14
+ MOVE 118 35
+ MOVE 119 117
+ MOVE 120 118
+ CALL 108 109 119 2
+ MOVE 123 1
+ MOVE 122 123
+ GET_PROP 124 122 20
+ LOAD_NULL 125
+ NEQ 121 124 125
+ JUMP_IF_FALSE 121 _L2
+ MOVE 129 0
+ MOVE 128 129
+ GET_PROP 130 128 21
+ MOVE 127 130
+ MOVE 132 1
+ MOVE 131 132
+ GET_PROP 133 131 20
+ MOVE 134 133
+ CALL 126 127 134 1
+_L2:
+ GET_UPVALUE 138 0
+ MOVE 137 138
+ GET_EXPORT 139 137 22
+ MOVE 136 139
+ MOVE 142 0
+ MOVE 141 142
+ GET_PROP 143 141 9
+ MOVE 140 143
+ GET_PROP 144 140 14
+ GET_UPVALUE 146 1
+ MOVE 145 146
+ GET_PROP 147 145 23
+ LOAD_CONST 151 24
+ MOVE 149 151
+ MOVE 152 27
+ MOVE 150 152
+ NEW_HASH 153 149 1
+ MOVE 148 153
+ NEW_ARRAY 154 148 1
+ MOVE 155 144
+ MOVE 156 147
+ MOVE 157 154
+ CALL 135 136 155 3
+ GET_UPVALUE 161 0
+ MOVE 160 161
+ GET_EXPORT 162 160 13
+ MOVE 159 162
+ MOVE 165 0
+ MOVE 164 165
+ GET_PROP 166 164 9
+ MOVE 163 166
+ GET_PROP 167 163 14
+ MOVE 168 43
+ MOVE 169 167
+ MOVE 170 168
+ CALL 158 159 169 2
+ MOVE 176 0
+ MOVE 175 176
+ GET_PROP 177 175 9
+ MOVE 174 177
+ GET_PROP 178 174 10
+ MOVE 173 178
+ GET_PROP 179 173 25
+ MOVE 172 179
+ CALL 171 172 180 0
+ GET_UPVALUE 183 2
+ MOVE 182 183
+ MOVE 184 0
+ MOVE 185 184
+ CALL 181 182 185 1
+ CLOSE_UPVALUES 43
+ LOAD_NULL 186
+ RETURN 186
+.endfunc
+
+.func @visitIfStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_28
+ .registers 131
+ .upvalues 2
+
+ .const "createLabel"
+ .const "L_ELSE"
+ .const "createLabel"
+ .const "L_ENDIF"
+ .const "visitExpression"
+ .const "condition"
+ .const "emit"
+ .const "currentState"
+ .const "proto"
+ .const "JUMP_IF_FALSE"
+ .const "label"
+ .const "elseBranch"
+ .const "visitStatement"
+ .const "thenBranch"
+ .const "JUMP"
+ .const "defineLabel"
+
+ .upvalue 0 local 2
+ .upvalue 1 local 4
+
+ GET_UPVALUE 6 0
+ MOVE 5 6
+ GET_EXPORT 7 5 0
+ MOVE 4 7
+ LOAD_CONST 8 1
+ MOVE 9 8
+ CALL 3 4 9 1
+ MOVE 2 3
+ GET_UPVALUE 14 0
+ MOVE 13 14
+ GET_EXPORT 15 13 2
+ MOVE 12 15
+ LOAD_CONST 16 3
+ MOVE 17 16
+ CALL 11 12 17 1
+ MOVE 10 11
+ MOVE 22 0
+ MOVE 21 22
+ GET_PROP 23 21 4
+ MOVE 20 23
+ MOVE 25 1
+ MOVE 24 25
+ GET_PROP 26 24 5
+ MOVE 27 26
+ CALL 19 20 27 1
+ MOVE 18 19
+ GET_UPVALUE 31 0
+ MOVE 30 31
+ GET_EXPORT 32 30 6
+ MOVE 29 32
+ MOVE 35 0
+ MOVE 34 35
+ GET_PROP 36 34 7
+ MOVE 33 36
+ GET_PROP 37 33 8
+ GET_UPVALUE 39 1
+ MOVE 38 39
+ GET_PROP 40 38 9
+ MOVE 43 18
+ MOVE 41 43
+ LOAD_CONST 46 10
+ MOVE 44 46
+ MOVE 49 1
+ MOVE 48 49
+ GET_PROP 50 48 11
+ JUMP_IF_FALSE 50 _L0
+ MOVE 51 2
+ MOVE 47 51
+ JUMP _L1
+_L0:
+ MOVE 52 10
+ MOVE 47 52
+_L1:
+ MOVE 45 47
+ NEW_HASH 53 44 1
+ MOVE 42 53
+ NEW_ARRAY 54 41 2
+ MOVE 55 37
+ MOVE 56 40
+ MOVE 57 54
+ CALL 28 29 55 3
+ MOVE 61 0
+ MOVE 60 61
+ GET_PROP 62 60 12
+ MOVE 59 62
+ MOVE 64 1
+ MOVE 63 64
+ GET_PROP 65 63 13
+ MOVE 66 65
+ CALL 58 59 66 1
+ MOVE 69 1
+ MOVE 68 69
+ GET_PROP 70 68 11
+ LOAD_NULL 71
+ NEQ 67 70 71
+ JUMP_IF_FALSE 67 _L2
+ GET_UPVALUE 75 0
+ MOVE 74 75
+ GET_EXPORT 76 74 6
+ MOVE 73 76
+ MOVE 79 0
+ MOVE 78 79
+ GET_PROP 80 78 7
+ MOVE 77 80
+ GET_PROP 81 77 8
+ GET_UPVALUE 83 1
+ MOVE 82 83
+ GET_PROP 84 82 14
+ LOAD_CONST 88 10
+ MOVE 86 88
+ MOVE 89 10
+ MOVE 87 89
+ NEW_HASH 90 86 1
+ MOVE 85 90
+ NEW_ARRAY 91 85 1
+ MOVE 92 81
+ MOVE 93 84
+ MOVE 94 91
+ CALL 72 73 92 3
+ GET_UPVALUE 98 0
+ MOVE 97 98
+ GET_EXPORT 99 97 15
+ MOVE 96 99
+ MOVE 102 0
+ MOVE 101 102
+ GET_PROP 103 101 7
+ MOVE 100 103
+ GET_PROP 104 100 8
+ MOVE 105 2
+ MOVE 106 104
+ MOVE 107 105
+ CALL 95 96 106 2
+ MOVE 111 0
+ MOVE 110 111
+ GET_PROP 112 110 12
+ MOVE 109 112
+ MOVE 114 1
+ MOVE 113 114
+ GET_PROP 115 113 11
+ MOVE 116 115
+ CALL 108 109 116 1
+_L2:
+ GET_UPVALUE 120 0
+ MOVE 119 120
+ GET_EXPORT 121 119 15
+ MOVE 118 121
+ MOVE 124 0
+ MOVE 123 124
+ GET_PROP 125 123 7
+ MOVE 122 125
+ GET_PROP 126 122 8
+ MOVE 127 10
+ MOVE 128 126
+ MOVE 129 127
+ CALL 117 118 128 2
+ LOAD_NULL 130
+ RETURN 130
+.endfunc
+
+.func @visitImportStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_103
+ .registers 317
+ .upvalues 4
+
+ .const "path"
+ .const "value"
+ .const "endsWith"
+ .const ".meowb"
+ .const "currentState"
+ .const "pool"
+ .const "add"
+ .const ".meow"
+ .const "proto"
+ .const "sourceName"
+ .const "compiler"
+ .const "_resolvePath"
+ .const "cacheManager"
+ .const "compiledModules"
+ .const "assert"
+ .const "Lỗi logic: Module "
+ .const " lẽ ra phải được biên dịch rồi!"
+ .const "namespaceImport"
+ .const "name"
+ .const "resolution"
+ .const "type"
+ .const "local"
+ .const "Lỗi: Import namespace "
+ .const " không được resolve là local"
+ .const "symbol"
+ .const "index"
+ .const "allocator"
+ .const "ralloc"
+ .const "emit"
+ .const "IMPORT_MODULE"
+ .const "regToLocalIndex"
+ .const "str"
+ .const "localIndexToReg"
+ .const "scope"
+ .const "size"
+ .const "states"
+ .const "SET_GLOBAL"
+ .const "moduleVariables"
+ .const "namedImports"
+ .const "withTemp"
+ .const @__fn_9_@visitImportStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_103_316
+ .const @__fn_10_@visitImportStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_103_328
+
+ .upvalue 0 local 37
+ .upvalue 1 local 63
+ .upvalue 2 local 2
+ .upvalue 3 local 4
+
+ MOVE 5 1
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ GET_PROP 7 3 1
+ MOVE 2 7
+ LOAD_NULL 8
+ GET_UPVALUE 12 0
+ MOVE 13 2
+ GET_INDEX 11 12 13
+ LOAD_NULL 14
+ NEQ 10 11 14
+ MOVE 9 10
+ JUMP_IF_TRUE 10 _L0
+ MOVE 18 2
+ MOVE 17 18
+ GET_PROP 19 17 2
+ MOVE 16 19
+ LOAD_CONST 20 3
+ MOVE 21 20
+ CALL 15 16 21 1
+ MOVE 9 15
+_L0:
+ JUMP_IF_FALSE 9 _L1
+ MOVE 27 0
+ MOVE 26 27
+ GET_PROP 28 26 4
+ MOVE 25 28
+ GET_PROP 29 25 5
+ MOVE 24 29
+ GET_PROP 30 24 6
+ MOVE 23 30
+ MOVE 31 2
+ MOVE 32 31
+ CALL 22 23 32 1
+ MOVE 8 22
+ JUMP _L2
+_L1:
+ MOVE 36 2
+ MOVE 35 36
+ GET_PROP 37 35 2
+ MOVE 34 37
+ LOAD_CONST 38 7
+ MOVE 39 38
+ CALL 33 34 39 1
+ JUMP_IF_FALSE 33 _L3
+ GET_UPVALUE 43 1
+ MOVE 42 43
+ MOVE 47 0
+ MOVE 46 47
+ GET_PROP 48 46 4
+ MOVE 45 48
+ GET_PROP 49 45 8
+ MOVE 44 49
+ GET_PROP 50 44 9
+ MOVE 51 50
+ CALL 41 42 51 1
+ MOVE 40 41
+ MOVE 57 0
+ MOVE 56 57
+ GET_PROP 58 56 10
+ MOVE 55 58
+ GET_PROP 59 55 11
+ MOVE 54 59
+ MOVE 60 2
+ MOVE 61 40
+ MOVE 62 60
+ MOVE 63 61
+ CALL 53 54 62 2
+ MOVE 52 53
+ MOVE 68 0
+ MOVE 67 68
+ GET_PROP 69 67 12
+ MOVE 66 69
+ GET_PROP 70 66 13
+ MOVE 71 52
+ GET_INDEX 65 70 71
+ MOVE 64 65
+ GET_GLOBAL 74 14
+ MOVE 73 74
+ MOVE 75 64
+ LOAD_CONST 78 15
+ MOVE 79 52
+ ADD 77 78 79
+ LOAD_CONST 80 16
+ ADD 76 77 80
+ MOVE 81 75
+ MOVE 82 76
+ CALL 72 73 81 2
+ MOVE 88 0
+ MOVE 87 88
+ GET_PROP 89 87 4
+ MOVE 86 89
+ GET_PROP 90 86 5
+ MOVE 85 90
+ GET_PROP 91 85 6
+ MOVE 84 91
+ MOVE 92 64
+ MOVE 93 92
+ CALL 83 84 93 1
+ MOVE 8 83
+ JUMP _L2
+_L3:
+ MOVE 99 0
+ MOVE 98 99
+ GET_PROP 100 98 4
+ MOVE 97 100
+ GET_PROP 101 97 5
+ MOVE 96 101
+ GET_PROP 102 96 6
+ MOVE 95 102
+ MOVE 103 2
+ MOVE 104 103
+ CALL 94 95 104 1
+ MOVE 8 94
+_L2:
+ MOVE 107 1
+ MOVE 106 107
+ GET_PROP 108 106 17
+ LOAD_NULL 109
+ NEQ 105 108 109
+ JUMP_IF_FALSE 105 _L4
+ MOVE 113 1
+ MOVE 112 113
+ GET_PROP 114 112 17
+ MOVE 111 114
+ GET_PROP 115 111 18
+ MOVE 110 115
+ GET_GLOBAL 118 14
+ MOVE 117 118
+ MOVE 122 1
+ MOVE 121 122
+ GET_PROP 123 121 17
+ MOVE 120 123
+ GET_PROP 124 120 19
+ MOVE 119 124
+ JUMP_IF_FALSE 124 _L5
+ MOVE 129 1
+ MOVE 128 129
+ GET_PROP 130 128 17
+ MOVE 127 130
+ GET_PROP 131 127 19
+ MOVE 126 131
+ GET_PROP 132 126 20
+ LOAD_CONST 133 21
+ EQ 125 132 133
+ MOVE 119 125
+_L5:
+ LOAD_CONST 136 22
+ MOVE 137 110
+ ADD 135 136 137
+ LOAD_CONST 138 23
+ ADD 134 135 138
+ MOVE 139 119
+ MOVE 140 134
+ CALL 116 117 139 2
+ MOVE 146 1
+ MOVE 145 146
+ GET_PROP 147 145 17
+ MOVE 144 147
+ GET_PROP 148 144 19
+ MOVE 143 148
+ GET_PROP 149 143 24
+ MOVE 142 149
+ GET_PROP 150 142 25
+ MOVE 141 150
+ MOVE 157 0
+ MOVE 156 157
+ GET_PROP 158 156 4
+ MOVE 155 158
+ GET_PROP 159 155 26
+ MOVE 154 159
+ GET_PROP 160 154 27
+ MOVE 153 160
+ CALL 152 153 161 0
+ MOVE 151 152
+ GET_UPVALUE 165 2
+ MOVE 164 165
+ GET_EXPORT 166 164 28
+ MOVE 163 166
+ MOVE 169 0
+ MOVE 168 169
+ GET_PROP 170 168 4
+ MOVE 167 170
+ GET_PROP 171 167 8
+ GET_UPVALUE 173 3
+ MOVE 172 173
+ GET_PROP 174 172 29
+ MOVE 177 151
+ MOVE 175 177
+ MOVE 178 8
+ MOVE 176 178
+ NEW_ARRAY 179 175 2
+ MOVE 180 171
+ MOVE 181 174
+ MOVE 182 179
+ CALL 162 163 180 3
+ MOVE 185 0
+ MOVE 184 185
+ GET_PROP 186 184 4
+ MOVE 183 186
+ GET_PROP 187 183 30
+ GET_GLOBAL 190 31
+ MOVE 189 190
+ MOVE 191 151
+ MOVE 192 191
+ CALL 188 189 192 1
+ MOVE 193 141
+ SET_INDEX 187 188 193
+ MOVE 196 0
+ MOVE 195 196
+ GET_PROP 197 195 4
+ MOVE 194 197
+ GET_PROP 198 194 32
+ MOVE 199 141
+ MOVE 200 151
+ SET_INDEX 198 199 200
+ MOVE 204 0
+ MOVE 203 204
+ GET_PROP 205 203 4
+ MOVE 202 205
+ GET_PROP 206 202 33
+ MOVE 213 0
+ MOVE 212 213
+ GET_PROP 214 212 4
+ MOVE 211 214
+ GET_PROP 215 211 33
+ MOVE 210 215
+ GET_PROP 216 210 34
+ MOVE 209 216
+ CALL 208 209 217 0
+ LOAD_INT 218 1
+ SUB 207 208 218
+ GET_INDEX 201 206 207
+ MOVE 219 110
+ MOVE 220 141
+ SET_INDEX 201 219 220
+ MOVE 228 0
+ MOVE 227 228
+ GET_PROP 229 227 4
+ MOVE 226 229
+ GET_PROP 230 226 33
+ MOVE 225 230
+ GET_PROP 231 225 34
+ MOVE 224 231
+ CALL 223 224 232 0
+ LOAD_INT 233 1
+ EQ 222 223 233
+ MOVE 221 222
+ JUMP_IF_FALSE 222 _L6
+ MOVE 239 0
+ MOVE 238 239
+ GET_PROP 240 238 35
+ MOVE 237 240
+ GET_PROP 241 237 34
+ MOVE 236 241
+ CALL 235 236 242 0
+ LOAD_INT 243 1
+ EQ 234 235 243
+ MOVE 221 234
+_L6:
+ JUMP_IF_FALSE 221 _L7
+ MOVE 250 0
+ MOVE 249 250
+ GET_PROP 251 249 4
+ MOVE 248 251
+ GET_PROP 252 248 5
+ MOVE 247 252
+ GET_PROP 253 247 6
+ MOVE 246 253
+ MOVE 254 110
+ MOVE 255 254
+ CALL 245 246 255 1
+ MOVE 244 245
+ GET_UPVALUE 259 2
+ MOVE 258 259
+ GET_EXPORT 260 258 28
+ MOVE 257 260
+ MOVE 263 0
+ MOVE 262 263
+ GET_PROP 264 262 4
+ MOVE 261 264
+ GET_PROP 265 261 8
+ GET_UPVALUE 267 3
+ MOVE 266 267
+ GET_PROP 268 266 36
+ MOVE 271 244
+ MOVE 269 271
+ MOVE 272 151
+ MOVE 270 272
+ NEW_ARRAY 273 269 2
+ MOVE 274 265
+ MOVE 275 268
+ MOVE 276 273
+ CALL 256 257 274 3
+_L7:
+ MOVE 279 0
+ MOVE 278 279
+ GET_PROP 280 278 4
+ MOVE 277 280
+ GET_PROP 281 277 37
+ MOVE 282 110
+ LOAD_TRUE 283
+ SET_INDEX 281 282 283
+ JUMP _L8
+_L4:
+ MOVE 289 1
+ MOVE 288 289
+ GET_PROP 290 288 38
+ MOVE 287 290
+ GET_PROP 291 287 34
+ MOVE 286 291
+ CALL 285 286 292 0
+ LOAD_INT 293 0
+ GT 284 285 293
+ JUMP_IF_FALSE 284 _L9
+ MOVE 299 0
+ MOVE 298 299
+ GET_PROP 300 298 4
+ MOVE 297 300
+ GET_PROP 301 297 26
+ MOVE 296 301
+ GET_PROP 302 296 39
+ MOVE 295 302
+ CLOSURE 303 40
+ MOVE 304 303
+ CALL 294 295 304 1
+ JUMP _L8
+_L9:
+ MOVE 310 0
+ MOVE 309 310
+ GET_PROP 311 309 4
+ MOVE 308 311
+ GET_PROP 312 308 26
+ MOVE 307 312
+ GET_PROP 313 307 39
+ MOVE 306 313
+ CLOSURE 314 41
+ MOVE 315 314
+ CALL 305 306 315 1
+_L8:
+ CLOSE_UPVALUES 8
+ LOAD_NULL 316
+ RETURN 316
+.endfunc
+
+.func @visitReturnStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_24
+ .registers 66
+ .upvalues 2
+
+ .const "value"
+ .const "visitExpression"
+ .const "value"
+ .const "currentState"
+ .const "allocator"
+ .const "ralloc"
+ .const "emit"
+ .const "proto"
+ .const "LOAD_NULL"
+ .const "RETURN"
+
+ .upvalue 0 local 2
+ .upvalue 1 local 4
+
+ LOAD_NULL 2
+ MOVE 5 1
+ MOVE 4 5
+ GET_PROP 6 4 0
+ LOAD_NULL 7
+ NEQ 3 6 7
+ JUMP_IF_FALSE 3 _L0
+ MOVE 11 0
+ MOVE 10 11
+ GET_PROP 12 10 1
+ MOVE 9 12
+ MOVE 14 1
+ MOVE 13 14
+ GET_PROP 15 13 2
+ MOVE 16 15
+ CALL 8 9 16 1
+ MOVE 2 8
+ JUMP _L1
+_L0:
+ MOVE 22 0
+ MOVE 21 22
+ GET_PROP 23 21 3
+ MOVE 20 23
+ GET_PROP 24 20 4
+ MOVE 19 24
+ GET_PROP 25 19 5
+ MOVE 18 25
+ CALL 17 18 26 0
+ MOVE 2 17
+ GET_UPVALUE 30 0
+ MOVE 29 30
+ GET_EXPORT 31 29 6
+ MOVE 28 31
+ MOVE 34 0
+ MOVE 33 34
+ GET_PROP 35 33 3
+ MOVE 32 35
+ GET_PROP 36 32 7
+ GET_UPVALUE 38 1
+ MOVE 37 38
+ GET_PROP 39 37 8
+ MOVE 41 2
+ MOVE 40 41
+ NEW_ARRAY 42 40 1
+ MOVE 43 36
+ MOVE 44 39
+ MOVE 45 42
+ CALL 27 28 43 3
+_L1:
+ GET_UPVALUE 49 0
+ MOVE 48 49
+ GET_EXPORT 50 48 6
+ MOVE 47 50
+ MOVE 53 0
+ MOVE 52 53
+ GET_PROP 54 52 3
+ MOVE 51 54
+ GET_PROP 55 51 7
+ GET_UPVALUE 57 1
+ MOVE 56 57
+ GET_PROP 58 56 9
+ MOVE 60 2
+ MOVE 59 60
+ NEW_ARRAY 61 59 1
+ MOVE 62 55
+ MOVE 63 58
+ MOVE 64 61
+ CALL 46 47 62 3
+ LOAD_NULL 65
+ RETURN 65
+.endfunc
+
+.func @visitSwitchStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_111
+ .registers 510
+ .upvalues 3
+
+ .const "currentState"
+ .const "scope"
+ .const "push"
+ .const "visitExpression"
+ .const "value"
+ .const "createLabel"
+ .const "L_SWITCH_END"
+ .const "range"
+ .const "cases"
+ .const "size"
+ .const "length"
+ .const "L_CASE_BODY"
+ .const "L_NEXT_TEST"
+ .const "currentState"
+ .const "loopLabels"
+ .const "continueTarget"
+ .const "breakTarget"
+ .const "defineLabel"
+ .const "proto"
+ .const "allocator"
+ .const "ralloc"
+ .const "emit"
+ .const "EQ"
+ .const "JUMP_IF_FALSE"
+ .const "label"
+ .const "JUMP"
+ .const "statements"
+ .const "visitStatement"
+ .const "type"
+ .const "ReturnStatement"
+ .const "BreakStatement"
+ .const "ContinueStatement"
+ .const "ThrowStatement"
+ .const "pop"
+
+ .upvalue 0 local 2
+ .upvalue 1 local 4
+ .upvalue 2 local 5
+
+ MOVE 7 0
+ MOVE 6 7
+ GET_PROP 8 6 0
+ MOVE 5 8
+ GET_PROP 9 5 1
+ MOVE 4 9
+ GET_PROP 10 4 2
+ MOVE 3 10
+ NEW_HASH 11 0 0
+ MOVE 12 11
+ CALL 2 3 12 1
+ MOVE 17 0
+ MOVE 16 17
+ GET_PROP 18 16 3
+ MOVE 15 18
+ MOVE 20 1
+ MOVE 19 20
+ GET_PROP 21 19 4
+ MOVE 22 21
+ CALL 14 15 22 1
+ MOVE 13 14
+ NEW_ARRAY 24 0 0
+ MOVE 23 24
+ NEW_ARRAY 26 0 0
+ MOVE 25 26
+ LOAD_NULL 28
+ MOVE 27 28
+ GET_UPVALUE 33 0
+ MOVE 32 33
+ GET_EXPORT 34 32 5
+ MOVE 31 34
+ LOAD_CONST 35 6
+ MOVE 36 35
+ CALL 30 31 36 1
+ MOVE 29 30
+ GET_GLOBAL 39 7
+ MOVE 38 39
+ LOAD_INT 40 0
+ MOVE 45 1
+ MOVE 44 45
+ GET_PROP 46 44 8
+ MOVE 43 46
+ GET_PROP 47 43 9
+ MOVE 42 47
+ CALL 41 42 48 0
+ MOVE 49 40
+ MOVE 50 41
+ CALL 37 38 49 2
+ GET_VALUES 51 37
+ LOAD_INT 52 0
+ GET_PROP 53 51 10
+_L1:
+ LT 54 52 53
+ JUMP_IF_FALSE 54 _L0
+ GET_INDEX 55 51 52
+ MOVE 59 23
+ MOVE 58 59
+ GET_PROP 60 58 2
+ MOVE 57 60
+ GET_UPVALUE 64 0
+ MOVE 63 64
+ GET_EXPORT 65 63 5
+ MOVE 62 65
+ LOAD_CONST 66 11
+ MOVE 67 66
+ CALL 61 62 67 1
+ MOVE 68 61
+ CALL 56 57 68 1
+ MOVE 72 25
+ MOVE 71 72
+ GET_PROP 73 71 2
+ MOVE 70 73
+ GET_UPVALUE 77 0
+ MOVE 76 77
+ GET_EXPORT 78 76 5
+ MOVE 75 78
+ LOAD_CONST 79 12
+ MOVE 80 79
+ CALL 74 75 80 1
+ MOVE 81 74
+ CALL 69 70 81 1
+ LOAD_INT 82 1
+ ADD 52 52 82
+ JUMP _L1
+_L0:
+ MOVE 88 0
+ MOVE 87 88
+ GET_PROP 89 87 13
+ MOVE 86 89
+ GET_PROP 90 86 14
+ MOVE 85 90
+ GET_PROP 91 85 2
+ MOVE 84 91
+ LOAD_CONST 96 15
+ MOVE 92 96
+ LOAD_NULL 97
+ MOVE 93 97
+ LOAD_CONST 98 16
+ MOVE 94 98
+ MOVE 99 29
+ MOVE 95 99
+ NEW_HASH 100 92 2
+ MOVE 101 100
+ CALL 83 84 101 1
+ GET_GLOBAL 104 7
+ MOVE 103 104
+ LOAD_INT 105 0
+ MOVE 110 1
+ MOVE 109 110
+ GET_PROP 111 109 8
+ MOVE 108 111
+ GET_PROP 112 108 9
+ MOVE 107 112
+ CALL 106 107 113 0
+ MOVE 114 105
+ MOVE 115 106
+ CALL 102 103 114 2
+ GET_VALUES 116 102
+ LOAD_INT 117 0
+ GET_PROP 118 116 10
+_L6:
+ LT 119 117 118
+ JUMP_IF_FALSE 119 _L2
+ GET_INDEX 120 116 117
+ MOVE 124 1
+ MOVE 123 124
+ GET_PROP 125 123 8
+ MOVE 126 120
+ GET_INDEX 122 125 126
+ MOVE 121 122
+ MOVE 128 120
+ LOAD_INT 129 0
+ GT 127 128 129
+ JUMP_IF_FALSE 127 _L3
+ GET_UPVALUE 133 0
+ MOVE 132 133
+ GET_EXPORT 134 132 17
+ MOVE 131 134
+ MOVE 137 0
+ MOVE 136 137
+ GET_PROP 138 136 13
+ MOVE 135 138
+ GET_PROP 139 135 18
+ MOVE 141 25
+ MOVE 143 120
+ LOAD_INT 144 1
+ SUB 142 143 144
+ GET_INDEX 140 141 142
+ MOVE 145 139
+ MOVE 146 140
+ CALL 130 131 145 2
+_L3:
+ MOVE 149 121
+ MOVE 148 149
+ GET_PROP 150 148 4
+ LOAD_NULL 151
+ NEQ 147 150 151
+ JUMP_IF_FALSE 147 _L4
+ MOVE 156 0
+ MOVE 155 156
+ GET_PROP 157 155 3
+ MOVE 154 157
+ MOVE 159 121
+ MOVE 158 159
+ GET_PROP 160 158 4
+ MOVE 161 160
+ CALL 153 154 161 1
+ MOVE 152 153
+ MOVE 168 0
+ MOVE 167 168
+ GET_PROP 169 167 13
+ MOVE 166 169
+ GET_PROP 170 166 19
+ MOVE 165 170
+ GET_PROP 171 165 20
+ MOVE 164 171
+ CALL 163 164 172 0
+ MOVE 162 163
+ GET_UPVALUE 176 0
+ MOVE 175 176
+ GET_EXPORT 177 175 21
+ MOVE 174 177
+ MOVE 180 0
+ MOVE 179 180
+ GET_PROP 181 179 13
+ MOVE 178 181
+ GET_PROP 182 178 18
+ GET_UPVALUE 184 1
+ MOVE 183 184
+ GET_PROP 185 183 22
+ MOVE 189 162
+ MOVE 186 189
+ MOVE 190 13
+ MOVE 187 190
+ MOVE 191 152
+ MOVE 188 191
+ NEW_ARRAY 192 186 3
+ MOVE 193 182
+ MOVE 194 185
+ MOVE 195 192
+ CALL 173 174 193 3
+ GET_UPVALUE 199 0
+ MOVE 198 199
+ GET_EXPORT 200 198 21
+ MOVE 197 200
+ MOVE 203 0
+ MOVE 202 203
+ GET_PROP 204 202 13
+ MOVE 201 204
+ GET_PROP 205 201 18
+ GET_UPVALUE 207 1
+ MOVE 206 207
+ GET_PROP 208 206 23
+ MOVE 211 162
+ MOVE 209 211
+ LOAD_CONST 214 24
+ MOVE 212 214
+ MOVE 216 25
+ MOVE 217 120
+ GET_INDEX 215 216 217
+ MOVE 213 215
+ NEW_HASH 218 212 1
+ MOVE 210 218
+ NEW_ARRAY 219 209 2
+ MOVE 220 205
+ MOVE 221 208
+ MOVE 222 219
+ CALL 196 197 220 3
+ GET_UPVALUE 226 0
+ MOVE 225 226
+ GET_EXPORT 227 225 21
+ MOVE 224 227
+ MOVE 230 0
+ MOVE 229 230
+ GET_PROP 231 229 13
+ MOVE 228 231
+ GET_PROP 232 228 18
+ GET_UPVALUE 234 1
+ MOVE 233 234
+ GET_PROP 235 233 25
+ LOAD_CONST 239 24
+ MOVE 237 239
+ MOVE 241 23
+ MOVE 242 120
+ GET_INDEX 240 241 242
+ MOVE 238 240
+ NEW_HASH 243 237 1
+ MOVE 236 243
+ NEW_ARRAY 244 236 1
+ MOVE 245 232
+ MOVE 246 235
+ MOVE 247 244
+ CALL 223 224 245 3
+ JUMP _L5
+_L4:
+ MOVE 249 23
+ MOVE 250 120
+ GET_INDEX 248 249 250
+ MOVE 27 248
+ GET_UPVALUE 254 0
+ MOVE 253 254
+ GET_EXPORT 255 253 21
+ MOVE 252 255
+ MOVE 258 0
+ MOVE 257 258
+ GET_PROP 259 257 13
+ MOVE 256 259
+ GET_PROP 260 256 18
+ GET_UPVALUE 262 1
+ MOVE 261 262
+ GET_PROP 263 261 25
+ LOAD_CONST 267 24
+ MOVE 265 267
+ MOVE 269 25
+ MOVE 270 120
+ GET_INDEX 268 269 270
+ MOVE 266 268
+ NEW_HASH 271 265 1
+ MOVE 264 271
+ NEW_ARRAY 272 264 1
+ MOVE 273 260
+ MOVE 274 263
+ MOVE 275 272
+ CALL 251 252 273 3
+_L5:
+ LOAD_INT 276 1
+ ADD 117 117 276
+ JUMP _L6
+_L2:
+ GET_UPVALUE 280 0
+ MOVE 279 280
+ GET_EXPORT 281 279 17
+ MOVE 278 281
+ MOVE 284 0
+ MOVE 283 284
+ GET_PROP 285 283 13
+ MOVE 282 285
+ GET_PROP 286 282 18
+ MOVE 288 25
+ MOVE 293 25
+ MOVE 292 293
+ GET_PROP 294 292 9
+ MOVE 291 294
+ CALL 290 291 295 0
+ LOAD_INT 296 1
+ SUB 289 290 296
+ GET_INDEX 287 288 289
+ MOVE 297 286
+ MOVE 298 287
+ CALL 277 278 297 2
+ MOVE 301 27
+ JUMP_IF_FALSE 301 _L7
+ MOVE 302 27
+ MOVE 300 302
+ JUMP _L8
+_L7:
+ MOVE 303 29
+ MOVE 300 303
+_L8:
+ MOVE 299 300
+ GET_UPVALUE 307 0
+ MOVE 306 307
+ GET_EXPORT 308 306 21
+ MOVE 305 308
+ MOVE 311 0
+ MOVE 310 311
+ GET_PROP 312 310 13
+ MOVE 309 312
+ GET_PROP 313 309 18
+ GET_UPVALUE 315 1
+ MOVE 314 315
+ GET_PROP 316 314 25
+ LOAD_CONST 320 24
+ MOVE 318 320
+ MOVE 321 299
+ MOVE 319 321
+ NEW_HASH 322 318 1
+ MOVE 317 322
+ NEW_ARRAY 323 317 1
+ MOVE 324 313
+ MOVE 325 316
+ MOVE 326 323
+ CALL 304 305 324 3
+ GET_GLOBAL 329 7
+ MOVE 328 329
+ LOAD_INT 330 0
+ MOVE 335 1
+ MOVE 334 335
+ GET_PROP 336 334 8
+ MOVE 333 336
+ GET_PROP 337 333 9
+ MOVE 332 337
+ CALL 331 332 338 0
+ MOVE 339 330
+ MOVE 340 331
+ CALL 327 328 339 2
+ GET_VALUES 341 327
+ LOAD_INT 342 0
+ GET_PROP 343 341 10
+_L17:
+ LT 344 342 343
+ JUMP_IF_FALSE 344 _L9
+ GET_INDEX 345 341 342
+ GET_UPVALUE 349 0
+ MOVE 348 349
+ GET_EXPORT 350 348 17
+ MOVE 347 350
+ MOVE 353 0
+ MOVE 352 353
+ GET_PROP 354 352 13
+ MOVE 351 354
+ GET_PROP 355 351 18
+ MOVE 357 23
+ MOVE 358 345
+ GET_INDEX 356 357 358
+ MOVE 359 355
+ MOVE 360 356
+ CALL 346 347 359 2
+ MOVE 364 1
+ MOVE 363 364
+ GET_PROP 365 363 8
+ MOVE 366 345
+ GET_INDEX 362 365 366
+ MOVE 361 362
+ GET_PROP 367 361 26
+ GET_VALUES 368 367
+ LOAD_INT 369 0
+ GET_PROP 370 368 10
+_L11:
+ LT 371 369 370
+ JUMP_IF_FALSE 371 _L10
+ GET_INDEX 372 368 369
+ MOVE 376 0
+ MOVE 375 376
+ GET_PROP 377 375 27
+ MOVE 374 377
+ MOVE 378 372
+ MOVE 379 378
+ CALL 373 374 379 1
+ LOAD_INT 380 1
+ ADD 369 369 380
+ JUMP _L11
+_L10:
+ MOVE 385 1
+ MOVE 384 385
+ GET_PROP 386 384 8
+ MOVE 387 345
+ GET_INDEX 383 386 387
+ MOVE 382 383
+ GET_PROP 388 382 26
+ MOVE 381 388
+ MOVE 394 381
+ MOVE 393 394
+ GET_PROP 395 393 9
+ MOVE 392 395
+ CALL 391 392 396 0
+ LOAD_INT 397 0
+ EQ 390 391 397
+ MOVE 389 390
+ JUMP_IF_TRUE 390 _L12
+ MOVE 404 381
+ MOVE 409 381
+ MOVE 408 409
+ GET_PROP 410 408 9
+ MOVE 407 410
+ CALL 406 407 411 0
+ LOAD_INT 412 1
+ SUB 405 406 412
+ GET_INDEX 403 404 405
+ MOVE 402 403
+ GET_PROP 413 402 28
+ LOAD_CONST 414 29
+ NEQ 401 413 414
+ MOVE 400 401
+ JUMP_IF_FALSE 401 _L13
+ MOVE 418 381
+ MOVE 423 381
+ MOVE 422 423
+ GET_PROP 424 422 9
+ MOVE 421 424
+ CALL 420 421 425 0
+ LOAD_INT 426 1
+ SUB 419 420 426
+ GET_INDEX 417 418 419
+ MOVE 416 417
+ GET_PROP 427 416 28
+ LOAD_CONST 428 30
+ NEQ 415 427 428
+ MOVE 400 415
+_L13:
+ MOVE 399 400
+ JUMP_IF_FALSE 400 _L14
+ MOVE 432 381
+ MOVE 437 381
+ MOVE 436 437
+ GET_PROP 438 436 9
+ MOVE 435 438
+ CALL 434 435 439 0
+ LOAD_INT 440 1
+ SUB 433 434 440
+ GET_INDEX 431 432 433
+ MOVE 430 431
+ GET_PROP 441 430 28
+ LOAD_CONST 442 31
+ NEQ 429 441 442
+ MOVE 399 429
+_L14:
+ MOVE 398 399
+ JUMP_IF_FALSE 399 _L15
+ MOVE 446 381
+ MOVE 451 381
+ MOVE 450 451
+ GET_PROP 452 450 9
+ MOVE 449 452
+ CALL 448 449 453 0
+ LOAD_INT 454 1
+ SUB 447 448 454
+ GET_INDEX 445 446 447
+ MOVE 444 445
+ GET_PROP 455 444 28
+ LOAD_CONST 456 32
+ NEQ 443 455 456
+ MOVE 398 443
+_L15:
+ MOVE 389 398
+_L12:
+ JUMP_IF_FALSE 389 _L16
+ GET_UPVALUE 460 0
+ MOVE 459 460
+ GET_EXPORT 461 459 21
+ MOVE 458 461
+ MOVE 464 0
+ MOVE 463 464
+ GET_PROP 465 463 13
+ MOVE 462 465
+ GET_PROP 466 462 18
+ GET_UPVALUE 468 1
+ MOVE 467 468
+ GET_PROP 469 467 25
+ LOAD_CONST 473 24
+ MOVE 471 473
+ MOVE 474 29
+ MOVE 472 474
+ NEW_HASH 475 471 1
+ MOVE 470 475
+ NEW_ARRAY 476 470 1
+ MOVE 477 466
+ MOVE 478 469
+ MOVE 479 476
+ CALL 457 458 477 3
+_L16:
+ LOAD_INT 480 1
+ ADD 342 342 480
+ JUMP _L17
+_L9:
+ GET_UPVALUE 484 0
+ MOVE 483 484
+ GET_EXPORT 485 483 17
+ MOVE 482 485
+ MOVE 488 0
+ MOVE 487 488
+ GET_PROP 489 487 13
+ MOVE 486 489
+ GET_PROP 490 486 18
+ MOVE 491 29
+ MOVE 492 490
+ MOVE 493 491
+ CALL 481 482 492 2
+ MOVE 499 0
+ MOVE 498 499
+ GET_PROP 500 498 13
+ MOVE 497 500
+ GET_PROP 501 497 14
+ MOVE 496 501
+ GET_PROP 502 496 33
+ MOVE 495 502
+ CALL 494 495 503 0
+ GET_UPVALUE 506 2
+ MOVE 505 506
+ MOVE 507 0
+ MOVE 508 507
+ CALL 504 505 508 1
+ LOAD_NULL 509
+ RETURN 509
+.endfunc
+
+.func @visitThrowStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_60
+ .registers 32
+ .upvalues 2
+
+ .const "visitExpression"
+ .const "argument"
+ .const "emit"
+ .const "currentState"
+ .const "proto"
+ .const "THROW"
+
+ .upvalue 0 local 2
+ .upvalue 1 local 4
+
+ MOVE 6 0
+ MOVE 5 6
+ GET_PROP 7 5 0
+ MOVE 4 7
+ MOVE 9 1
+ MOVE 8 9
+ GET_PROP 10 8 1
+ MOVE 11 10
+ CALL 3 4 11 1
+ MOVE 2 3
+ GET_UPVALUE 15 0
+ MOVE 14 15
+ GET_EXPORT 16 14 2
+ MOVE 13 16
+ MOVE 19 0
+ MOVE 18 19
+ GET_PROP 20 18 3
+ MOVE 17 20
+ GET_PROP 21 17 4
+ GET_UPVALUE 23 1
+ MOVE 22 23
+ GET_PROP 24 22 5
+ MOVE 26 2
+ MOVE 25 26
+ NEW_ARRAY 27 25 1
+ MOVE 28 21
+ MOVE 29 24
+ MOVE 30 27
+ CALL 12 13 28 3
+ LOAD_NULL 31
+ RETURN 31
+.endfunc
+
+.func @visitTryStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_64
+ .registers 244
+ .upvalues 3
+
+ .const "createLabel"
+ .const "L_CATCH"
+ .const "createLabel"
+ .const "L_END_TRY"
+ .const "currentState"
+ .const "scope"
+ .const "push"
+ .const "catchVariable"
+ .const "name"
+ .const "assert"
+ .const "resolution"
+ .const "type"
+ .const "local"
+ .const "Lỗi: Biến Catch "
+ .const " không được resolve là local"
+ .const "symbol"
+ .const "index"
+ .const "allocator"
+ .const "ralloc"
+ .const "regToLocalIndex"
+ .const "str"
+ .const "localIndexToReg"
+ .const "size"
+ .const "emit"
+ .const "proto"
+ .const "SETUP_TRY"
+ .const "label"
+ .const "visitStatement"
+ .const "tryBlock"
+ .const "POP_TRY"
+ .const "JUMP"
+ .const "defineLabel"
+ .const "catchBlock"
+
+ .upvalue 0 local 2
+ .upvalue 1 local 4
+ .upvalue 2 local 5
+
+ GET_UPVALUE 6 0
+ MOVE 5 6
+ GET_EXPORT 7 5 0
+ MOVE 4 7
+ LOAD_CONST 8 1
+ MOVE 9 8
+ CALL 3 4 9 1
+ MOVE 2 3
+ GET_UPVALUE 14 0
+ MOVE 13 14
+ GET_EXPORT 15 13 2
+ MOVE 12 15
+ LOAD_CONST 16 3
+ MOVE 17 16
+ CALL 11 12 17 1
+ MOVE 10 11
+ LOAD_INT 20 1
+ NEG 19 20
+ MOVE 18 19
+ LOAD_NULL 22
+ MOVE 21 22
+ LOAD_INT 25 1
+ NEG 24 25
+ MOVE 23 24
+ MOVE 31 0
+ MOVE 30 31
+ GET_PROP 32 30 4
+ MOVE 29 32
+ GET_PROP 33 29 5
+ MOVE 28 33
+ GET_PROP 34 28 6
+ MOVE 27 34
+ NEW_HASH 35 0 0
+ MOVE 36 35
+ CALL 26 27 36 1
+ MOVE 39 1
+ MOVE 38 39
+ GET_PROP 40 38 7
+ LOAD_NULL 41
+ NEQ 37 40 41
+ JUMP_IF_FALSE 37 _L0
+ MOVE 44 1
+ MOVE 43 44
+ GET_PROP 45 43 7
+ MOVE 42 45
+ GET_PROP 46 42 8
+ MOVE 21 46
+ GET_GLOBAL 49 9
+ MOVE 48 49
+ MOVE 53 1
+ MOVE 52 53
+ GET_PROP 54 52 7
+ MOVE 51 54
+ GET_PROP 55 51 10
+ MOVE 50 55
+ JUMP_IF_FALSE 55 _L1
+ MOVE 60 1
+ MOVE 59 60
+ GET_PROP 61 59 7
+ MOVE 58 61
+ GET_PROP 62 58 10
+ MOVE 57 62
+ GET_PROP 63 57 11
+ LOAD_CONST 64 12
+ EQ 56 63 64
+ MOVE 50 56
+_L1:
+ LOAD_CONST 67 13
+ MOVE 68 21
+ ADD 66 67 68
+ LOAD_CONST 69 14
+ ADD 65 66 69
+ MOVE 70 50
+ MOVE 71 65
+ CALL 47 48 70 2
+ MOVE 76 1
+ MOVE 75 76
+ GET_PROP 77 75 7
+ MOVE 74 77
+ GET_PROP 78 74 10
+ MOVE 73 78
+ GET_PROP 79 73 15
+ MOVE 72 79
+ GET_PROP 80 72 16
+ MOVE 23 80
+ MOVE 86 0
+ MOVE 85 86
+ GET_PROP 87 85 4
+ MOVE 84 87
+ GET_PROP 88 84 17
+ MOVE 83 88
+ GET_PROP 89 83 18
+ MOVE 82 89
+ CALL 81 82 90 0
+ MOVE 18 81
+ MOVE 93 0
+ MOVE 92 93
+ GET_PROP 94 92 4
+ MOVE 91 94
+ GET_PROP 95 91 19
+ GET_GLOBAL 98 20
+ MOVE 97 98
+ MOVE 99 18
+ MOVE 100 99
+ CALL 96 97 100 1
+ MOVE 101 23
+ SET_INDEX 95 96 101
+ MOVE 104 0
+ MOVE 103 104
+ GET_PROP 105 103 4
+ MOVE 102 105
+ GET_PROP 106 102 21
+ MOVE 107 23
+ MOVE 108 18
+ SET_INDEX 106 107 108
+ MOVE 112 0
+ MOVE 111 112
+ GET_PROP 113 111 4
+ MOVE 110 113
+ GET_PROP 114 110 5
+ MOVE 121 0
+ MOVE 120 121
+ GET_PROP 122 120 4
+ MOVE 119 122
+ GET_PROP 123 119 5
+ MOVE 118 123
+ GET_PROP 124 118 22
+ MOVE 117 124
+ CALL 116 117 125 0
+ LOAD_INT 126 1
+ SUB 115 116 126
+ GET_INDEX 109 114 115
+ MOVE 127 21
+ MOVE 128 23
+ SET_INDEX 109 127 128
+_L0:
+ GET_UPVALUE 132 0
+ MOVE 131 132
+ GET_EXPORT 133 131 23
+ MOVE 130 133
+ MOVE 136 0
+ MOVE 135 136
+ GET_PROP 137 135 4
+ MOVE 134 137
+ GET_PROP 138 134 24
+ GET_UPVALUE 140 1
+ MOVE 139 140
+ GET_PROP 141 139 25
+ LOAD_CONST 146 26
+ MOVE 144 146
+ MOVE 147 2
+ MOVE 145 147
+ NEW_HASH 148 144 1
+ MOVE 142 148
+ MOVE 149 18
+ MOVE 143 149
+ NEW_ARRAY 150 142 2
+ MOVE 151 138
+ MOVE 152 141
+ MOVE 153 150
+ CALL 129 130 151 3
+ MOVE 157 0
+ MOVE 156 157
+ GET_PROP 158 156 27
+ MOVE 155 158
+ MOVE 160 1
+ MOVE 159 160
+ GET_PROP 161 159 28
+ MOVE 162 161
+ CALL 154 155 162 1
+ GET_UPVALUE 166 0
+ MOVE 165 166
+ GET_EXPORT 167 165 23
+ MOVE 164 167
+ MOVE 170 0
+ MOVE 169 170
+ GET_PROP 171 169 4
+ MOVE 168 171
+ GET_PROP 172 168 24
+ GET_UPVALUE 174 1
+ MOVE 173 174
+ GET_PROP 175 173 29
+ NEW_ARRAY 176 0 0
+ MOVE 177 172
+ MOVE 178 175
+ MOVE 179 176
+ CALL 163 164 177 3
+ GET_UPVALUE 183 0
+ MOVE 182 183
+ GET_EXPORT 184 182 23
+ MOVE 181 184
+ MOVE 187 0
+ MOVE 186 187
+ GET_PROP 188 186 4
+ MOVE 185 188
+ GET_PROP 189 185 24
+ GET_UPVALUE 191 1
+ MOVE 190 191
+ GET_PROP 192 190 30
+ LOAD_CONST 196 26
+ MOVE 194 196
+ MOVE 197 10
+ MOVE 195 197
+ NEW_HASH 198 194 1
+ MOVE 193 198
+ NEW_ARRAY 199 193 1
+ MOVE 200 189
+ MOVE 201 192
+ MOVE 202 199
+ CALL 180 181 200 3
+ GET_UPVALUE 206 0
+ MOVE 205 206
+ GET_EXPORT 207 205 31
+ MOVE 204 207
+ MOVE 210 0
+ MOVE 209 210
+ GET_PROP 211 209 4
+ MOVE 208 211
+ GET_PROP 212 208 24
+ MOVE 213 2
+ MOVE 214 212
+ MOVE 215 213
+ CALL 203 204 214 2
+ MOVE 219 0
+ MOVE 218 219
+ GET_PROP 220 218 27
+ MOVE 217 220
+ MOVE 222 1
+ MOVE 221 222
+ GET_PROP 223 221 32
+ MOVE 224 223
+ CALL 216 217 224 1
+ GET_UPVALUE 227 2
+ MOVE 226 227
+ MOVE 228 0
+ MOVE 229 228
+ CALL 225 226 229 1
+ GET_UPVALUE 233 0
+ MOVE 232 233
+ GET_EXPORT 234 232 31
+ MOVE 231 234
+ MOVE 237 0
+ MOVE 236 237
+ GET_PROP 238 236 4
+ MOVE 235 238
+ GET_PROP 239 235 24
+ MOVE 240 10
+ MOVE 241 239
+ MOVE 242 240
+ CALL 230 231 241 2
+ LOAD_NULL 243
+ RETURN 243
+.endfunc
+
+.func @visitWhileStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/visitor/statement.meow_32
+ .registers 141
+ .upvalues 2
+
+ .const "createLabel"
+ .const "L_WHILE_START"
+ .const "createLabel"
+ .const "L_WHILE_END"
+ .const "currentState"
+ .const "loopLabels"
+ .const "push"
+ .const "continueTarget"
+ .const "breakTarget"
+ .const "defineLabel"
+ .const "proto"
+ .const "visitExpression"
+ .const "condition"
+ .const "emit"
+ .const "JUMP_IF_FALSE"
+ .const "label"
+ .const "visitStatement"
+ .const "body"
+ .const "JUMP"
+ .const "pop"
+
+ .upvalue 0 local 2
+ .upvalue 1 local 4
+
+ GET_UPVALUE 6 0
+ MOVE 5 6
+ GET_EXPORT 7 5 0
+ MOVE 4 7
+ LOAD_CONST 8 1
+ MOVE 9 8
+ CALL 3 4 9 1
+ MOVE 2 3
+ GET_UPVALUE 14 0
+ MOVE 13 14
+ GET_EXPORT 15 13 2
+ MOVE 12 15
+ LOAD_CONST 16 3
+ MOVE 17 16
+ CALL 11 12 17 1
+ MOVE 10 11
+ MOVE 23 0
+ MOVE 22 23
+ GET_PROP 24 22 4
+ MOVE 21 24
+ GET_PROP 25 21 5
+ MOVE 20 25
+ GET_PROP 26 20 6
+ MOVE 19 26
+ LOAD_CONST 31 7
+ MOVE 27 31
+ MOVE 32 2
+ MOVE 28 32
+ LOAD_CONST 33 8
+ MOVE 29 33
+ MOVE 34 10
+ MOVE 30 34
+ NEW_HASH 35 27 2
+ MOVE 36 35
+ CALL 18 19 36 1
+ GET_UPVALUE 40 0
+ MOVE 39 40
+ GET_EXPORT 41 39 9
+ MOVE 38 41
+ MOVE 44 0
+ MOVE 43 44
+ GET_PROP 45 43 4
+ MOVE 42 45
+ GET_PROP 46 42 10
+ MOVE 47 2
+ MOVE 48 46
+ MOVE 49 47
+ CALL 37 38 48 2
+ MOVE 54 0
+ MOVE 53 54
+ GET_PROP 55 53 11
+ MOVE 52 55
+ MOVE 57 1
+ MOVE 56 57
+ GET_PROP 58 56 12
+ MOVE 59 58
+ CALL 51 52 59 1
+ MOVE 50 51
+ GET_UPVALUE 63 0
+ MOVE 62 63
+ GET_EXPORT 64 62 13
+ MOVE 61 64
+ MOVE 67 0
+ MOVE 66 67
+ GET_PROP 68 66 4
+ MOVE 65 68
+ GET_PROP 69 65 10
+ GET_UPVALUE 71 1
+ MOVE 70 71
+ GET_PROP 72 70 14
+ MOVE 75 50
+ MOVE 73 75
+ LOAD_CONST 78 15
+ MOVE 76 78
+ MOVE 79 10
+ MOVE 77 79
+ NEW_HASH 80 76 1
+ MOVE 74 80
+ NEW_ARRAY 81 73 2
+ MOVE 82 69
+ MOVE 83 72
+ MOVE 84 81
+ CALL 60 61 82 3
+ MOVE 88 0
+ MOVE 87 88
+ GET_PROP 89 87 16
+ MOVE 86 89
+ MOVE 91 1
+ MOVE 90 91
+ GET_PROP 92 90 17
+ MOVE 93 92
+ CALL 85 86 93 1
+ GET_UPVALUE 97 0
+ MOVE 96 97
+ GET_EXPORT 98 96 13
+ MOVE 95 98
+ MOVE 101 0
+ MOVE 100 101
+ GET_PROP 102 100 4
+ MOVE 99 102
+ GET_PROP 103 99 10
+ GET_UPVALUE 105 1
+ MOVE 104 105
+ GET_PROP 106 104 18
+ LOAD_CONST 110 15
+ MOVE 108 110
+ MOVE 111 2
+ MOVE 109 111
+ NEW_HASH 112 108 1
+ MOVE 107 112
+ NEW_ARRAY 113 107 1
+ MOVE 114 103
+ MOVE 115 106
+ MOVE 116 113
+ CALL 94 95 114 3
+ GET_UPVALUE 120 0
+ MOVE 119 120
+ GET_EXPORT 121 119 9
+ MOVE 118 121
+ MOVE 124 0
+ MOVE 123 124
+ GET_PROP 125 123 4
+ MOVE 122 125
+ GET_PROP 126 122 10
+ MOVE 127 10
+ MOVE 128 126
+ MOVE 129 127
+ CALL 117 118 128 2
+ MOVE 135 0
+ MOVE 134 135
+ GET_PROP 136 134 4
+ MOVE 133 136
+ GET_PROP 137 133 5
+ MOVE 132 137
+ GET_PROP 138 132 19
+ MOVE 131 138
+ CALL 130 131 139 0
+ LOAD_NULL 140
+ RETURN 140
+.endfunc

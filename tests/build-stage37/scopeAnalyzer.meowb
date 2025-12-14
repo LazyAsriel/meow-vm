@@ -1,0 +1,2910 @@
+.func @AnalyzerState.init_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_13
+ .registers 10
+
+ .const "scope_stack"
+ .const "current_scope"
+ .const "local_count"
+ .const "upvalues"
+
+ MOVE 1 0
+ NEW_ARRAY 2 0 0
+ SET_PROP 1 0 2
+ MOVE 3 0
+ LOAD_NULL 4
+ SET_PROP 3 1 4
+ MOVE 5 0
+ LOAD_INT 6 0
+ SET_PROP 5 2 6
+ MOVE 7 0
+ NEW_ARRAY 8 0 0
+ SET_PROP 7 3 8
+ LOAD_NULL 9
+ RETURN 9
+.endfunc
+
+.func @ScopeAnalyzer._addUpvalueToState_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_33
+ .registers 87
+
+ .const "upvalues"
+ .const "size"
+ .const "upvalues"
+ .const "index"
+ .const "isLocal"
+ .const "type"
+ .const "upvalue"
+ .const "name"
+ .const "push"
+
+ LOAD_INT 4 0
+ MOVE 3 4
+_L3:
+ MOVE 7 3
+ MOVE 12 2
+ MOVE 11 12
+ GET_PROP 13 11 0
+ MOVE 10 13
+ GET_PROP 14 10 1
+ MOVE 9 14
+ CALL 8 9 15 0
+ LT 6 7 8
+ MOVE 5 6
+ JUMP_IF_FALSE 5 _L0
+ MOVE 19 2
+ MOVE 18 19
+ GET_PROP 20 18 2
+ MOVE 21 3
+ GET_INDEX 17 20 21
+ MOVE 16 17
+ MOVE 25 16
+ MOVE 24 25
+ GET_PROP 26 24 3
+ MOVE 28 1
+ MOVE 27 28
+ GET_PROP 29 27 3
+ EQ 23 26 29
+ MOVE 22 23
+ JUMP_IF_FALSE 23 _L1
+ MOVE 32 16
+ MOVE 31 32
+ GET_PROP 33 31 4
+ MOVE 35 1
+ MOVE 34 35
+ GET_PROP 36 34 4
+ EQ 30 33 36
+ MOVE 22 30
+_L1:
+ JUMP_IF_FALSE 22 _L2
+ LOAD_CONST 43 5
+ MOVE 37 43
+ LOAD_CONST 44 6
+ MOVE 38 44
+ LOAD_CONST 45 3
+ MOVE 39 45
+ MOVE 46 3
+ MOVE 40 46
+ LOAD_CONST 47 7
+ MOVE 41 47
+ MOVE 49 1
+ MOVE 48 49
+ GET_PROP 50 48 7
+ MOVE 42 50
+ NEW_HASH 51 37 3
+ RETURN 51
+_L2:
+ LOAD_INT 53 1
+ ADD 3 3 53
+ MOVE 52 3
+ JUMP _L3
+_L0:
+ MOVE 59 2
+ MOVE 58 59
+ GET_PROP 60 58 2
+ MOVE 57 60
+ GET_PROP 61 57 1
+ MOVE 56 61
+ CALL 55 56 62 0
+ MOVE 54 55
+ MOVE 67 2
+ MOVE 66 67
+ GET_PROP 68 66 2
+ MOVE 65 68
+ GET_PROP 69 65 8
+ MOVE 64 69
+ MOVE 70 1
+ MOVE 71 70
+ CALL 63 64 71 1
+ LOAD_CONST 78 5
+ MOVE 72 78
+ LOAD_CONST 79 6
+ MOVE 73 79
+ LOAD_CONST 80 3
+ MOVE 74 80
+ MOVE 81 54
+ MOVE 75 81
+ LOAD_CONST 82 7
+ MOVE 76 82
+ MOVE 84 1
+ MOVE 83 84
+ GET_PROP 85 83 7
+ MOVE 77 85
+ NEW_HASH 86 72 3
+ RETURN 86
+.endfunc
+
+.func @ScopeAnalyzer._defineAndAnnotate_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_45
+ .registers 88
+ .upvalues 2
+
+ .const "name"
+ .const "currentState"
+ .const "current_scope"
+ .const "lookup"
+ .const "throwError"
+ .const "ERR_VARIABLE_REDEFINITION"
+ .const "variableName"
+ .const "local_count"
+ .const "index"
+ .const "define"
+ .const "type"
+ .const "local"
+ .const "symbol"
+ .const "resolution"
+
+ .upvalue 0 local 5
+ .upvalue 1 local 2
+
+ MOVE 6 1
+ MOVE 5 6
+ GET_PROP 7 5 0
+ MOVE 4 7
+ MOVE 13 0
+ MOVE 12 13
+ GET_PROP 14 12 1
+ MOVE 11 14
+ GET_PROP 15 11 2
+ MOVE 10 15
+ GET_PROP 16 10 3
+ MOVE 9 16
+ MOVE 17 4
+ LOAD_TRUE 18
+ MOVE 19 17
+ MOVE 20 18
+ CALL 8 9 19 2
+ JUMP_IF_FALSE 8 _L0
+ MOVE 24 0
+ MOVE 23 24
+ GET_PROP 25 23 4
+ MOVE 22 25
+ GET_UPVALUE 27 0
+ MOVE 26 27
+ GET_PROP 28 26 5
+ MOVE 29 1
+ LOAD_CONST 32 6
+ MOVE 30 32
+ MOVE 33 4
+ MOVE 31 33
+ NEW_HASH 34 30 1
+ MOVE 35 28
+ MOVE 36 29
+ MOVE 37 34
+ CALL 21 22 35 3
+_L0:
+ GET_UPVALUE 41 1
+ MOVE 40 41
+ MOVE 42 4
+ LOAD_NULL 43
+ MOVE 44 3
+ MOVE 45 2
+ MOVE 46 42
+ MOVE 47 43
+ MOVE 48 44
+ MOVE 49 45
+ CALL 39 40 46 4
+ MOVE 38 39
+ MOVE 50 38
+ MOVE 53 0
+ MOVE 52 53
+ GET_PROP 54 52 1
+ MOVE 51 54
+ GET_PROP 55 51 7
+ SET_PROP 50 8 55
+ MOVE 57 0
+ MOVE 56 57
+ GET_PROP 58 56 1
+ MOVE 62 0
+ MOVE 61 62
+ GET_PROP 63 61 1
+ MOVE 60 63
+ GET_PROP 64 60 7
+ LOAD_INT 65 1
+ ADD 59 64 65
+ SET_PROP 58 7 59
+ MOVE 71 0
+ MOVE 70 71
+ GET_PROP 72 70 1
+ MOVE 69 72
+ GET_PROP 73 69 2
+ MOVE 68 73
+ GET_PROP 74 68 9
+ MOVE 67 74
+ MOVE 75 38
+ MOVE 76 75
+ CALL 66 67 76 1
+ MOVE 77 1
+ LOAD_CONST 82 10
+ MOVE 78 82
+ LOAD_CONST 83 11
+ MOVE 79 83
+ LOAD_CONST 84 12
+ MOVE 80 84
+ MOVE 85 38
+ MOVE 81 85
+ NEW_HASH 86 78 2
+ SET_PROP 77 13 86
+ LOAD_NULL 87
+ RETURN 87
+.endfunc
+
+.func @ScopeAnalyzer._findLocalInCurrentState_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_29
+ .registers 50
+
+ .const "currentState"
+ .const "scope_stack"
+ .const "size"
+ .const "currentState"
+ .const "lookup"
+ .const "type"
+ .const "local"
+ .const "symbol"
+
+ MOVE 9 0
+ MOVE 8 9
+ GET_PROP 10 8 0
+ MOVE 7 10
+ GET_PROP 11 7 1
+ MOVE 6 11
+ GET_PROP 12 6 2
+ MOVE 5 12
+ CALL 4 5 13 0
+ LOAD_INT 14 1
+ SUB 3 4 14
+ MOVE 2 3
+_L2:
+ MOVE 17 2
+ LOAD_INT 18 0
+ GE 16 17 18
+ MOVE 15 16
+ JUMP_IF_FALSE 15 _L0
+ MOVE 23 0
+ MOVE 22 23
+ GET_PROP 24 22 3
+ MOVE 21 24
+ GET_PROP 25 21 1
+ MOVE 26 2
+ GET_INDEX 20 25 26
+ MOVE 19 20
+ MOVE 31 19
+ MOVE 30 31
+ GET_PROP 32 30 4
+ MOVE 29 32
+ MOVE 33 1
+ LOAD_TRUE 34
+ MOVE 35 33
+ MOVE 36 34
+ CALL 28 29 35 2
+ MOVE 27 28
+ MOVE 37 27
+ JUMP_IF_FALSE 37 _L1
+ LOAD_CONST 42 5
+ MOVE 38 42
+ LOAD_CONST 43 6
+ MOVE 39 43
+ LOAD_CONST 44 7
+ MOVE 40 44
+ MOVE 45 27
+ MOVE 41 45
+ NEW_HASH 46 38 2
+ RETURN 46
+_L1:
+ LOAD_INT 48 1
+ SUB 2 2 48
+ MOVE 47 2
+ JUMP _L2
+_L0:
+ LOAD_NULL 49
+ RETURN 49
+.endfunc
+
+.func @ScopeAnalyzer._findUpvalueRecursive_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_31
+ .registers 124
+
+ .const "states"
+ .const "states"
+ .const "scope_stack"
+ .const "size"
+ .const "lookup"
+ .const "isCaptured"
+ .const "_addUpvalueToState"
+ .const "isLocal"
+ .const "index"
+ .const "name"
+ .const "_findUpvalueRecursive"
+
+ MOVE 4 2
+ LOAD_INT 5 0
+ LT 3 4 5
+ JUMP_IF_FALSE 3 _L0
+ LOAD_NULL 6
+ RETURN 6
+_L0:
+ MOVE 10 0
+ MOVE 9 10
+ GET_PROP 11 9 0
+ MOVE 12 2
+ GET_INDEX 8 11 12
+ MOVE 7 8
+ MOVE 16 0
+ MOVE 15 16
+ GET_PROP 17 15 1
+ MOVE 19 2
+ LOAD_INT 20 1
+ ADD 18 19 20
+ GET_INDEX 14 17 18
+ MOVE 13 14
+ MOVE 27 7
+ MOVE 26 27
+ GET_PROP 28 26 2
+ MOVE 25 28
+ GET_PROP 29 25 3
+ MOVE 24 29
+ CALL 23 24 30 0
+ LOAD_INT 31 1
+ SUB 22 23 31
+ MOVE 21 22
+_L3:
+ MOVE 34 21
+ LOAD_INT 35 0
+ GE 33 34 35
+ MOVE 32 33
+ JUMP_IF_FALSE 32 _L1
+ MOVE 39 7
+ MOVE 38 39
+ GET_PROP 40 38 2
+ MOVE 41 21
+ GET_INDEX 37 40 41
+ MOVE 36 37
+ MOVE 46 36
+ MOVE 45 46
+ GET_PROP 47 45 4
+ MOVE 44 47
+ MOVE 48 1
+ LOAD_TRUE 49
+ MOVE 50 48
+ MOVE 51 49
+ CALL 43 44 50 2
+ MOVE 42 43
+ MOVE 52 42
+ JUMP_IF_FALSE 52 _L2
+ MOVE 53 42
+ LOAD_TRUE 54
+ SET_PROP 53 5 54
+ MOVE 58 0
+ MOVE 57 58
+ GET_PROP 59 57 6
+ MOVE 56 59
+ LOAD_CONST 66 7
+ MOVE 60 66
+ LOAD_TRUE 67
+ MOVE 61 67
+ LOAD_CONST 68 8
+ MOVE 62 68
+ MOVE 70 42
+ MOVE 69 70
+ GET_PROP 71 69 8
+ MOVE 63 71
+ LOAD_CONST 72 9
+ MOVE 64 72
+ MOVE 74 42
+ MOVE 73 74
+ GET_PROP 75 73 9
+ MOVE 65 75
+ NEW_HASH 76 60 3
+ MOVE 77 13
+ MOVE 78 76
+ MOVE 79 77
+ CALL 55 56 78 2
+ RETURN 55
+_L2:
+ LOAD_INT 81 1
+ SUB 21 21 81
+ MOVE 80 21
+ JUMP _L3
+_L1:
+ MOVE 83 2
+ LOAD_INT 84 0
+ GT 82 83 84
+ JUMP_IF_FALSE 82 _L4
+ MOVE 89 0
+ MOVE 88 89
+ GET_PROP 90 88 10
+ MOVE 87 90
+ MOVE 91 1
+ MOVE 93 2
+ LOAD_INT 94 1
+ SUB 92 93 94
+ MOVE 95 91
+ MOVE 96 92
+ CALL 86 87 95 2
+ MOVE 85 86
+ MOVE 98 85
+ LOAD_NULL 99
+ NEQ 97 98 99
+ JUMP_IF_FALSE 97 _L4
+ MOVE 103 0
+ MOVE 102 103
+ GET_PROP 104 102 6
+ MOVE 101 104
+ LOAD_CONST 111 7
+ MOVE 105 111
+ LOAD_FALSE 112
+ MOVE 106 112
+ LOAD_CONST 113 8
+ MOVE 107 113
+ MOVE 115 85
+ MOVE 114 115
+ GET_PROP 116 114 8
+ MOVE 108 116
+ LOAD_CONST 117 9
+ MOVE 109 117
+ MOVE 118 1
+ MOVE 110 118
+ NEW_HASH 119 105 3
+ MOVE 120 13
+ MOVE 121 119
+ MOVE 122 120
+ CALL 100 101 121 2
+ RETURN 100
+_L4:
+ LOAD_NULL 123
+ RETURN 123
+.endfunc
+
+.func @ScopeAnalyzer._resolveVariable_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_35
+ .registers 52
+
+ .const "_findLocalInCurrentState"
+ .const "states"
+ .const "size"
+ .const "_findUpvalueRecursive"
+ .const "type"
+ .const "global"
+ .const "name"
+
+ MOVE 6 0
+ MOVE 5 6
+ GET_PROP 7 5 0
+ MOVE 4 7
+ MOVE 8 1
+ MOVE 9 8
+ CALL 3 4 9 1
+ MOVE 2 3
+ MOVE 10 2
+ JUMP_IF_FALSE 10 _L0
+ MOVE 11 2
+ RETURN 11
+_L0:
+ MOVE 17 0
+ MOVE 16 17
+ GET_PROP 18 16 1
+ MOVE 15 18
+ GET_PROP 19 15 2
+ MOVE 14 19
+ CALL 13 14 20 0
+ LOAD_INT 21 1
+ GT 12 13 21
+ JUMP_IF_FALSE 12 _L1
+ MOVE 26 0
+ MOVE 25 26
+ GET_PROP 27 25 3
+ MOVE 24 27
+ MOVE 28 1
+ MOVE 34 0
+ MOVE 33 34
+ GET_PROP 35 33 1
+ MOVE 32 35
+ GET_PROP 36 32 2
+ MOVE 31 36
+ CALL 30 31 37 0
+ LOAD_INT 38 2
+ SUB 29 30 38
+ MOVE 39 28
+ MOVE 40 29
+ CALL 23 24 39 2
+ MOVE 22 23
+ MOVE 41 22
+ JUMP_IF_FALSE 41 _L1
+ MOVE 42 22
+ RETURN 42
+_L1:
+ LOAD_CONST 47 4
+ MOVE 43 47
+ LOAD_CONST 48 5
+ MOVE 44 48
+ LOAD_CONST 49 6
+ MOVE 45 49
+ MOVE 50 1
+ MOVE 46 50
+ NEW_HASH 51 43 2
+ RETURN 51
+.endfunc
+
+.func @ScopeAnalyzer.analyze_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_37
+ .registers 11
+
+ .const "visit"
+ .const "ast"
+
+ MOVE 4 0
+ MOVE 3 4
+ GET_PROP 5 3 0
+ MOVE 2 5
+ MOVE 7 0
+ MOVE 6 7
+ GET_PROP 8 6 1
+ MOVE 9 8
+ CALL 1 2 9 1
+ LOAD_NULL 10
+ RETURN 10
+.endfunc
+
+.func @ScopeAnalyzer.enterScope_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_25
+ .registers 66
+ .upvalues 1
+
+ .const "currentState"
+ .const "scope_stack"
+ .const "size"
+ .const "currentState"
+ .const "block"
+ .const "scopeLevel"
+ .const "push"
+ .const "current_scope"
+
+ .upvalue 0 local 1
+
+ LOAD_NULL 2
+ MOVE 1 2
+ MOVE 9 0
+ MOVE 8 9
+ GET_PROP 10 8 0
+ MOVE 7 10
+ GET_PROP 11 7 1
+ MOVE 6 11
+ GET_PROP 12 6 2
+ MOVE 5 12
+ CALL 4 5 13 0
+ LOAD_INT 14 0
+ GT 3 4 14
+ JUMP_IF_FALSE 3 _L0
+ MOVE 18 0
+ MOVE 17 18
+ GET_PROP 19 17 3
+ MOVE 16 19
+ GET_PROP 20 16 1
+ MOVE 27 0
+ MOVE 26 27
+ GET_PROP 28 26 3
+ MOVE 25 28
+ GET_PROP 29 25 1
+ MOVE 24 29
+ GET_PROP 30 24 2
+ MOVE 23 30
+ CALL 22 23 31 0
+ LOAD_INT 32 1
+ SUB 21 22 32
+ GET_INDEX 15 20 21
+ MOVE 1 15
+_L0:
+ GET_UPVALUE 36 0
+ MOVE 35 36
+ LOAD_CONST 37 4
+ MOVE 39 1
+ JUMP_IF_FALSE 39 _L1
+ MOVE 42 1
+ MOVE 41 42
+ GET_PROP 43 41 5
+ LOAD_INT 44 1
+ ADD 40 43 44
+ MOVE 38 40
+ JUMP _L2
+_L1:
+ LOAD_INT 45 1
+ MOVE 38 45
+_L2:
+ MOVE 46 1
+ MOVE 47 37
+ MOVE 48 38
+ MOVE 49 46
+ CALL 34 35 47 3
+ MOVE 33 34
+ MOVE 55 0
+ MOVE 54 55
+ GET_PROP 56 54 3
+ MOVE 53 56
+ GET_PROP 57 53 1
+ MOVE 52 57
+ GET_PROP 58 52 6
+ MOVE 51 58
+ MOVE 59 33
+ MOVE 60 59
+ CALL 50 51 60 1
+ MOVE 62 0
+ MOVE 61 62
+ GET_PROP 63 61 3
+ MOVE 64 33
+ SET_PROP 63 7 64
+ MOVE 65 33
+ RETURN 65
+.endfunc
+
+.func @ScopeAnalyzer.enterState_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_21
+ .registers 18
+ .upvalues 1
+
+ .const "states"
+ .const "push"
+ .const "currentState"
+
+ .upvalue 0 local 7
+
+ GET_UPVALUE 4 0
+ MOVE 3 4
+ CALL 2 3 5 0
+ MOVE 1 2
+ MOVE 10 0
+ MOVE 9 10
+ GET_PROP 11 9 0
+ MOVE 8 11
+ GET_PROP 12 8 1
+ MOVE 7 12
+ MOVE 13 1
+ MOVE 14 13
+ CALL 6 7 14 1
+ MOVE 15 0
+ MOVE 16 1
+ SET_PROP 15 2 16
+ LOAD_NULL 17
+ RETURN 17
+.endfunc
+
+.func @ScopeAnalyzer.exitScope_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_27
+ .registers 49
+
+ .const "currentState"
+ .const "scope_stack"
+ .const "pop"
+ .const "currentState"
+ .const "size"
+ .const "current_scope"
+
+ MOVE 6 0
+ MOVE 5 6
+ GET_PROP 7 5 0
+ MOVE 4 7
+ GET_PROP 8 4 1
+ MOVE 3 8
+ GET_PROP 9 3 2
+ MOVE 2 9
+ CALL 1 2 10 0
+ MOVE 17 0
+ MOVE 16 17
+ GET_PROP 18 16 3
+ MOVE 15 18
+ GET_PROP 19 15 1
+ MOVE 14 19
+ GET_PROP 20 14 4
+ MOVE 13 20
+ CALL 12 13 21 0
+ LOAD_INT 22 0
+ GT 11 12 22
+ JUMP_IF_FALSE 11 _L0
+ MOVE 24 0
+ MOVE 23 24
+ GET_PROP 25 23 3
+ MOVE 29 0
+ MOVE 28 29
+ GET_PROP 30 28 3
+ MOVE 27 30
+ GET_PROP 31 27 1
+ MOVE 38 0
+ MOVE 37 38
+ GET_PROP 39 37 3
+ MOVE 36 39
+ GET_PROP 40 36 1
+ MOVE 35 40
+ GET_PROP 41 35 4
+ MOVE 34 41
+ CALL 33 34 42 0
+ LOAD_INT 43 1
+ SUB 32 33 43
+ GET_INDEX 26 31 32
+ SET_PROP 25 5 26
+ JUMP _L1
+_L0:
+ MOVE 45 0
+ MOVE 44 45
+ GET_PROP 46 44 3
+ LOAD_NULL 47
+ SET_PROP 46 5 47
+_L1:
+ LOAD_NULL 48
+ RETURN 48
+.endfunc
+
+.func @ScopeAnalyzer.exitState_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_23
+ .registers 40
+
+ .const "states"
+ .const "pop"
+ .const "states"
+ .const "size"
+ .const "currentState"
+ .const "upvalues"
+
+ MOVE 6 0
+ MOVE 5 6
+ GET_PROP 7 5 0
+ MOVE 4 7
+ GET_PROP 8 4 1
+ MOVE 3 8
+ CALL 2 3 9 0
+ MOVE 1 2
+ MOVE 15 0
+ MOVE 14 15
+ GET_PROP 16 14 2
+ MOVE 13 16
+ GET_PROP 17 13 3
+ MOVE 12 17
+ CALL 11 12 18 0
+ LOAD_INT 19 0
+ GT 10 11 19
+ JUMP_IF_FALSE 10 _L0
+ MOVE 20 0
+ MOVE 23 0
+ MOVE 22 23
+ GET_PROP 24 22 2
+ MOVE 30 0
+ MOVE 29 30
+ GET_PROP 31 29 2
+ MOVE 28 31
+ GET_PROP 32 28 3
+ MOVE 27 32
+ CALL 26 27 33 0
+ LOAD_INT 34 1
+ SUB 25 26 34
+ GET_INDEX 21 24 25
+ SET_PROP 20 4 21
+ JUMP _L1
+_L0:
+ MOVE 35 0
+ LOAD_NULL 36
+ SET_PROP 35 4 36
+_L1:
+ MOVE 38 1
+ MOVE 37 38
+ GET_PROP 39 37 5
+ RETURN 39
+.endfunc
+
+.func @ScopeAnalyzer.init_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_17
+ .registers 11
+
+ .const "ast"
+ .const "states"
+ .const "currentState"
+ .const "currentClassScope"
+
+ MOVE 2 0
+ MOVE 3 1
+ SET_PROP 2 0 3
+ MOVE 4 0
+ NEW_ARRAY 5 0 0
+ SET_PROP 4 1 5
+ MOVE 6 0
+ LOAD_NULL 7
+ SET_PROP 6 2 7
+ MOVE 8 0
+ LOAD_NULL 9
+ SET_PROP 8 3 9
+ LOAD_NULL 10
+ RETURN 10
+.endfunc
+
+.func @ScopeAnalyzer.throwError_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_19
+ .registers 27
+ .upvalues 2
+
+ .const "print"
+ .const "SemanticErr"
+ .const "exit"
+
+ .upvalue 0 local 4
+ .upvalue 1 local 6
+
+ GET_GLOBAL 6 0
+ MOVE 5 6
+ GET_UPVALUE 10 0
+ MOVE 9 10
+ GET_PROP 11 9 1
+ MOVE 8 11
+ MOVE 12 1
+ MOVE 13 2
+ MOVE 14 3
+ MOVE 15 12
+ MOVE 16 13
+ MOVE 17 14
+ CALL 7 8 15 3
+ MOVE 18 7
+ CALL 4 5 18 1
+ GET_UPVALUE 22 1
+ MOVE 21 22
+ GET_EXPORT 23 21 2
+ MOVE 20 23
+ LOAD_INT 24 42
+ MOVE 25 24
+ CALL 19 20 25 1
+ LOAD_NULL 26
+ RETURN 26
+.endfunc
+
+.func @ScopeAnalyzer.visitArrayLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_107
+ .registers 19
+
+ .const "elements"
+ .const "length"
+ .const "visit"
+
+ MOVE 3 1
+ MOVE 2 3
+ GET_PROP 4 2 0
+ GET_VALUES 5 4
+ LOAD_INT 6 0
+ GET_PROP 7 5 1
+_L1:
+ LT 8 6 7
+ JUMP_IF_FALSE 8 _L0
+ GET_INDEX 9 5 6
+ MOVE 13 0
+ MOVE 12 13
+ GET_PROP 14 12 2
+ MOVE 11 14
+ MOVE 15 9
+ MOVE 16 15
+ CALL 10 11 16 1
+ LOAD_INT 17 1
+ ADD 6 6 17
+ JUMP _L1
+_L0:
+ LOAD_NULL 18
+ RETURN 18
+.endfunc
+
+.func @ScopeAnalyzer.visitAssignmentExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_57
+ .registers 88
+ .upvalues 1
+
+ .const "visit"
+ .const "value"
+ .const "visit"
+ .const "target"
+ .const "type"
+ .const "Identifier"
+ .const "resolution"
+ .const "throwError"
+ .const "ERR_UNDECLARED_VARIABLE"
+ .const "variableName"
+ .const "name"
+ .const "local"
+ .const "symbol"
+ .const "isConstant"
+ .const "ERR_ASSIGNMENT_TO_CONST"
+
+ .upvalue 0 local 5
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ MOVE 14 0
+ MOVE 13 14
+ GET_PROP 15 13 2
+ MOVE 12 15
+ MOVE 17 1
+ MOVE 16 17
+ GET_PROP 18 16 3
+ MOVE 19 18
+ CALL 11 12 19 1
+ MOVE 22 1
+ MOVE 21 22
+ GET_PROP 23 21 3
+ MOVE 20 23
+ MOVE 26 20
+ MOVE 25 26
+ GET_PROP 27 25 4
+ LOAD_CONST 28 5
+ EQ 24 27 28
+ JUMP_IF_FALSE 24 _L0
+ MOVE 31 20
+ MOVE 30 31
+ GET_PROP 32 30 6
+ LOAD_NULL 33
+ EQ 29 32 33
+ JUMP_IF_FALSE 29 _L1
+ MOVE 37 0
+ MOVE 36 37
+ GET_PROP 38 36 7
+ MOVE 35 38
+ GET_UPVALUE 40 0
+ MOVE 39 40
+ GET_PROP 41 39 8
+ MOVE 42 20
+ LOAD_CONST 45 9
+ MOVE 43 45
+ MOVE 47 20
+ MOVE 46 47
+ GET_PROP 48 46 10
+ MOVE 44 48
+ NEW_HASH 49 43 1
+ MOVE 50 41
+ MOVE 51 42
+ MOVE 52 49
+ CALL 34 35 50 3
+_L1:
+ MOVE 57 20
+ MOVE 56 57
+ GET_PROP 58 56 6
+ MOVE 55 58
+ GET_PROP 59 55 4
+ LOAD_CONST 60 11
+ EQ 54 59 60
+ MOVE 53 54
+ JUMP_IF_FALSE 54 _L2
+ MOVE 64 20
+ MOVE 63 64
+ GET_PROP 65 63 6
+ MOVE 62 65
+ GET_PROP 66 62 12
+ MOVE 61 66
+ GET_PROP 67 61 13
+ MOVE 53 67
+_L2:
+ JUMP_IF_FALSE 53 _L0
+ MOVE 71 0
+ MOVE 70 71
+ GET_PROP 72 70 7
+ MOVE 69 72
+ GET_UPVALUE 74 0
+ MOVE 73 74
+ GET_PROP 75 73 14
+ MOVE 76 1
+ LOAD_CONST 79 9
+ MOVE 77 79
+ MOVE 81 20
+ MOVE 80 81
+ GET_PROP 82 80 10
+ MOVE 78 82
+ NEW_HASH 83 77 1
+ MOVE 84 75
+ MOVE 85 76
+ MOVE 86 83
+ CALL 68 69 84 3
+_L0:
+ LOAD_NULL 87
+ RETURN 87
+.endfunc
+
+.func @ScopeAnalyzer.visitBinaryExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_85
+ .registers 21
+
+ .const "visit"
+ .const "left"
+ .const "visit"
+ .const "right"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ MOVE 14 0
+ MOVE 13 14
+ GET_PROP 15 13 2
+ MOVE 12 15
+ MOVE 17 1
+ MOVE 16 17
+ GET_PROP 18 16 3
+ MOVE 19 18
+ CALL 11 12 19 1
+ LOAD_NULL 20
+ RETURN 20
+.endfunc
+
+.func @ScopeAnalyzer.visitBlockStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_43
+ .registers 31
+
+ .const "enterScope"
+ .const "statements"
+ .const "length"
+ .const "visit"
+ .const "exitScope"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ CALL 2 3 7 0
+ MOVE 9 1
+ MOVE 8 9
+ GET_PROP 10 8 1
+ GET_VALUES 11 10
+ LOAD_INT 12 0
+ GET_PROP 13 11 2
+_L1:
+ LT 14 12 13
+ JUMP_IF_FALSE 14 _L0
+ GET_INDEX 15 11 12
+ MOVE 19 0
+ MOVE 18 19
+ GET_PROP 20 18 3
+ MOVE 17 20
+ MOVE 21 15
+ MOVE 22 21
+ CALL 16 17 22 1
+ LOAD_INT 23 1
+ ADD 12 12 23
+ JUMP _L1
+_L0:
+ MOVE 27 0
+ MOVE 26 27
+ GET_PROP 28 26 4
+ MOVE 25 28
+ CALL 24 25 29 0
+ LOAD_NULL 30
+ RETURN 30
+.endfunc
+
+.func @ScopeAnalyzer.visitBooleanLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_119
+ .registers 3
+
+ LOAD_NULL 2
+ RETURN 2
+.endfunc
+
+.func @ScopeAnalyzer.visitBreakStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_127
+ .registers 3
+
+ LOAD_NULL 2
+ RETURN 2
+.endfunc
+
+.func @ScopeAnalyzer.visitCallExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_89
+ .registers 28
+
+ .const "visit"
+ .const "callee"
+ .const "args"
+ .const "length"
+ .const "visit"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ MOVE 12 1
+ MOVE 11 12
+ GET_PROP 13 11 2
+ GET_VALUES 14 13
+ LOAD_INT 15 0
+ GET_PROP 16 14 3
+_L1:
+ LT 17 15 16
+ JUMP_IF_FALSE 17 _L0
+ GET_INDEX 18 14 15
+ MOVE 22 0
+ MOVE 21 22
+ GET_PROP 23 21 4
+ MOVE 20 23
+ MOVE 24 18
+ MOVE 25 24
+ CALL 19 20 25 1
+ LOAD_INT 26 1
+ ADD 15 15 26
+ JUMP _L1
+_L0:
+ LOAD_NULL 27
+ RETURN 27
+.endfunc
+
+.func @ScopeAnalyzer.visitCharLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_123
+ .registers 3
+
+ LOAD_NULL 2
+ RETURN 2
+.endfunc
+
+.func @ScopeAnalyzer.visitClassStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_51
+ .registers 118
+ .upvalues 1
+
+ .const "_defineAndAnnotate"
+ .const "name"
+ .const "class"
+ .const "superclass"
+ .const "visit"
+ .const "class:"
+ .const "currentState"
+ .const "current_scope"
+ .const "scopeLevel"
+ .const "currentClassScope"
+ .const "methods"
+ .const "length"
+ .const "_defineAndAnnotate"
+ .const "function"
+ .const "func"
+
+ .upvalue 0 local 1
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ LOAD_TRUE 10
+ LOAD_CONST 11 2
+ MOVE 12 9
+ MOVE 13 10
+ MOVE 14 11
+ CALL 2 3 12 3
+ MOVE 16 1
+ MOVE 15 16
+ GET_PROP 17 15 3
+ JUMP_IF_FALSE 17 _L0
+ MOVE 21 0
+ MOVE 20 21
+ GET_PROP 22 20 4
+ MOVE 19 22
+ MOVE 24 1
+ MOVE 23 24
+ GET_PROP 25 23 3
+ MOVE 26 25
+ CALL 18 19 26 1
+_L0:
+ GET_UPVALUE 30 0
+ MOVE 29 30
+ LOAD_CONST 32 5
+ MOVE 35 1
+ MOVE 34 35
+ GET_PROP 36 34 1
+ MOVE 33 36
+ GET_PROP 37 33 1
+ ADD 31 32 37
+ MOVE 42 0
+ MOVE 41 42
+ GET_PROP 43 41 6
+ MOVE 40 43
+ GET_PROP 44 40 7
+ MOVE 39 44
+ GET_PROP 45 39 8
+ LOAD_INT 46 1
+ ADD 38 45 46
+ MOVE 49 0
+ MOVE 48 49
+ GET_PROP 50 48 6
+ MOVE 47 50
+ GET_PROP 51 47 7
+ MOVE 52 31
+ MOVE 53 38
+ MOVE 54 51
+ CALL 28 29 52 3
+ MOVE 27 28
+ MOVE 58 0
+ MOVE 57 58
+ GET_PROP 59 57 6
+ MOVE 56 59
+ GET_PROP 60 56 7
+ MOVE 55 60
+ MOVE 63 0
+ MOVE 62 63
+ GET_PROP 64 62 9
+ MOVE 61 64
+ MOVE 66 0
+ MOVE 65 66
+ GET_PROP 67 65 6
+ MOVE 68 27
+ SET_PROP 67 7 68
+ MOVE 69 0
+ MOVE 70 27
+ SET_PROP 69 9 70
+ MOVE 72 1
+ MOVE 71 72
+ GET_PROP 73 71 10
+ GET_VALUES 74 73
+ LOAD_INT 75 0
+ GET_PROP 76 74 11
+_L2:
+ LT 77 75 76
+ JUMP_IF_FALSE 77 _L1
+ GET_INDEX 78 74 75
+ MOVE 82 0
+ MOVE 81 82
+ GET_PROP 83 81 12
+ MOVE 80 83
+ MOVE 85 78
+ MOVE 84 85
+ GET_PROP 86 84 1
+ LOAD_TRUE 87
+ LOAD_CONST 88 13
+ MOVE 89 86
+ MOVE 90 87
+ MOVE 91 88
+ CALL 79 80 89 3
+ LOAD_INT 92 1
+ ADD 75 75 92
+ JUMP _L2
+_L1:
+ MOVE 94 1
+ MOVE 93 94
+ GET_PROP 95 93 10
+ GET_VALUES 96 95
+ LOAD_INT 97 0
+ GET_PROP 98 96 11
+_L4:
+ LT 99 97 98
+ JUMP_IF_FALSE 99 _L3
+ GET_INDEX 100 96 97
+ MOVE 104 0
+ MOVE 103 104
+ GET_PROP 105 103 4
+ MOVE 102 105
+ MOVE 107 100
+ MOVE 106 107
+ GET_PROP 108 106 14
+ MOVE 109 108
+ CALL 101 102 109 1
+ LOAD_INT 110 1
+ ADD 97 97 110
+ JUMP _L4
+_L3:
+ MOVE 112 0
+ MOVE 111 112
+ GET_PROP 113 111 6
+ MOVE 114 55
+ SET_PROP 113 7 114
+ MOVE 115 0
+ MOVE 116 61
+ SET_PROP 115 9 116
+ LOAD_NULL 117
+ RETURN 117
+.endfunc
+
+.func @ScopeAnalyzer.visitContinueStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_129
+ .registers 3
+
+ LOAD_NULL 2
+ RETURN 2
+.endfunc
+
+.func @ScopeAnalyzer.visitDoWhileStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_65
+ .registers 21
+
+ .const "visit"
+ .const "body"
+ .const "visit"
+ .const "condition"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ MOVE 14 0
+ MOVE 13 14
+ GET_PROP 15 13 2
+ MOVE 12 15
+ MOVE 17 1
+ MOVE 16 17
+ GET_PROP 18 16 3
+ MOVE 19 18
+ CALL 11 12 19 1
+ LOAD_NULL 20
+ RETURN 20
+.endfunc
+
+.func @ScopeAnalyzer.visitExportStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_81
+ .registers 15
+
+ .const "declaration"
+ .const "visit"
+ .const "declaration"
+
+ MOVE 3 1
+ MOVE 2 3
+ GET_PROP 4 2 0
+ JUMP_IF_FALSE 4 _L0
+ MOVE 8 0
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 6 9
+ MOVE 11 1
+ MOVE 10 11
+ GET_PROP 12 10 2
+ MOVE 13 12
+ CALL 5 6 13 1
+_L0:
+ LOAD_NULL 14
+ RETURN 14
+.endfunc
+
+.func @ScopeAnalyzer.visitExpressionStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_83
+ .registers 12
+
+ .const "visit"
+ .const "expression"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ LOAD_NULL 11
+ RETURN 11
+.endfunc
+
+.func @ScopeAnalyzer.visitForInStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_61
+ .registers 46
+
+ .const "visit"
+ .const "collection"
+ .const "enterScope"
+ .const "_defineAndAnnotate"
+ .const "variable"
+ .const "visit"
+ .const "body"
+ .const "exitScope"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ MOVE 14 0
+ MOVE 13 14
+ GET_PROP 15 13 2
+ MOVE 12 15
+ CALL 11 12 16 0
+ MOVE 20 0
+ MOVE 19 20
+ GET_PROP 21 19 3
+ MOVE 18 21
+ MOVE 23 1
+ MOVE 22 23
+ GET_PROP 24 22 4
+ LOAD_FALSE 25
+ LOAD_CONST 26 4
+ MOVE 27 24
+ MOVE 28 25
+ MOVE 29 26
+ CALL 17 18 27 3
+ MOVE 33 0
+ MOVE 32 33
+ GET_PROP 34 32 5
+ MOVE 31 34
+ MOVE 36 1
+ MOVE 35 36
+ GET_PROP 37 35 6
+ MOVE 38 37
+ CALL 30 31 38 1
+ MOVE 42 0
+ MOVE 41 42
+ GET_PROP 43 41 7
+ MOVE 40 43
+ CALL 39 40 44 0
+ LOAD_NULL 45
+ RETURN 45
+.endfunc
+
+.func @ScopeAnalyzer.visitForStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_59
+ .registers 60
+
+ .const "enterScope"
+ .const "init"
+ .const "visit"
+ .const "condition"
+ .const "update"
+ .const "body"
+ .const "exitScope"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ CALL 2 3 7 0
+ MOVE 9 1
+ MOVE 8 9
+ GET_PROP 10 8 1
+ JUMP_IF_FALSE 10 _L0
+ MOVE 14 0
+ MOVE 13 14
+ GET_PROP 15 13 2
+ MOVE 12 15
+ MOVE 17 1
+ MOVE 16 17
+ GET_PROP 18 16 1
+ MOVE 19 18
+ CALL 11 12 19 1
+_L0:
+ MOVE 21 1
+ MOVE 20 21
+ GET_PROP 22 20 3
+ JUMP_IF_FALSE 22 _L1
+ MOVE 26 0
+ MOVE 25 26
+ GET_PROP 27 25 2
+ MOVE 24 27
+ MOVE 29 1
+ MOVE 28 29
+ GET_PROP 30 28 3
+ MOVE 31 30
+ CALL 23 24 31 1
+_L1:
+ MOVE 33 1
+ MOVE 32 33
+ GET_PROP 34 32 4
+ JUMP_IF_FALSE 34 _L2
+ MOVE 38 0
+ MOVE 37 38
+ GET_PROP 39 37 2
+ MOVE 36 39
+ MOVE 41 1
+ MOVE 40 41
+ GET_PROP 42 40 4
+ MOVE 43 42
+ CALL 35 36 43 1
+_L2:
+ MOVE 47 0
+ MOVE 46 47
+ GET_PROP 48 46 2
+ MOVE 45 48
+ MOVE 50 1
+ MOVE 49 50
+ GET_PROP 51 49 5
+ MOVE 52 51
+ CALL 44 45 52 1
+ MOVE 56 0
+ MOVE 55 56
+ GET_PROP 57 55 6
+ MOVE 54 57
+ CALL 53 54 58 0
+ LOAD_NULL 59
+ RETURN 59
+.endfunc
+
+.func @ScopeAnalyzer.visitFunctionLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_53
+ .registers 60
+
+ .const "enterState"
+ .const "enterScope"
+ .const "parameters"
+ .const "length"
+ .const "_defineAndAnnotate"
+ .const "parameter"
+ .const "visit"
+ .const "body"
+ .const "exitScope"
+ .const "exitState"
+ .const "resolved_upvalues"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ CALL 2 3 7 0
+ MOVE 12 0
+ MOVE 11 12
+ GET_PROP 13 11 1
+ MOVE 10 13
+ CALL 9 10 14 0
+ MOVE 8 9
+ MOVE 16 1
+ MOVE 15 16
+ GET_PROP 17 15 2
+ GET_VALUES 18 17
+ LOAD_INT 19 0
+ GET_PROP 20 18 3
+_L1:
+ LT 21 19 20
+ JUMP_IF_FALSE 21 _L0
+ GET_INDEX 22 18 19
+ MOVE 26 0
+ MOVE 25 26
+ GET_PROP 27 25 4
+ MOVE 24 27
+ MOVE 28 22
+ LOAD_FALSE 29
+ LOAD_CONST 30 5
+ MOVE 31 28
+ MOVE 32 29
+ MOVE 33 30
+ CALL 23 24 31 3
+ LOAD_INT 34 1
+ ADD 19 19 34
+ JUMP _L1
+_L0:
+ MOVE 38 0
+ MOVE 37 38
+ GET_PROP 39 37 6
+ MOVE 36 39
+ MOVE 41 1
+ MOVE 40 41
+ GET_PROP 42 40 7
+ MOVE 43 42
+ CALL 35 36 43 1
+ MOVE 47 0
+ MOVE 46 47
+ GET_PROP 48 46 8
+ MOVE 45 48
+ CALL 44 45 49 0
+ MOVE 54 0
+ MOVE 53 54
+ GET_PROP 55 53 9
+ MOVE 52 55
+ CALL 51 52 56 0
+ MOVE 50 51
+ MOVE 57 1
+ MOVE 58 50
+ SET_PROP 57 10 58
+ LOAD_NULL 59
+ RETURN 59
+.endfunc
+
+.func @ScopeAnalyzer.visitFunctionStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_49
+ .registers 25
+
+ .const "_defineAndAnnotate"
+ .const "name"
+ .const "function"
+ .const "visit"
+ .const "func"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ LOAD_TRUE 10
+ LOAD_CONST 11 2
+ MOVE 12 9
+ MOVE 13 10
+ MOVE 14 11
+ CALL 2 3 12 3
+ MOVE 18 0
+ MOVE 17 18
+ GET_PROP 19 17 3
+ MOVE 16 19
+ MOVE 21 1
+ MOVE 20 21
+ GET_PROP 22 20 4
+ MOVE 23 22
+ CALL 15 16 23 1
+ LOAD_NULL 24
+ RETURN 24
+.endfunc
+
+.func @ScopeAnalyzer.visitIdentifier_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_55
+ .registers 19
+
+ .const "resolution"
+ .const "_resolveVariable"
+ .const "name"
+ .const "resolution"
+
+ MOVE 4 1
+ MOVE 3 4
+ GET_PROP 5 3 0
+ LOAD_NULL 6
+ NEQ 2 5 6
+ JUMP_IF_FALSE 2 _L0
+ LOAD_NULL 7
+ RETURN 7
+_L0:
+ MOVE 8 1
+ MOVE 12 0
+ MOVE 11 12
+ GET_PROP 13 11 1
+ MOVE 10 13
+ MOVE 15 1
+ MOVE 14 15
+ GET_PROP 16 14 2
+ MOVE 17 16
+ CALL 9 10 17 1
+ SET_PROP 8 3 9
+ LOAD_NULL 18
+ RETURN 18
+.endfunc
+
+.func @ScopeAnalyzer.visitIfStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_67
+ .registers 33
+
+ .const "visit"
+ .const "condition"
+ .const "visit"
+ .const "thenBranch"
+ .const "elseBranch"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ MOVE 14 0
+ MOVE 13 14
+ GET_PROP 15 13 2
+ MOVE 12 15
+ MOVE 17 1
+ MOVE 16 17
+ GET_PROP 18 16 3
+ MOVE 19 18
+ CALL 11 12 19 1
+ MOVE 21 1
+ MOVE 20 21
+ GET_PROP 22 20 4
+ JUMP_IF_FALSE 22 _L0
+ MOVE 26 0
+ MOVE 25 26
+ GET_PROP 27 25 2
+ MOVE 24 27
+ MOVE 29 1
+ MOVE 28 29
+ GET_PROP 30 28 4
+ MOVE 31 30
+ CALL 23 24 31 1
+_L0:
+ LOAD_NULL 32
+ RETURN 32
+.endfunc
+
+.func @ScopeAnalyzer.visitImportStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_79
+ .registers 60
+
+ .const "visit"
+ .const "path"
+ .const "namespaceImport"
+ .const "_defineAndAnnotate"
+ .const "module"
+ .const "namedImports"
+ .const "size"
+ .const "length"
+ .const "import"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ MOVE 13 1
+ MOVE 12 13
+ GET_PROP 14 12 2
+ LOAD_NULL 15
+ NEQ 11 14 15
+ JUMP_IF_FALSE 11 _L0
+ MOVE 19 0
+ MOVE 18 19
+ GET_PROP 20 18 3
+ MOVE 17 20
+ MOVE 22 1
+ MOVE 21 22
+ GET_PROP 23 21 2
+ LOAD_TRUE 24
+ LOAD_CONST 25 4
+ MOVE 26 23
+ MOVE 27 24
+ MOVE 28 25
+ CALL 16 17 26 3
+ JUMP _L1
+_L0:
+ MOVE 34 1
+ MOVE 33 34
+ GET_PROP 35 33 5
+ MOVE 32 35
+ GET_PROP 36 32 6
+ MOVE 31 36
+ CALL 30 31 37 0
+ LOAD_INT 38 0
+ GT 29 30 38
+ JUMP_IF_FALSE 29 _L1
+ MOVE 40 1
+ MOVE 39 40
+ GET_PROP 41 39 5
+ GET_VALUES 42 41
+ LOAD_INT 43 0
+ GET_PROP 44 42 7
+_L2:
+ LT 45 43 44
+ JUMP_IF_FALSE 45 _L1
+ GET_INDEX 46 42 43
+ MOVE 50 0
+ MOVE 49 50
+ GET_PROP 51 49 3
+ MOVE 48 51
+ MOVE 52 46
+ LOAD_TRUE 53
+ LOAD_CONST 54 8
+ MOVE 55 52
+ MOVE 56 53
+ MOVE 57 54
+ CALL 47 48 55 3
+ LOAD_INT 58 1
+ ADD 43 43 58
+ JUMP _L2
+_L1:
+ LOAD_NULL 59
+ RETURN 59
+.endfunc
+
+.func @ScopeAnalyzer.visitIndexExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_91
+ .registers 21
+
+ .const "visit"
+ .const "object"
+ .const "visit"
+ .const "index"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ MOVE 14 0
+ MOVE 13 14
+ GET_PROP 15 13 2
+ MOVE 12 15
+ MOVE 17 1
+ MOVE 16 17
+ GET_PROP 18 16 3
+ MOVE 19 18
+ CALL 11 12 19 1
+ LOAD_NULL 20
+ RETURN 20
+.endfunc
+
+.func @ScopeAnalyzer.visitIntegerLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_113
+ .registers 3
+
+ LOAD_NULL 2
+ RETURN 2
+.endfunc
+
+.func @ScopeAnalyzer.visitLetStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_47
+ .registers 30
+
+ .const "value"
+ .const "visit"
+ .const "value"
+ .const "_defineAndAnnotate"
+ .const "name"
+ .const "isConstant"
+ .const "variable"
+
+ MOVE 3 1
+ MOVE 2 3
+ GET_PROP 4 2 0
+ JUMP_IF_FALSE 4 _L0
+ MOVE 8 0
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 6 9
+ MOVE 11 1
+ MOVE 10 11
+ GET_PROP 12 10 2
+ MOVE 13 12
+ CALL 5 6 13 1
+_L0:
+ MOVE 17 0
+ MOVE 16 17
+ GET_PROP 18 16 3
+ MOVE 15 18
+ MOVE 20 1
+ MOVE 19 20
+ GET_PROP 21 19 4
+ MOVE 23 1
+ MOVE 22 23
+ GET_PROP 24 22 5
+ LOAD_CONST 25 6
+ MOVE 26 21
+ MOVE 27 24
+ MOVE 28 25
+ CALL 14 15 26 3
+ LOAD_NULL 29
+ RETURN 29
+.endfunc
+
+.func @ScopeAnalyzer.visitNewExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_97
+ .registers 12
+
+ .const "visit"
+ .const "expression"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ LOAD_NULL 11
+ RETURN 11
+.endfunc
+
+.func @ScopeAnalyzer.visitNullLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_121
+ .registers 3
+
+ LOAD_NULL 2
+ RETURN 2
+.endfunc
+
+.func @ScopeAnalyzer.visitObjectLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_109
+ .registers 30
+
+ .const "properties"
+ .const "length"
+ .const "visit"
+ .const "key"
+ .const "value"
+
+ MOVE 3 1
+ MOVE 2 3
+ GET_PROP 4 2 0
+ GET_VALUES 5 4
+ LOAD_INT 6 0
+ GET_PROP 7 5 1
+_L1:
+ LT 8 6 7
+ JUMP_IF_FALSE 8 _L0
+ GET_INDEX 9 5 6
+ MOVE 13 0
+ MOVE 12 13
+ GET_PROP 14 12 2
+ MOVE 11 14
+ MOVE 16 9
+ MOVE 15 16
+ GET_PROP 17 15 3
+ MOVE 18 17
+ CALL 10 11 18 1
+ MOVE 22 0
+ MOVE 21 22
+ GET_PROP 23 21 2
+ MOVE 20 23
+ MOVE 25 9
+ MOVE 24 25
+ GET_PROP 26 24 4
+ MOVE 27 26
+ CALL 19 20 27 1
+ LOAD_INT 28 1
+ ADD 6 6 28
+ JUMP _L1
+_L0:
+ LOAD_NULL 29
+ RETURN 29
+.endfunc
+
+.func @ScopeAnalyzer.visitPostfixUpdateExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_103
+ .registers 12
+
+ .const "visit"
+ .const "operand"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ LOAD_NULL 11
+ RETURN 11
+.endfunc
+
+.func @ScopeAnalyzer.visitPrefixUpdateExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_101
+ .registers 12
+
+ .const "visit"
+ .const "operand"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ LOAD_NULL 11
+ RETURN 11
+.endfunc
+
+.func @ScopeAnalyzer.visitProgram_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_41
+ .registers 43
+
+ .const "enterState"
+ .const "enterScope"
+ .const "body"
+ .const "length"
+ .const "visit"
+ .const "exitScope"
+ .const "exitState"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ CALL 2 3 7 0
+ MOVE 11 0
+ MOVE 10 11
+ GET_PROP 12 10 1
+ MOVE 9 12
+ CALL 8 9 13 0
+ MOVE 15 1
+ MOVE 14 15
+ GET_PROP 16 14 2
+ GET_VALUES 17 16
+ LOAD_INT 18 0
+ GET_PROP 19 17 3
+_L1:
+ LT 20 18 19
+ JUMP_IF_FALSE 20 _L0
+ GET_INDEX 21 17 18
+ MOVE 25 0
+ MOVE 24 25
+ GET_PROP 26 24 4
+ MOVE 23 26
+ MOVE 27 21
+ MOVE 28 27
+ CALL 22 23 28 1
+ LOAD_INT 29 1
+ ADD 18 18 29
+ JUMP _L1
+_L0:
+ MOVE 33 0
+ MOVE 32 33
+ GET_PROP 34 32 5
+ MOVE 31 34
+ CALL 30 31 35 0
+ MOVE 39 0
+ MOVE 38 39
+ GET_PROP 40 38 6
+ MOVE 37 40
+ CALL 36 37 41 0
+ LOAD_NULL 42
+ RETURN 42
+.endfunc
+
+.func @ScopeAnalyzer.visitPropertyAccess_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_95
+ .registers 75
+ .upvalues 1
+
+ .const "object"
+ .const "type"
+ .const "ThisExpression"
+ .const "currentClassScope"
+ .const "property"
+ .const "name"
+ .const "lookup"
+ .const "define"
+ .const "class_member"
+ .const "symbol"
+ .const "resolution"
+ .const "visit"
+ .const "object"
+
+ .upvalue 0 local 2
+
+ MOVE 5 1
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ GET_PROP 7 3 1
+ LOAD_CONST 8 2
+ EQ 2 7 8
+ JUMP_IF_FALSE 2 _L0
+ MOVE 10 0
+ MOVE 9 10
+ GET_PROP 11 9 3
+ JUMP_IF_FALSE 11 _L0
+ MOVE 15 1
+ MOVE 14 15
+ GET_PROP 16 14 4
+ MOVE 13 16
+ GET_PROP 17 13 5
+ MOVE 12 17
+ MOVE 23 0
+ MOVE 22 23
+ GET_PROP 24 22 3
+ MOVE 21 24
+ GET_PROP 25 21 6
+ MOVE 20 25
+ MOVE 26 12
+ LOAD_FALSE 27
+ MOVE 28 26
+ MOVE 29 27
+ CALL 19 20 28 2
+ MOVE 18 19
+ MOVE 31 18
+ NOT 30 31
+ JUMP_IF_FALSE 30 _L1
+ GET_UPVALUE 34 0
+ MOVE 33 34
+ MOVE 35 12
+ LOAD_NULL 36
+ LOAD_CONST 37 4
+ LOAD_FALSE 38
+ MOVE 39 35
+ MOVE 40 36
+ MOVE 41 37
+ MOVE 42 38
+ CALL 32 33 39 4
+ MOVE 18 32
+ MOVE 47 0
+ MOVE 46 47
+ GET_PROP 48 46 3
+ MOVE 45 48
+ GET_PROP 49 45 7
+ MOVE 44 49
+ MOVE 50 18
+ MOVE 51 50
+ CALL 43 44 51 1
+_L1:
+ MOVE 53 1
+ MOVE 52 53
+ GET_PROP 54 52 4
+ LOAD_CONST 59 1
+ MOVE 55 59
+ LOAD_CONST 60 8
+ MOVE 56 60
+ LOAD_CONST 61 9
+ MOVE 57 61
+ MOVE 62 18
+ MOVE 58 62
+ NEW_HASH 63 55 2
+ SET_PROP 54 10 63
+ LOAD_NULL 64
+ RETURN 64
+_L0:
+ MOVE 68 0
+ MOVE 67 68
+ GET_PROP 69 67 11
+ MOVE 66 69
+ MOVE 71 1
+ MOVE 70 71
+ GET_PROP 72 70 12
+ MOVE 73 72
+ CALL 65 66 73 1
+ LOAD_NULL 74
+ RETURN 74
+.endfunc
+
+.func @ScopeAnalyzer.visitRealLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_115
+ .registers 3
+
+ LOAD_NULL 2
+ RETURN 2
+.endfunc
+
+.func @ScopeAnalyzer.visitReturnStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_75
+ .registers 15
+
+ .const "value"
+ .const "visit"
+ .const "value"
+
+ MOVE 3 1
+ MOVE 2 3
+ GET_PROP 4 2 0
+ JUMP_IF_FALSE 4 _L0
+ MOVE 8 0
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 6 9
+ MOVE 11 1
+ MOVE 10 11
+ GET_PROP 12 10 2
+ MOVE 13 12
+ CALL 5 6 13 1
+_L0:
+ LOAD_NULL 14
+ RETURN 14
+.endfunc
+
+.func @ScopeAnalyzer.visitSpreadExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_105
+ .registers 12
+
+ .const "visit"
+ .const "expression"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ LOAD_NULL 11
+ RETURN 11
+.endfunc
+
+.func @ScopeAnalyzer.visitStringLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_117
+ .registers 3
+
+ LOAD_NULL 2
+ RETURN 2
+.endfunc
+
+.func @ScopeAnalyzer.visitSuperExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_99
+ .registers 3
+
+ LOAD_NULL 2
+ RETURN 2
+.endfunc
+
+.func @ScopeAnalyzer.visitSwitchCase_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_73
+ .registers 31
+
+ .const "value"
+ .const "visit"
+ .const "value"
+ .const "statements"
+ .const "length"
+
+ MOVE 3 1
+ MOVE 2 3
+ GET_PROP 4 2 0
+ JUMP_IF_FALSE 4 _L0
+ MOVE 8 0
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 6 9
+ MOVE 11 1
+ MOVE 10 11
+ GET_PROP 12 10 2
+ MOVE 13 12
+ CALL 5 6 13 1
+_L0:
+ MOVE 15 1
+ MOVE 14 15
+ GET_PROP 16 14 3
+ GET_VALUES 17 16
+ LOAD_INT 18 0
+ GET_PROP 19 17 4
+_L2:
+ LT 20 18 19
+ JUMP_IF_FALSE 20 _L1
+ GET_INDEX 21 17 18
+ MOVE 25 0
+ MOVE 24 25
+ GET_PROP 26 24 1
+ MOVE 23 26
+ MOVE 27 21
+ MOVE 28 27
+ CALL 22 23 28 1
+ LOAD_INT 29 1
+ ADD 18 18 29
+ JUMP _L2
+_L1:
+ LOAD_NULL 30
+ RETURN 30
+.endfunc
+
+.func @ScopeAnalyzer.visitSwitchStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_71
+ .registers 40
+
+ .const "visit"
+ .const "value"
+ .const "enterScope"
+ .const "cases"
+ .const "length"
+ .const "visit"
+ .const "exitScope"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ MOVE 14 0
+ MOVE 13 14
+ GET_PROP 15 13 2
+ MOVE 12 15
+ CALL 11 12 16 0
+ MOVE 18 1
+ MOVE 17 18
+ GET_PROP 19 17 3
+ GET_VALUES 20 19
+ LOAD_INT 21 0
+ GET_PROP 22 20 4
+_L1:
+ LT 23 21 22
+ JUMP_IF_FALSE 23 _L0
+ GET_INDEX 24 20 21
+ MOVE 28 0
+ MOVE 27 28
+ GET_PROP 29 27 5
+ MOVE 26 29
+ MOVE 30 24
+ MOVE 31 30
+ CALL 25 26 31 1
+ LOAD_INT 32 1
+ ADD 21 21 32
+ JUMP _L1
+_L0:
+ MOVE 36 0
+ MOVE 35 36
+ GET_PROP 37 35 6
+ MOVE 34 37
+ CALL 33 34 38 0
+ LOAD_NULL 39
+ RETURN 39
+.endfunc
+
+.func @ScopeAnalyzer.visitTemplateLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_111
+ .registers 19
+
+ .const "parts"
+ .const "length"
+ .const "visit"
+
+ MOVE 3 1
+ MOVE 2 3
+ GET_PROP 4 2 0
+ GET_VALUES 5 4
+ LOAD_INT 6 0
+ GET_PROP 7 5 1
+_L1:
+ LT 8 6 7
+ JUMP_IF_FALSE 8 _L0
+ GET_INDEX 9 5 6
+ MOVE 13 0
+ MOVE 12 13
+ GET_PROP 14 12 2
+ MOVE 11 14
+ MOVE 15 9
+ MOVE 16 15
+ CALL 10 11 16 1
+ LOAD_INT 17 1
+ ADD 6 6 17
+ JUMP _L1
+_L0:
+ LOAD_NULL 18
+ RETURN 18
+.endfunc
+
+.func @ScopeAnalyzer.visitTernaryExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_93
+ .registers 30
+
+ .const "visit"
+ .const "condition"
+ .const "visit"
+ .const "thenBranch"
+ .const "elseBranch"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ MOVE 14 0
+ MOVE 13 14
+ GET_PROP 15 13 2
+ MOVE 12 15
+ MOVE 17 1
+ MOVE 16 17
+ GET_PROP 18 16 3
+ MOVE 19 18
+ CALL 11 12 19 1
+ MOVE 23 0
+ MOVE 22 23
+ GET_PROP 24 22 2
+ MOVE 21 24
+ MOVE 26 1
+ MOVE 25 26
+ GET_PROP 27 25 4
+ MOVE 28 27
+ CALL 20 21 28 1
+ LOAD_NULL 29
+ RETURN 29
+.endfunc
+
+.func @ScopeAnalyzer.visitThisExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_125
+ .registers 3
+
+ LOAD_NULL 2
+ RETURN 2
+.endfunc
+
+.func @ScopeAnalyzer.visitThrowStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_77
+ .registers 15
+
+ .const "argument"
+ .const "visit"
+ .const "argument"
+
+ MOVE 3 1
+ MOVE 2 3
+ GET_PROP 4 2 0
+ JUMP_IF_FALSE 4 _L0
+ MOVE 8 0
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 6 9
+ MOVE 11 1
+ MOVE 10 11
+ GET_PROP 12 10 2
+ MOVE 13 12
+ CALL 5 6 13 1
+_L0:
+ LOAD_NULL 14
+ RETURN 14
+.endfunc
+
+.func @ScopeAnalyzer.visitTryStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_69
+ .registers 49
+
+ .const "visit"
+ .const "tryBlock"
+ .const "enterScope"
+ .const "catchVariable"
+ .const "_defineAndAnnotate"
+ .const "variable"
+ .const "visit"
+ .const "catchBlock"
+ .const "exitScope"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ MOVE 14 0
+ MOVE 13 14
+ GET_PROP 15 13 2
+ MOVE 12 15
+ CALL 11 12 16 0
+ MOVE 18 1
+ MOVE 17 18
+ GET_PROP 19 17 3
+ JUMP_IF_FALSE 19 _L0
+ MOVE 23 0
+ MOVE 22 23
+ GET_PROP 24 22 4
+ MOVE 21 24
+ MOVE 26 1
+ MOVE 25 26
+ GET_PROP 27 25 3
+ LOAD_FALSE 28
+ LOAD_CONST 29 5
+ MOVE 30 27
+ MOVE 31 28
+ MOVE 32 29
+ CALL 20 21 30 3
+_L0:
+ MOVE 36 0
+ MOVE 35 36
+ GET_PROP 37 35 6
+ MOVE 34 37
+ MOVE 39 1
+ MOVE 38 39
+ GET_PROP 40 38 7
+ MOVE 41 40
+ CALL 33 34 41 1
+ MOVE 45 0
+ MOVE 44 45
+ GET_PROP 46 44 8
+ MOVE 43 46
+ CALL 42 43 47 0
+ LOAD_NULL 48
+ RETURN 48
+.endfunc
+
+.func @ScopeAnalyzer.visitUnaryExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_87
+ .registers 12
+
+ .const "visit"
+ .const "operand"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ LOAD_NULL 11
+ RETURN 11
+.endfunc
+
+.func @ScopeAnalyzer.visitWhileStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_63
+ .registers 21
+
+ .const "visit"
+ .const "condition"
+ .const "visit"
+ .const "body"
+
+ MOVE 5 0
+ MOVE 4 5
+ GET_PROP 6 4 0
+ MOVE 3 6
+ MOVE 8 1
+ MOVE 7 8
+ GET_PROP 9 7 1
+ MOVE 10 9
+ CALL 2 3 10 1
+ MOVE 14 0
+ MOVE 13 14
+ GET_PROP 15 13 2
+ MOVE 12 15
+ MOVE 17 1
+ MOVE 16 17
+ GET_PROP 18 16 3
+ MOVE 19 18
+ CALL 11 12 19 1
+ LOAD_NULL 20
+ RETURN 20
+.endfunc
+
+.func @ScopeAnalyzer.visit_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_39
+ .registers 82
+
+ .const "visit"
+ .const "type"
+ .const "keys"
+ .const "length"
+ .const "typeof"
+ .const "object"
+ .const "visit"
+ .const "array"
+
+ MOVE 3 1
+ LOAD_NULL 4
+ EQ 2 3 4
+ JUMP_IF_FALSE 2 _L0
+ LOAD_NULL 5
+ RETURN 5
+_L0:
+ LOAD_CONST 8 0
+ MOVE 10 1
+ MOVE 9 10
+ GET_PROP 11 9 1
+ ADD 7 8 11
+ MOVE 6 7
+ MOVE 14 0
+ MOVE 15 6
+ GET_INDEX 13 14 15
+ MOVE 12 13
+ MOVE 16 12
+ JUMP_IF_FALSE 16 _L1
+ MOVE 19 12
+ MOVE 18 19
+ MOVE 20 1
+ MOVE 21 20
+ CALL 17 18 21 1
+ RETURN 17
+_L1:
+ MOVE 25 1
+ MOVE 24 25
+ GET_PROP 26 24 2
+ MOVE 23 26
+ CALL 22 23 27 0
+ GET_VALUES 28 22
+ LOAD_INT 29 0
+ GET_PROP 30 28 3
+_L8:
+ LT 31 29 30
+ JUMP_IF_FALSE 31 _L2
+ GET_INDEX 32 28 29
+ MOVE 35 1
+ MOVE 36 32
+ GET_INDEX 34 35 36
+ MOVE 33 34
+ GET_GLOBAL 42 4
+ MOVE 41 42
+ MOVE 43 33
+ MOVE 44 43
+ CALL 40 41 44 1
+ LOAD_CONST 45 5
+ EQ 39 40 45
+ MOVE 38 39
+ JUMP_IF_FALSE 39 _L3
+ MOVE 47 33
+ LOAD_NULL 48
+ NEQ 46 47 48
+ MOVE 38 46
+_L3:
+ MOVE 37 38
+ JUMP_IF_FALSE 38 _L4
+ MOVE 50 33
+ MOVE 49 50
+ GET_PROP 51 49 1
+ MOVE 37 51
+_L4:
+ JUMP_IF_FALSE 37 _L5
+ MOVE 55 0
+ MOVE 54 55
+ GET_PROP 56 54 6
+ MOVE 53 56
+ MOVE 57 33
+ MOVE 58 57
+ CALL 52 53 58 1
+ JUMP _L6
+_L5:
+ GET_GLOBAL 62 4
+ MOVE 61 62
+ MOVE 63 33
+ MOVE 64 63
+ CALL 60 61 64 1
+ LOAD_CONST 65 7
+ EQ 59 60 65
+ JUMP_IF_FALSE 59 _L6
+ MOVE 66 33
+ GET_VALUES 67 66
+ LOAD_INT 68 0
+ GET_PROP 69 67 3
+_L7:
+ LT 70 68 69
+ JUMP_IF_FALSE 70 _L6
+ GET_INDEX 71 67 68
+ MOVE 75 0
+ MOVE 74 75
+ GET_PROP 76 74 6
+ MOVE 73 76
+ MOVE 77 71
+ MOVE 78 77
+ CALL 72 73 78 1
+ LOAD_INT 79 1
+ ADD 68 68 79
+ JUMP _L7
+_L6:
+ LOAD_INT 80 1
+ ADD 29 29 80
+ JUMP _L8
+_L2:
+ LOAD_NULL 81
+ RETURN 81
+.endfunc
+
+.func @main
+ .registers 68
+
+ .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/symbolTable.meowb"
+ .const "ScopedSymbolTable"
+ .const "Symbol"
+ .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/diagnostic.meowb"
+ .const "Diagnostic"
+ .const "ErrorCodes"
+ .const "system"
+ .const "System"
+ .const "AnalyzerState"
+ .const @AnalyzerState.init_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_13
+ .const "init"
+ .const "ScopeAnalyzer"
+ .const @ScopeAnalyzer.init_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_17
+ .const @ScopeAnalyzer.throwError_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_19
+ .const "throwError"
+ .const @ScopeAnalyzer.enterState_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_21
+ .const "enterState"
+ .const @ScopeAnalyzer.exitState_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_23
+ .const "exitState"
+ .const @ScopeAnalyzer.enterScope_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_25
+ .const "enterScope"
+ .const @ScopeAnalyzer.exitScope_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_27
+ .const "exitScope"
+ .const @ScopeAnalyzer._findLocalInCurrentState_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_29
+ .const "_findLocalInCurrentState"
+ .const @ScopeAnalyzer._findUpvalueRecursive_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_31
+ .const "_findUpvalueRecursive"
+ .const @ScopeAnalyzer._addUpvalueToState_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_33
+ .const "_addUpvalueToState"
+ .const @ScopeAnalyzer._resolveVariable_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_35
+ .const "_resolveVariable"
+ .const @ScopeAnalyzer.analyze_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_37
+ .const "analyze"
+ .const @ScopeAnalyzer.visit_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_39
+ .const "visit"
+ .const @ScopeAnalyzer.visitProgram_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_41
+ .const "visitProgram"
+ .const @ScopeAnalyzer.visitBlockStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_43
+ .const "visitBlockStatement"
+ .const @ScopeAnalyzer._defineAndAnnotate_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_45
+ .const "_defineAndAnnotate"
+ .const @ScopeAnalyzer.visitLetStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_47
+ .const "visitLetStatement"
+ .const @ScopeAnalyzer.visitFunctionStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_49
+ .const "visitFunctionStatement"
+ .const @ScopeAnalyzer.visitClassStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_51
+ .const "visitClassStatement"
+ .const @ScopeAnalyzer.visitFunctionLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_53
+ .const "visitFunctionLiteral"
+ .const @ScopeAnalyzer.visitIdentifier_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_55
+ .const "visitIdentifier"
+ .const @ScopeAnalyzer.visitAssignmentExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_57
+ .const "visitAssignmentExpression"
+ .const @ScopeAnalyzer.visitForStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_59
+ .const "visitForStatement"
+ .const @ScopeAnalyzer.visitForInStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_61
+ .const "visitForInStatement"
+ .const @ScopeAnalyzer.visitWhileStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_63
+ .const "visitWhileStatement"
+ .const @ScopeAnalyzer.visitDoWhileStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_65
+ .const "visitDoWhileStatement"
+ .const @ScopeAnalyzer.visitIfStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_67
+ .const "visitIfStatement"
+ .const @ScopeAnalyzer.visitTryStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_69
+ .const "visitTryStatement"
+ .const @ScopeAnalyzer.visitSwitchStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_71
+ .const "visitSwitchStatement"
+ .const @ScopeAnalyzer.visitSwitchCase_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_73
+ .const "visitSwitchCase"
+ .const @ScopeAnalyzer.visitReturnStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_75
+ .const "visitReturnStatement"
+ .const @ScopeAnalyzer.visitThrowStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_77
+ .const "visitThrowStatement"
+ .const @ScopeAnalyzer.visitImportStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_79
+ .const "visitImportStatement"
+ .const @ScopeAnalyzer.visitExportStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_81
+ .const "visitExportStatement"
+ .const @ScopeAnalyzer.visitExpressionStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_83
+ .const "visitExpressionStatement"
+ .const @ScopeAnalyzer.visitBinaryExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_85
+ .const "visitBinaryExpression"
+ .const @ScopeAnalyzer.visitUnaryExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_87
+ .const "visitUnaryExpression"
+ .const @ScopeAnalyzer.visitCallExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_89
+ .const "visitCallExpression"
+ .const @ScopeAnalyzer.visitIndexExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_91
+ .const "visitIndexExpression"
+ .const @ScopeAnalyzer.visitTernaryExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_93
+ .const "visitTernaryExpression"
+ .const @ScopeAnalyzer.visitPropertyAccess_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_95
+ .const "visitPropertyAccess"
+ .const @ScopeAnalyzer.visitNewExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_97
+ .const "visitNewExpression"
+ .const @ScopeAnalyzer.visitSuperExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_99
+ .const "visitSuperExpression"
+ .const @ScopeAnalyzer.visitPrefixUpdateExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_101
+ .const "visitPrefixUpdateExpression"
+ .const @ScopeAnalyzer.visitPostfixUpdateExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_103
+ .const "visitPostfixUpdateExpression"
+ .const @ScopeAnalyzer.visitSpreadExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_105
+ .const "visitSpreadExpression"
+ .const @ScopeAnalyzer.visitArrayLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_107
+ .const "visitArrayLiteral"
+ .const @ScopeAnalyzer.visitObjectLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_109
+ .const "visitObjectLiteral"
+ .const @ScopeAnalyzer.visitTemplateLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_111
+ .const "visitTemplateLiteral"
+ .const @ScopeAnalyzer.visitIntegerLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_113
+ .const "visitIntegerLiteral"
+ .const @ScopeAnalyzer.visitRealLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_115
+ .const "visitRealLiteral"
+ .const @ScopeAnalyzer.visitStringLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_117
+ .const "visitStringLiteral"
+ .const @ScopeAnalyzer.visitBooleanLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_119
+ .const "visitBooleanLiteral"
+ .const @ScopeAnalyzer.visitNullLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_121
+ .const "visitNullLiteral"
+ .const @ScopeAnalyzer.visitCharLiteral_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_123
+ .const "visitCharLiteral"
+ .const @ScopeAnalyzer.visitThisExpression_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_125
+ .const "visitThisExpression"
+ .const @ScopeAnalyzer.visitBreakStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_127
+ .const "visitBreakStatement"
+ .const @ScopeAnalyzer.visitContinueStatement_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/middle-end/scopeAnalyzer.meow_129
+ .const "visitContinueStatement"
+
+ IMPORT_MODULE 0 0
+ GET_EXPORT 1 0 1
+ SET_GLOBAL 1 1
+ GET_EXPORT 2 0 2
+ SET_GLOBAL 2 2
+ IMPORT_MODULE 3 3
+ GET_EXPORT 4 3 4
+ SET_GLOBAL 4 4
+ GET_EXPORT 5 3 5
+ SET_GLOBAL 5 5
+ IMPORT_MODULE 6 6
+ SET_GLOBAL 7 6
+ NEW_CLASS 7 8
+ CLOSURE 8 9
+ SET_METHOD 7 10 8
+ SET_GLOBAL 8 7
+ NEW_CLASS 9 11
+ CLOSURE 10 12
+ SET_METHOD 9 10 10
+ CLOSURE 11 13
+ SET_METHOD 9 14 11
+ CLOSURE 12 15
+ SET_METHOD 9 16 12
+ CLOSURE 13 17
+ SET_METHOD 9 18 13
+ CLOSURE 14 19
+ SET_METHOD 9 20 14
+ CLOSURE 15 21
+ SET_METHOD 9 22 15
+ CLOSURE 16 23
+ SET_METHOD 9 24 16
+ CLOSURE 17 25
+ SET_METHOD 9 26 17
+ CLOSURE 18 27
+ SET_METHOD 9 28 18
+ CLOSURE 19 29
+ SET_METHOD 9 30 19
+ CLOSURE 20 31
+ SET_METHOD 9 32 20
+ CLOSURE 21 33
+ SET_METHOD 9 34 21
+ CLOSURE 22 35
+ SET_METHOD 9 36 22
+ CLOSURE 23 37
+ SET_METHOD 9 38 23
+ CLOSURE 24 39
+ SET_METHOD 9 40 24
+ CLOSURE 25 41
+ SET_METHOD 9 42 25
+ CLOSURE 26 43
+ SET_METHOD 9 44 26
+ CLOSURE 27 45
+ SET_METHOD 9 46 27
+ CLOSURE 28 47
+ SET_METHOD 9 48 28
+ CLOSURE 29 49
+ SET_METHOD 9 50 29
+ CLOSURE 30 51
+ SET_METHOD 9 52 30
+ CLOSURE 31 53
+ SET_METHOD 9 54 31
+ CLOSURE 32 55
+ SET_METHOD 9 56 32
+ CLOSURE 33 57
+ SET_METHOD 9 58 33
+ CLOSURE 34 59
+ SET_METHOD 9 60 34
+ CLOSURE 35 61
+ SET_METHOD 9 62 35
+ CLOSURE 36 63
+ SET_METHOD 9 64 36
+ CLOSURE 37 65
+ SET_METHOD 9 66 37
+ CLOSURE 38 67
+ SET_METHOD 9 68 38
+ CLOSURE 39 69
+ SET_METHOD 9 70 39
+ CLOSURE 40 71
+ SET_METHOD 9 72 40
+ CLOSURE 41 73
+ SET_METHOD 9 74 41
+ CLOSURE 42 75
+ SET_METHOD 9 76 42
+ CLOSURE 43 77
+ SET_METHOD 9 78 43
+ CLOSURE 44 79
+ SET_METHOD 9 80 44
+ CLOSURE 45 81
+ SET_METHOD 9 82 45
+ CLOSURE 46 83
+ SET_METHOD 9 84 46
+ CLOSURE 47 85
+ SET_METHOD 9 86 47
+ CLOSURE 48 87
+ SET_METHOD 9 88 48
+ CLOSURE 49 89
+ SET_METHOD 9 90 49
+ CLOSURE 50 91
+ SET_METHOD 9 92 50
+ CLOSURE 51 93
+ SET_METHOD 9 94 51
+ CLOSURE 52 95
+ SET_METHOD 9 96 52
+ CLOSURE 53 97
+ SET_METHOD 9 98 53
+ CLOSURE 54 99
+ SET_METHOD 9 100 54
+ CLOSURE 55 101
+ SET_METHOD 9 102 55
+ CLOSURE 56 103
+ SET_METHOD 9 104 56
+ CLOSURE 57 105
+ SET_METHOD 9 106 57
+ CLOSURE 58 107
+ SET_METHOD 9 108 58
+ CLOSURE 59 109
+ SET_METHOD 9 110 59
+ CLOSURE 60 111
+ SET_METHOD 9 112 60
+ CLOSURE 61 113
+ SET_METHOD 9 114 61
+ CLOSURE 62 115
+ SET_METHOD 9 116 62
+ CLOSURE 63 117
+ SET_METHOD 9 118 63
+ CLOSURE 64 119
+ SET_METHOD 9 120 64
+ CLOSURE 65 121
+ SET_METHOD 9 122 65
+ CLOSURE 66 123
+ SET_METHOD 9 124 66
+ SET_GLOBAL 11 9
+ EXPORT 11 9
+ LOAD_NULL 67
+ RETURN 67
+.endfunc

@@ -1,0 +1,223 @@
+.func @RegisterAllocator.beginScope_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_11
+ .registers 2
+
+ LOAD_NULL 1
+ RETURN 1
+.endfunc
+
+.func @RegisterAllocator.endScope_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_13
+ .registers 2
+
+ LOAD_NULL 1
+ RETURN 1
+.endfunc
+
+.func @RegisterAllocator.free_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_9
+ .registers 3
+
+ LOAD_NULL 2
+ RETURN 2
+.endfunc
+
+.func @RegisterAllocator.init_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_1
+ .registers 16
+
+ .const "_numRegisters"
+ .const "reset"
+
+ MOVE 2 0
+ MOVE 5 1
+ LOAD_INT 6 0
+ GT 4 5 6
+ JUMP_IF_FALSE 4 _L0
+ MOVE 7 1
+ MOVE 3 7
+ JUMP _L1
+_L0:
+ LOAD_INT 8 256
+ MOVE 3 8
+_L1:
+ SET_PROP 2 0 3
+ MOVE 12 0
+ MOVE 11 12
+ GET_PROP 13 11 1
+ MOVE 10 13
+ CALL 9 10 14 0
+ LOAD_NULL 15
+ RETURN 15
+.endfunc
+
+.func @RegisterAllocator.numRegisters_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_21
+ .registers 4
+
+ .const "_nextRegister"
+
+ MOVE 2 0
+ MOVE 1 2
+ GET_PROP 3 1 0
+ RETURN 3
+.endfunc
+
+.func @RegisterAllocator.rallocBlock_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_7
+ .registers 22
+
+ .const "assert"
+ .const "RegisterAllocator.rallocBlock: n phải > 0"
+ .const "_nextRegister"
+
+ GET_GLOBAL 4 0
+ MOVE 3 4
+ MOVE 6 1
+ LOAD_INT 7 0
+ GT 5 6 7
+ LOAD_CONST 8 1
+ MOVE 9 5
+ MOVE 10 8
+ CALL 2 3 9 2
+ MOVE 13 0
+ MOVE 12 13
+ GET_PROP 14 12 2
+ MOVE 11 14
+ MOVE 15 0
+ MOVE 18 0
+ MOVE 17 18
+ GET_PROP 19 17 2
+ MOVE 20 1
+ ADD 16 19 20
+ SET_PROP 15 2 16
+ MOVE 21 11
+ RETURN 21
+.endfunc
+
+.func @RegisterAllocator.ralloc_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_5
+ .registers 10
+
+ .const "_nextRegister"
+ .const "_nextRegister"
+
+ MOVE 3 0
+ MOVE 2 3
+ GET_PROP 4 2 0
+ MOVE 1 4
+ LOAD_INT 6 1
+ MOVE 7 0
+ GET_PROP 5 7 1
+ ADD 8 5 6
+ SET_PROP 7 1 8
+ MOVE 9 1
+ RETURN 9
+.endfunc
+
+.func @RegisterAllocator.reset_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_3
+ .registers 4
+
+ .const "_nextRegister"
+
+ MOVE 1 0
+ LOAD_INT 2 0
+ SET_PROP 1 0 2
+ LOAD_NULL 3
+ RETURN 3
+.endfunc
+
+.func @RegisterAllocator.take_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_15
+ .registers 7
+
+ .const "ralloc"
+
+ MOVE 4 0
+ MOVE 3 4
+ GET_PROP 5 3 0
+ MOVE 2 5
+ CALL 1 2 6 0
+ RETURN 1
+.endfunc
+
+.func @RegisterAllocator.usedRegisters_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_19
+ .registers 4
+
+ .const "_nextRegister"
+
+ MOVE 2 0
+ MOVE 1 2
+ GET_PROP 3 1 0
+ RETURN 3
+.endfunc
+
+.func @RegisterAllocator.withTemp_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_17
+ .registers 16
+
+ .const "ralloc"
+
+ MOVE 6 0
+ MOVE 5 6
+ GET_PROP 7 5 0
+ MOVE 4 7
+ CALL 3 4 8 0
+ MOVE 2 3
+ MOVE 12 1
+ MOVE 11 12
+ MOVE 13 2
+ MOVE 14 13
+ CALL 10 11 14 1
+ MOVE 9 10
+ MOVE 15 9
+ RETURN 15
+.endfunc
+
+.func @main
+ .registers 13
+
+ .const "RegisterAllocator"
+ .const @RegisterAllocator.init_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_1
+ .const "init"
+ .const @RegisterAllocator.reset_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_3
+ .const "reset"
+ .const @RegisterAllocator.ralloc_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_5
+ .const "ralloc"
+ .const @RegisterAllocator.rallocBlock_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_7
+ .const "rallocBlock"
+ .const @RegisterAllocator.free_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_9
+ .const "free"
+ .const @RegisterAllocator.beginScope_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_11
+ .const "beginScope"
+ .const @RegisterAllocator.endScope_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_13
+ .const "endScope"
+ .const @RegisterAllocator.take_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_15
+ .const "take"
+ .const @RegisterAllocator.withTemp_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_17
+ .const "withTemp"
+ .const @RegisterAllocator.usedRegisters_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_19
+ .const "usedRegisters"
+ .const @RegisterAllocator.numRegisters_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/registerAllocator.meow_21
+ .const "numRegisters"
+ .const "RegisterAllocator"
+
+ NEW_CLASS 0 0
+ CLOSURE 1 1
+ SET_METHOD 0 2 1
+ CLOSURE 2 3
+ SET_METHOD 0 4 2
+ CLOSURE 3 5
+ SET_METHOD 0 6 3
+ CLOSURE 4 7
+ SET_METHOD 0 8 4
+ CLOSURE 5 9
+ SET_METHOD 0 10 5
+ CLOSURE 6 11
+ SET_METHOD 0 12 6
+ CLOSURE 7 13
+ SET_METHOD 0 14 7
+ CLOSURE 8 15
+ SET_METHOD 0 16 8
+ CLOSURE 9 17
+ SET_METHOD 0 18 9
+ CLOSURE 10 19
+ SET_METHOD 0 20 10
+ CLOSURE 11 21
+ SET_METHOD 0 22 11
+ SET_GLOBAL 0 0
+ EXPORT 23 0
+ LOAD_NULL 12
+ RETURN 12
+.endfunc

@@ -1,0 +1,202 @@
+.func @isalnum_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/frontend/checkType.meow_29
+ .registers 12
+ .upvalues 2
+
+ .upvalue 0 local 11
+ .upvalue 1 local 13
+
+ GET_UPVALUE 4 0
+ MOVE 3 4
+ MOVE 5 0
+ MOVE 6 5
+ CALL 2 3 6 1
+ MOVE 1 2
+ JUMP_IF_TRUE 2 _L0
+ GET_UPVALUE 9 1
+ MOVE 8 9
+ MOVE 10 0
+ MOVE 11 10
+ CALL 7 8 11 1
+ MOVE 1 7
+_L0:
+ RETURN 1
+.endfunc
+
+.func @isalpha_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/frontend/checkType.meow_17
+ .registers 8
+ .upvalues 2
+
+ .upvalue 0 local 1
+ .upvalue 1 local 7
+
+ GET_UPVALUE 3 0
+ MOVE 2 3
+ GET_UPVALUE 4 1
+ MOVE 5 0
+ MOVE 6 4
+ MOVE 7 5
+ CALL 1 2 6 2
+ RETURN 1
+.endfunc
+
+.func @isdigit_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/frontend/checkType.meow_21
+ .registers 8
+ .upvalues 2
+
+ .upvalue 0 local 1
+ .upvalue 1 local 3
+
+ GET_UPVALUE 3 0
+ MOVE 2 3
+ GET_UPVALUE 4 1
+ MOVE 5 0
+ MOVE 6 4
+ MOVE 7 5
+ CALL 1 2 6 2
+ RETURN 1
+.endfunc
+
+.func @isspace_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/frontend/checkType.meow_33
+ .registers 8
+ .upvalues 2
+
+ .upvalue 0 local 1
+ .upvalue 1 local 9
+
+ GET_UPVALUE 3 0
+ MOVE 2 3
+ GET_UPVALUE 4 1
+ MOVE 5 0
+ MOVE 6 4
+ MOVE 7 5
+ CALL 1 2 6 2
+ RETURN 1
+.endfunc
+
+.func @isxdigit_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/frontend/checkType.meow_25
+ .registers 8
+ .upvalues 2
+
+ .upvalue 0 local 1
+ .upvalue 1 local 5
+
+ GET_UPVALUE 3 0
+ MOVE 2 3
+ GET_UPVALUE 4 1
+ MOVE 5 0
+ MOVE 6 4
+ MOVE 7 5
+ CALL 1 2 6 2
+ RETURN 1
+.endfunc
+
+.func @main
+ .registers 24
+
+ .const "string"
+ .const "contains"
+ .const "join"
+ .const "0123456789"
+ .const "DIGITS"
+ .const "0123456789abcdefABCDEF"
+ .const "HEX_DIGITS"
+ .const "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+ .const "LETTERS"
+ .const " \t\r\n"
+ .const "WHITESPACE"
+ .const @isalpha_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/frontend/checkType.meow_17
+ .const "isalpha"
+ .const @isdigit_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/frontend/checkType.meow_21
+ .const "isdigit"
+ .const @isxdigit_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/frontend/checkType.meow_25
+ .const "isxdigit"
+ .const @isalnum_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/frontend/checkType.meow_29
+ .const "isalnum"
+ .const @isspace_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/frontend/checkType.meow_33
+ .const "isspace"
+ .const @prettyPrint_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/frontend/checkType.meow_37
+ .const "prettyPrint"
+
+ IMPORT_MODULE 0 0
+ GET_EXPORT 1 0 1
+ SET_GLOBAL 1 1
+ GET_EXPORT 2 0 2
+ SET_GLOBAL 2 2
+ LOAD_CONST 4 3
+ MOVE 3 4
+ SET_GLOBAL 4 3
+ LOAD_CONST 6 5
+ MOVE 5 6
+ SET_GLOBAL 6 5
+ LOAD_CONST 8 7
+ MOVE 7 8
+ SET_GLOBAL 8 7
+ LOAD_CONST 10 9
+ MOVE 9 10
+ SET_GLOBAL 10 9
+ CLOSURE 12 11
+ MOVE 11 12
+ SET_GLOBAL 12 11
+ EXPORT 12 11
+ CLOSURE 14 13
+ MOVE 13 14
+ SET_GLOBAL 14 13
+ EXPORT 14 13
+ CLOSURE 16 15
+ MOVE 15 16
+ SET_GLOBAL 16 15
+ EXPORT 16 15
+ CLOSURE 18 17
+ MOVE 17 18
+ SET_GLOBAL 18 17
+ EXPORT 18 17
+ CLOSURE 20 19
+ MOVE 19 20
+ SET_GLOBAL 20 19
+ EXPORT 20 19
+ CLOSURE 22 21
+ MOVE 21 22
+ SET_GLOBAL 22 21
+ EXPORT 22 21
+ LOAD_NULL 23
+ RETURN 23
+.endfunc
+
+.func @prettyPrint_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/frontend/checkType.meow_37
+ .registers 24
+ .upvalues 1
+
+ .const "{ 'type': '"
+ .const "TokenType"
+ .const "', 'value': '"
+ .const "Lexeme"
+ .const "' }"
+ .const ""
+
+ .upvalue 0 local 2
+
+ LOAD_CONST 7 0
+ MOVE 2 7
+ MOVE 9 0
+ MOVE 8 9
+ GET_PROP 10 8 1
+ MOVE 3 10
+ LOAD_CONST 11 2
+ MOVE 4 11
+ MOVE 13 0
+ MOVE 12 13
+ GET_PROP 14 12 3
+ MOVE 5 14
+ LOAD_CONST 15 4
+ MOVE 6 15
+ NEW_ARRAY 16 2 5
+ MOVE 1 16
+ GET_UPVALUE 19 0
+ MOVE 18 19
+ MOVE 20 1
+ LOAD_CONST 21 5
+ MOVE 22 20
+ MOVE 23 21
+ CALL 17 18 22 2
+ RETURN 17
+.endfunc

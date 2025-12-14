@@ -1,0 +1,110 @@
+.func @CompilerState.init_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/compilerState.meow_9
+ .registers 47
+ .upvalues 3
+
+ .const "createProto"
+ .const "proto"
+ .const "constantPool"
+ .const "pool"
+ .const "allocator"
+ .const "scope"
+ .const "loopLabels"
+ .const "moduleVariables"
+ .const "importedVariables"
+ .const "capturedLocals"
+ .const "regToLocalIndex"
+ .const "localIndexToReg"
+ .const "localCount"
+
+ .upvalue 0 local 0
+ .upvalue 1 local 4
+ .upvalue 2 local 2
+
+ MOVE 2 0
+ GET_UPVALUE 6 0
+ MOVE 5 6
+ GET_EXPORT 7 5 0
+ MOVE 4 7
+ MOVE 8 1
+ LOAD_INT 9 256
+ MOVE 10 8
+ MOVE 11 9
+ CALL 3 4 10 2
+ SET_PROP 2 1 3
+ MOVE 12 0
+ GET_UPVALUE 15 1
+ MOVE 14 15
+ MOVE 18 0
+ MOVE 17 18
+ GET_PROP 19 17 1
+ MOVE 16 19
+ GET_PROP 20 16 2
+ MOVE 21 20
+ CALL 13 14 21 1
+ SET_PROP 12 3 13
+ MOVE 22 0
+ GET_UPVALUE 25 2
+ MOVE 24 25
+ LOAD_INT 26 256
+ MOVE 27 26
+ CALL 23 24 27 1
+ SET_PROP 22 4 23
+ MOVE 28 0
+ NEW_HASH 30 0 0
+ MOVE 29 30
+ NEW_ARRAY 31 29 1
+ SET_PROP 28 5 31
+ MOVE 32 0
+ NEW_ARRAY 33 0 0
+ SET_PROP 32 6 33
+ MOVE 34 0
+ NEW_HASH 35 0 0
+ SET_PROP 34 7 35
+ MOVE 36 0
+ NEW_HASH 37 0 0
+ SET_PROP 36 8 37
+ MOVE 38 0
+ NEW_HASH 39 0 0
+ SET_PROP 38 9 39
+ MOVE 40 0
+ NEW_HASH 41 0 0
+ SET_PROP 40 10 41
+ MOVE 42 0
+ NEW_HASH 43 0 0
+ SET_PROP 42 11 43
+ MOVE 44 0
+ LOAD_INT 45 0
+ SET_PROP 44 12 45
+ LOAD_NULL 46
+ RETURN 46
+.endfunc
+
+.func @main
+ .registers 8
+
+ .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/emitter.meowb"
+ .const "Emitter"
+ .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/registerAllocator.meowb"
+ .const "RegisterAllocator"
+ .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/constantPool.meowb"
+ .const "ConstantPool"
+ .const "CompilerState"
+ .const @CompilerState.init_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/compilerState.meow_9
+ .const "init"
+
+ IMPORT_MODULE 0 0
+ SET_GLOBAL 1 0
+ IMPORT_MODULE 1 2
+ GET_EXPORT 2 1 3
+ SET_GLOBAL 3 2
+ IMPORT_MODULE 3 4
+ GET_EXPORT 4 3 5
+ SET_GLOBAL 5 4
+ NEW_CLASS 5 6
+ CLOSURE 6 7
+ SET_METHOD 5 8 6
+ SET_GLOBAL 6 5
+ EXPORT 6 5
+ LOAD_NULL 7
+ RETURN 7
+.endfunc

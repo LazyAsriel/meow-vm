@@ -1,0 +1,219 @@
+.func @ConstantPool.add_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/constantPool.meow_3
+ .registers 105
+
+ .const "typeof"
+ .const "object"
+ .const "sourceName"
+ .const "proto:"
+ .const "lookup"
+ .const "pool"
+ .const "size"
+ .const "push"
+ .const "str"
+ .const "meow:"
+
+ GET_GLOBAL 7 0
+ MOVE 6 7
+ MOVE 8 1
+ MOVE 9 8
+ CALL 5 6 9 1
+ LOAD_CONST 10 1
+ EQ 4 5 10
+ MOVE 3 4
+ JUMP_IF_FALSE 4 _L0
+ MOVE 12 1
+ LOAD_NULL 13
+ NEQ 11 12 13
+ MOVE 3 11
+_L0:
+ MOVE 2 3
+ JUMP_IF_FALSE 3 _L1
+ MOVE 16 1
+ LOAD_CONST 17 2
+ GET_INDEX 15 16 17
+ LOAD_NULL 18
+ NEQ 14 15 18
+ MOVE 2 14
+_L1:
+ JUMP_IF_FALSE 2 _L2
+ LOAD_CONST 21 3
+ MOVE 23 1
+ MOVE 22 23
+ GET_PROP 24 22 2
+ ADD 20 21 24
+ MOVE 19 20
+ MOVE 28 0
+ MOVE 27 28
+ GET_PROP 29 27 4
+ MOVE 30 19
+ GET_INDEX 26 29 30
+ LOAD_NULL 31
+ NEQ 25 26 31
+ JUMP_IF_FALSE 25 _L3
+ MOVE 34 0
+ MOVE 33 34
+ GET_PROP 35 33 4
+ MOVE 36 19
+ GET_INDEX 32 35 36
+ RETURN 32
+_L3:
+ MOVE 42 0
+ MOVE 41 42
+ GET_PROP 43 41 5
+ MOVE 40 43
+ GET_PROP 44 40 6
+ MOVE 39 44
+ CALL 38 39 45 0
+ MOVE 37 38
+ MOVE 50 0
+ MOVE 49 50
+ GET_PROP 51 49 5
+ MOVE 48 51
+ GET_PROP 52 48 7
+ MOVE 47 52
+ MOVE 53 1
+ MOVE 54 53
+ CALL 46 47 54 1
+ MOVE 56 0
+ MOVE 55 56
+ GET_PROP 57 55 4
+ MOVE 58 19
+ MOVE 59 37
+ SET_INDEX 57 58 59
+ MOVE 60 37
+ RETURN 60
+_L2:
+ GET_GLOBAL 64 8
+ MOVE 63 64
+ MOVE 65 1
+ MOVE 66 65
+ CALL 62 63 66 1
+ MOVE 61 62
+ LOAD_CONST 69 9
+ MOVE 70 61
+ ADD 68 69 70
+ MOVE 67 68
+ MOVE 73 0
+ MOVE 72 73
+ GET_PROP 74 72 4
+ MOVE 75 67
+ GET_INDEX 71 74 75
+ JUMP_IF_FALSE 71 _L4
+ MOVE 78 0
+ MOVE 77 78
+ GET_PROP 79 77 4
+ MOVE 80 67
+ GET_INDEX 76 79 80
+ RETURN 76
+_L4:
+ MOVE 86 0
+ MOVE 85 86
+ GET_PROP 87 85 5
+ MOVE 84 87
+ GET_PROP 88 84 6
+ MOVE 83 88
+ CALL 82 83 89 0
+ MOVE 81 82
+ MOVE 94 0
+ MOVE 93 94
+ GET_PROP 95 93 5
+ MOVE 92 95
+ GET_PROP 96 92 7
+ MOVE 91 96
+ MOVE 97 1
+ MOVE 98 97
+ CALL 90 91 98 1
+ MOVE 100 0
+ MOVE 99 100
+ GET_PROP 101 99 4
+ MOVE 102 67
+ MOVE 103 81
+ SET_INDEX 101 102 103
+ MOVE 104 81
+ RETURN 104
+.endfunc
+
+.func @ConstantPool.get_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/constantPool.meow_5
+ .registers 29
+
+ .const "pool"
+ .const "size"
+ .const "pool"
+ .const "assert"
+ .const "Lỗi: Index hằng số nằm ngoài giới hạn!"
+
+ MOVE 4 1
+ LOAD_INT 5 0
+ GE 3 4 5
+ MOVE 2 3
+ JUMP_IF_FALSE 3 _L0
+ MOVE 7 1
+ MOVE 12 0
+ MOVE 11 12
+ GET_PROP 13 11 0
+ MOVE 10 13
+ GET_PROP 14 10 1
+ MOVE 9 14
+ CALL 8 9 15 0
+ LT 6 7 8
+ MOVE 2 6
+_L0:
+ JUMP_IF_FALSE 2 _L1
+ MOVE 18 0
+ MOVE 17 18
+ GET_PROP 19 17 2
+ MOVE 20 1
+ GET_INDEX 16 19 20
+ RETURN 16
+_L1:
+ GET_GLOBAL 23 3
+ MOVE 22 23
+ LOAD_FALSE 24
+ LOAD_CONST 25 4
+ MOVE 26 24
+ MOVE 27 25
+ CALL 21 22 26 2
+ LOAD_NULL 28
+ RETURN 28
+.endfunc
+
+.func @ConstantPool.init_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/constantPool.meow_1
+ .registers 7
+
+ .const "pool"
+ .const "lookup"
+
+ MOVE 2 0
+ MOVE 3 1
+ SET_PROP 2 0 3
+ MOVE 4 0
+ NEW_HASH 5 0 0
+ SET_PROP 4 1 5
+ LOAD_NULL 6
+ RETURN 6
+.endfunc
+
+.func @main
+ .registers 5
+
+ .const "ConstantPool"
+ .const @ConstantPool.init_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/constantPool.meow_1
+ .const "init"
+ .const @ConstantPool.add_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/constantPool.meow_3
+ .const "add"
+ .const @ConstantPool.get_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/constantPool.meow_5
+ .const "get"
+ .const "ConstantPool"
+
+ NEW_CLASS 0 0
+ CLOSURE 1 1
+ SET_METHOD 0 2 1
+ CLOSURE 2 3
+ SET_METHOD 0 4 2
+ CLOSURE 3 5
+ SET_METHOD 0 6 3
+ SET_GLOBAL 0 0
+ EXPORT 7 0
+ LOAD_NULL 4
+ RETURN 4
+.endfunc
