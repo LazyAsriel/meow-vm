@@ -6873,14 +6873,14 @@ _L0:
 
  .const "system"
  .const "System"
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/ast.meowb"
+ .const "ast.meowb"
  .const "Ast"
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/token.meowb"
+ .const "token.meowb"
  .const "TokenType"
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/diagnostic.meowb"
+ .const "diagnostic.meowb"
  .const "Diagnostic"
  .const "ErrorCodes"
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/precedence.meowb"
+ .const "precedence.meowb"
  .const "Precedence"
  .const "Parser"
  .const @Parser.init_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/frontend/parser.meow_16

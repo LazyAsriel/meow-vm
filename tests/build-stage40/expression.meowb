@@ -594,11 +594,11 @@ _L1:
 .func @main
  .registers 36
 
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/emitter.meowb"
+ .const "emitter.meowb"
  .const "Emitter"
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/opCodes.meowb"
+ .const "opCodes.meowb"
  .const "OpCodes"
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/token.meowb"
+ .const "token.meowb"
  .const "TokenType"
  .const "tokenTypeToString"
  .const "stringToTokenType"

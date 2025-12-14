@@ -2487,16 +2487,16 @@ _L0:
 .func @main
  .registers 32
 
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/checkType.meowb"
+ .const "checkType.meowb"
  .const "isalpha"
  .const "isdigit"
  .const "isxdigit"
  .const "isalnum"
  .const "isspace"
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/token.meowb"
+ .const "token.meowb"
  .const "Token"
  .const "TokenType"
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/tokenTables.meowb"
+ .const "tokenTables.meowb"
  .const "keywords"
  .const "symbols"
  .const "Lexer"

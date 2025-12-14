@@ -972,7 +972,7 @@ _L13:
  .const "String"
  .const "json"
  .const "Json"
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/opCodes.meowb"
+ .const "opCodes.meowb"
  .const "OpCodes"
  .const "JUMP"
  .const "targetArgIndex"

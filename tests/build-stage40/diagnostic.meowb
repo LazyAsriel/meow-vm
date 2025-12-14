@@ -526,7 +526,7 @@ _L3:
 .func @main
  .registers 635
 
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/token.meowb"
+ .const "token.meowb"
  .const "tokenTypeToString"
  .const "string"
  .const "String"

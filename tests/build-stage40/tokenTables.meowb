@@ -1,7 +1,7 @@
 .func @main
  .registers 505
 
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/token.meowb"
+ .const "token.meowb"
  .const "TokenType"
  .const "let"
  .const "KEYWORD_LET"

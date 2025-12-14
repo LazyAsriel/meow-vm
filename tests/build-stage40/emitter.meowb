@@ -370,7 +370,7 @@ _L0:
 .func @main
  .registers 513
 
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/opCodes.meowb"
+ .const "opCodes.meowb"
  .const "OpCodes"
  .const "__PROTO_ID_COUNTER"
  .const "__LABEL_COUNTER"

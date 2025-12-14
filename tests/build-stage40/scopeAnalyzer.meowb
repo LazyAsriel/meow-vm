@@ -2646,10 +2646,10 @@ _L2:
 .func @main
  .registers 68
 
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/symbolTable.meowb"
+ .const "symbolTable.meowb"
  .const "ScopedSymbolTable"
  .const "Symbol"
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/diagnostic.meowb"
+ .const "diagnostic.meowb"
  .const "Diagnostic"
  .const "ErrorCodes"
  .const "system"

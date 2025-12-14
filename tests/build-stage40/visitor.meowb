@@ -1,11 +1,11 @@
 .func @main
  .registers 254
 
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/expression.meowb"
+ .const "expression.meowb"
  .const "Expression"
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/statement.meowb"
+ .const "statement.meowb"
  .const "Statement"
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/literal.meowb"
+ .const "literal.meowb"
  .const "Literal"
  .const "statements"
  .const "LetStatement"

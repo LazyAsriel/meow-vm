@@ -82,11 +82,11 @@
 .func @main
  .registers 8
 
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/emitter.meowb"
+ .const "emitter.meowb"
  .const "Emitter"
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/registerAllocator.meowb"
+ .const "registerAllocator.meowb"
  .const "RegisterAllocator"
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/constantPool.meowb"
+ .const "constantPool.meowb"
  .const "ConstantPool"
  .const "CompilerState"
  .const @CompilerState.init_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/compilerState.meow_9

@@ -544,13 +544,13 @@ _L0:
 .func @main
  .registers 15
 
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/emitter.meowb"
+ .const "emitter.meowb"
  .const "Emitter"
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/opCodes.meowb"
+ .const "opCodes.meowb"
  .const "OpCodes"
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/visitor.meowb"
+ .const "visitor.meowb"
  .const "Visitor"
- .const "/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/builds/build-stage37/compilerState.meowb"
+ .const "compilerState.meowb"
  .const "CompilerState"
  .const "CodeGenerator"
  .const @CodeGenerator.init_/home/lazycat/Shared/Projects/MeowScript/trangmeo-v2/src/backend/codeGenerator.meow_12
