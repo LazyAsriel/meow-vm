@@ -8,13 +8,27 @@ namespace meow::jit {
 
 using namespace x64;
 
+// --- Helpers ---
+static bool is_conditional_jump(OpCode op) {
+    return op == OpCode::JUMP_IF_TRUE || op == OpCode::JUMP_IF_TRUE_B ||
+           op == OpCode::JUMP_IF_FALSE || op == OpCode::JUMP_IF_FALSE_B;
+}
+
+static int get_jump_condition_reg(const uint8_t* bytecode, size_t pc, OpCode op) {
+    if (op == OpCode::JUMP_IF_TRUE_B || op == OpCode::JUMP_IF_FALSE_B) {
+        return bytecode[pc];
+    } else {
+        uint16_t r; memcpy(&r, bytecode + pc, 2); return r;
+    }
+}
+
+// --- Compiler ---
+
 Compiler::Compiler() : emit_(nullptr, 0) {
     code_mem_ = (uint8_t*)mmap(nullptr, capacity_, 
                                PROT_READ | PROT_WRITE | PROT_EXEC, 
                                MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (code_mem_ == MAP_FAILED) throw std::runtime_error("JIT mmap failed");
-    
-    // Khởi tạo lại emitter với vùng nhớ thật
     emit_ = Emitter(code_mem_, capacity_);
 }
 
@@ -22,94 +36,67 @@ Compiler::~Compiler() {
     if (code_mem_) munmap(code_mem_, capacity_);
 }
 
-// Map 5 thanh ghi đầu tiên của VM (0-4) vào các thanh ghi callee-saved của CPU
 Reg Compiler::map_vm_reg(int vm_reg) const {
     switch (vm_reg) {
-        case 0: return RBX;
-        case 1: return R12;
-        case 2: return R13;
-        case 3: return R14;
-        case 4: return R15;
-        default: return INVALID_REG;
+        case 0: return RBX; case 1: return R12;
+        case 2: return R13; case 3: return R14;
+        case 4: return R15; default: return INVALID_REG;
     }
 }
 
-// Load: Từ VM Memory (hoặc Cache Reg) -> CPU Reg (UNBOXED)
 void Compiler::load_vm_reg(Reg cpu_dst, int vm_src) {
     Reg direct = map_vm_reg(vm_src);
     if (direct != INVALID_REG) {
-        emit_.mov_reg_reg(cpu_dst, direct);
+        emit_.mov(cpu_dst, direct);
     } else {
-        // Load từ [RDI + index*8]
-        emit_.mov_reg_mem(cpu_dst, RDI, vm_src * 8);
-        // Unbox (bỏ Tag ở 16 bit cao)
-        emit_.shift_imm(cpu_dst, 16, false, false); // SHL 16
-        emit_.shift_imm(cpu_dst, 16, true, true);   // SAR 16 (giữ dấu)
+        emit_.mov(cpu_dst, RDI, vm_src * 8);
+        emit_.shl(cpu_dst, 16); // Unbox
+        emit_.sar(cpu_dst, 16);
     }
 }
 
-// Store: Từ CPU Reg (UNBOXED) -> VM Memory (hoặc Cache Reg)
 void Compiler::store_vm_reg(int vm_dst, Reg cpu_src) {
     Reg direct = map_vm_reg(vm_dst);
     if (direct != INVALID_REG) {
-        emit_.mov_reg_reg(direct, cpu_src);
+        emit_.mov(direct, cpu_src);
     } else {
-        // Box: OR với Tag
-        emit_.mov_reg_imm(RDX, NanboxLayout::make_tag(2)); // RDX làm temp chứa TAG INT
-        // Nếu cpu_src == RAX, ta cần save RAX hoặc dùng register khác?
-        // Ở đây giả sử cpu_src là kết quả tính toán tạm thời, có thể modify.
-        // Tuy nhiên tốt nhất là copy ra RAX để box rồi ghi.
-        
-        emit_.mov_reg_reg(RAX, cpu_src); // RAX = val
-        emit_.alu_reg_reg(0x09, RAX, RDX); // OR RAX, RDX (Box)
-        emit_.mov_mem_reg(RDI, vm_dst * 8, RAX); // Store [RDI...]
+        emit_.mov(RDX, NanboxLayout::make_tag(2));
+        emit_.mov(RAX, cpu_src); 
+        emit_.or_(RAX, RDX); // Box
+        emit_.mov(RDI, vm_dst * 8, RAX); 
     }
 }
 
 void Compiler::emit_prologue() {
-    emit_.push(RBX);
-    emit_.push(R12); emit_.push(R13);
+    emit_.push(RBX); emit_.push(R12); emit_.push(R13);
     emit_.push(R14); emit_.push(R15);
-
-    // Pre-load các thanh ghi hot (0-4) và Unbox sẵn
     for (int i = 0; i <= 4; ++i) {
         Reg r = map_vm_reg(i);
-        emit_.mov_reg_mem(r, RDI, i * 8);
-        emit_.shift_imm(r, 16, false, false); // SHL
-        emit_.shift_imm(r, 16, true, true);   // SAR
+        emit_.mov(r, RDI, i * 8);
+        emit_.shl(r, 16); emit_.sar(r, 16);
     }
 }
 
 void Compiler::emit_epilogue() {
-    // Save ngược các thanh ghi hot về RAM (Box lại)
     for (int i = 0; i <= 4; ++i) {
         Reg r = map_vm_reg(i);
-        emit_.mov_reg_reg(RAX, r);
-        emit_.mov_reg_imm(RDX, NanboxLayout::make_tag(2));
-        emit_.alu_reg_reg(0x09, RAX, RDX); // Box
-        emit_.mov_mem_reg(RDI, i * 8, RAX);
+        emit_.mov(RAX, r);
+        emit_.mov(RDX, NanboxLayout::make_tag(2));
+        emit_.or_(RAX, RDX);
+        emit_.mov(RDI, i * 8, RAX);
     }
-    
-    emit_.pop(R15); emit_.pop(R14);
-    emit_.pop(R13); emit_.pop(R12);
-    emit_.pop(RBX);
-    emit_.ret();
+    emit_.pop(R15); emit_.pop(R14); emit_.pop(R13);
+    emit_.pop(R12); emit_.pop(RBX); emit_.ret();
 }
 
 Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
-    bc_to_native_.clear();
-    fixups_.clear();
-    
-    // TODO: Reset emitter cursor hoặc tạo buffer mới mỗi lần compile
-    // Ở đây giả định compile 1 lần rồi thôi hoặc quản lý buffer bên ngoài.
-    
+    bc_to_native_.clear(); fixups_.clear();
     emit_prologue();
 
     size_t pc = 0;
     while (pc < len) {
         bc_to_native_[pc] = emit_.cursor();
         OpCode op = static_cast<OpCode>(bytecode[pc++]);
-
         auto read_u16 = [&]() { uint16_t v; memcpy(&v, bytecode + pc, 2); pc += 2; return v; };
         auto read_u8 = [&]() { return bytecode[pc++]; };
 
@@ -118,45 +105,63 @@ Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
                 uint16_t dst = read_u16();
                 int64_t val; memcpy(&val, bytecode + pc, 8); pc += 8;
                 Reg r = map_vm_reg(dst);
+                
+                // Zero Idiom (XOR r, r)
                 if (r != INVALID_REG) {
-                    emit_.mov_reg_imm(r, val);
+                    if (val == 0) emit_.xor_(r, r);
+                    else emit_.mov(r, val);
                 } else {
-                    // Spill to RAM
-                    emit_.mov_reg_imm(RAX, val | NanboxLayout::make_tag(2));
-                    emit_.mov_mem_reg(RDI, dst * 8, RAX);
+                    if (val == 0) emit_.xor_(RAX, RAX);
+                    else emit_.mov(RAX, val | NanboxLayout::make_tag(2));
+                    emit_.mov(RDI, dst * 8, RAX);
                 }
                 break;
             }
 
-            case OpCode::MOVE: {
-                uint16_t dst = read_u16();
-                uint16_t src = read_u16();
-                load_vm_reg(RAX, src);
-                store_vm_reg(dst, RAX);
+            case OpCode::MOVE: case OpCode::MOVE_B: {
+                bool b = (op == OpCode::MOVE_B);
+                uint16_t dst = b ? read_u8() : read_u16();
+                uint16_t src = b ? read_u8() : read_u16();
+                
+                Reg rd = map_vm_reg(dst);
+                Reg rs = map_vm_reg(src);
+                if (rd != INVALID_REG && rs != INVALID_REG) emit_.mov(rd, rs);
+                else { load_vm_reg(RAX, src); store_vm_reg(dst, RAX); }
                 break;
             }
 
+            // --- ARITHMETIC ---
             case OpCode::ADD: case OpCode::ADD_B: {
                 bool b = (op == OpCode::ADD_B);
                 uint16_t dst = b ? read_u8() : read_u16();
                 uint16_t r1 = b ? read_u8() : read_u16();
                 uint16_t r2 = b ? read_u8() : read_u16();
-                load_vm_reg(RAX, r1);
-                load_vm_reg(RCX, r2);
-                emit_.alu_reg_reg(0x01, RAX, RCX); // ADD
-                store_vm_reg(dst, RAX);
+                
+                Reg rd = map_vm_reg(dst), rs1 = map_vm_reg(r1), rs2 = map_vm_reg(r2);
+                if (rd != INVALID_REG && rs1 != INVALID_REG && rs2 != INVALID_REG) {
+                    if (dst == r1) emit_.add(rd, rs2);
+                    else if (dst == r2) emit_.add(rd, rs1);
+                    else { emit_.mov(rd, rs1); emit_.add(rd, rs2); }
+                } else {
+                    load_vm_reg(RAX, r1); load_vm_reg(RCX, r2);
+                    emit_.add(RAX, RCX); store_vm_reg(dst, RAX);
+                }
                 break;
             }
-            
+
             case OpCode::SUB: case OpCode::SUB_B: {
                 bool b = (op == OpCode::SUB_B);
                 uint16_t dst = b ? read_u8() : read_u16();
                 uint16_t r1 = b ? read_u8() : read_u16();
                 uint16_t r2 = b ? read_u8() : read_u16();
-                load_vm_reg(RAX, r1);
-                load_vm_reg(RCX, r2);
-                emit_.alu_reg_reg(0x29, RAX, RCX); // SUB
-                store_vm_reg(dst, RAX);
+                Reg rd = map_vm_reg(dst), rs1 = map_vm_reg(r1), rs2 = map_vm_reg(r2);
+                if (rd != INVALID_REG && rs1 != INVALID_REG && rs2 != INVALID_REG) {
+                    if (dst == r1) emit_.sub(rd, rs2);
+                    else { emit_.mov(rd, rs1); emit_.sub(rd, rs2); }
+                } else {
+                    load_vm_reg(RAX, r1); load_vm_reg(RCX, r2);
+                    emit_.sub(RAX, RCX); store_vm_reg(dst, RAX);
+                }
                 break;
             }
 
@@ -165,10 +170,15 @@ Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
                 uint16_t dst = b ? read_u8() : read_u16();
                 uint16_t r1 = b ? read_u8() : read_u16();
                 uint16_t r2 = b ? read_u8() : read_u16();
-                load_vm_reg(RAX, r1);
-                load_vm_reg(RCX, r2);
-                emit_.imul_reg_reg(RAX, RCX); 
-                store_vm_reg(dst, RAX);
+                Reg rd = map_vm_reg(dst), rs1 = map_vm_reg(r1), rs2 = map_vm_reg(r2);
+                if (rd != INVALID_REG && rs1 != INVALID_REG && rs2 != INVALID_REG) {
+                    if (dst == r1) emit_.imul(rd, rs2);
+                    else if (dst == r2) emit_.imul(rd, rs1);
+                    else { emit_.mov(rd, rs1); emit_.imul(rd, rs2); }
+                } else {
+                    load_vm_reg(RAX, r1); load_vm_reg(RCX, r2);
+                    emit_.imul(RAX, RCX); store_vm_reg(dst, RAX);
+                }
                 break;
             }
 
@@ -177,47 +187,100 @@ Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
                 uint16_t dst = b ? read_u8() : read_u16();
                 uint16_t r1 = b ? read_u8() : read_u16();
                 uint16_t r2 = b ? read_u8() : read_u16();
-                load_vm_reg(RAX, r1);
-                load_vm_reg(RCX, r2);
-                emit_.cqo();          // Sign extend RAX -> RDX:RAX
-                emit_.idiv_reg(RCX);  // Divide by RCX
-                store_vm_reg(dst, RAX); // Quote
+                load_vm_reg(RAX, r1); load_vm_reg(RCX, r2);
+                emit_.cqo(); emit_.idiv(RCX); store_vm_reg(dst, RAX);
                 break;
             }
 
-            // Comparisons: EQ, NEQ, LT, GT...
-            case OpCode::EQ: case OpCode::EQ_B:
-            case OpCode::NEQ: case OpCode::NEQ_B:
-            case OpCode::LT: case OpCode::LT_B: {
-                bool b = (op >= OpCode::ADD_B); // check range thô
+            // --- BITWISE ---
+            case OpCode::BIT_AND: case OpCode::BIT_AND_B:
+            case OpCode::BIT_OR: case OpCode::BIT_OR_B:
+            case OpCode::BIT_XOR: case OpCode::BIT_XOR_B: {
+                bool b = (op >= OpCode::ADD_B); // Simplified check
+                uint16_t dst = b ? read_u8() : read_u16();
+                uint16_t r1 = b ? read_u8() : read_u16();
+                uint16_t r2 = b ? read_u8() : read_u16();
+                Reg rd = map_vm_reg(dst), rs1 = map_vm_reg(r1), rs2 = map_vm_reg(r2);
+                
+                auto emit_op = [&](Reg d, Reg s) {
+                    if (op == OpCode::BIT_AND || op == OpCode::BIT_AND_B) emit_.and_(d, s);
+                    else if (op == OpCode::BIT_OR || op == OpCode::BIT_OR_B) emit_.or_(d, s);
+                    else emit_.xor_(d, s);
+                };
+
+                if (rd != INVALID_REG && rs1 != INVALID_REG && rs2 != INVALID_REG) {
+                    if (dst == r1) emit_op(rd, rs2);
+                    else if (dst == r2) emit_op(rd, rs1);
+                    else { emit_.mov(rd, rs1); emit_op(rd, rs2); }
+                } else {
+                    load_vm_reg(RAX, r1); load_vm_reg(RCX, r2);
+                    emit_op(RAX, RCX); store_vm_reg(dst, RAX);
+                }
+                break;
+            }
+
+            // --- COMPARISONS ---
+            case OpCode::EQ: case OpCode::EQ_B: case OpCode::NEQ: case OpCode::NEQ_B:
+            case OpCode::LT: case OpCode::LT_B: case OpCode::GT: case OpCode::GT_B:
+            case OpCode::LE: case OpCode::LE_B: case OpCode::GE: case OpCode::GE_B: {
+                bool b = (op >= OpCode::ADD_B);
                 uint16_t dst = b ? read_u8() : read_u16();
                 uint16_t r1 = b ? read_u8() : read_u16();
                 uint16_t r2 = b ? read_u8() : read_u16();
                 
-                load_vm_reg(RAX, r1);
-                load_vm_reg(RCX, r2);
-                emit_.alu_reg_reg(0x39, RCX, RAX); // CMP RAX, RCX (Lưu ý thứ tự dst/src của CMP)
+                Reg rs1 = map_vm_reg(r1), rs2 = map_vm_reg(r2);
+                if (rs1 != INVALID_REG && rs2 != INVALID_REG) emit_.cmp(rs1, rs2);
+                else { load_vm_reg(RAX, r1); load_vm_reg(RCX, r2); emit_.cmp(RAX, RCX); }
 
-                Condition cond;
-                switch(op) {
-                    case OpCode::EQ: case OpCode::EQ_B: cond = Condition::E; break;
-                    case OpCode::NEQ: case OpCode::NEQ_B: cond = Condition::NE; break;
-                    case OpCode::LT: case OpCode::LT_B: cond = Condition::L; break;
-                    default: cond = Condition::E; break;
+                // Fusion Logic
+                size_t next_pc = pc;
+                bool fused = false;
+                if (next_pc < len) {
+                    OpCode next_op = static_cast<OpCode>(bytecode[next_pc]);
+                    if (is_conditional_jump(next_op)) {
+                        int jump_reg = get_jump_condition_reg(bytecode, next_pc + 1, next_op);
+                        if (jump_reg == dst) {
+                            fused = true;
+                            bool is_b = (next_op == OpCode::JUMP_IF_TRUE_B || next_op == OpCode::JUMP_IF_FALSE_B);
+                            size_t offset_size = is_b ? 1 : 2;
+                            size_t jump_param_offset = next_pc + 1 + offset_size;
+                            uint16_t target; memcpy(&target, bytecode + jump_param_offset, 2);
+
+                            Condition cond;
+                            switch(op) {
+                                case OpCode::EQ: case OpCode::EQ_B: cond = E; break;
+                                case OpCode::NEQ: case OpCode::NEQ_B: cond = NE; break;
+                                case OpCode::LT: case OpCode::LT_B: cond = L; break;
+                                case OpCode::GT: case OpCode::GT_B: cond = G; break;
+                                case OpCode::LE: case OpCode::LE_B: cond = LE; break;
+                                case OpCode::GE: case OpCode::GE_B: cond = GE; break;
+                                default: cond = E; break;
+                            }
+                            // Đảo logic nếu là JUMP_FALSE
+                            if (next_op == OpCode::JUMP_IF_FALSE || next_op == OpCode::JUMP_IF_FALSE_B) {
+                                cond = static_cast<Condition>(cond ^ 1); // Toggle logic bit (E <-> NE)
+                            }
+
+                            fixups_.push_back({emit_.cursor(), (size_t)target, true});
+                            emit_.jcc(cond, 0);
+                            pc = jump_param_offset + 2; 
+                        }
+                    }
                 }
-                
-                emit_.setcc(cond, RAX); // Kết quả 1 byte vào AL
-                // Zero extend AL -> RAX (MOVZX)
-                // Đơn giản nhất: AND RAX, 0xFF
-                emit_.alu_reg_reg(0x21, RAX, RAX); // Không đúng, AND không có dạng movzx
-                // Workaround: MOVZX bằng cách shift nếu lười implement movzx:
-                // SHL 56, SHR 56? Không, setcc chỉ set byte thấp. 
-                // Đúng chuẩn: MOVZX. Vì chưa có movzx trong emitter, ta dùng:
-                // AND RAX, 0xFF (nhưng phải load 0xFF vào reg khác).
-                emit_.mov_reg_imm(RCX, 0xFF);
-                emit_.alu_reg_reg(0x21, RAX, RCX); // AND RAX, 0xFF
 
-                store_vm_reg(dst, RAX);
+                if (!fused) {
+                    Condition cond; // ... (Map opcode to cond similar to above)
+                    switch(op) {
+                        case OpCode::EQ: case OpCode::EQ_B: cond = E; break;
+                        case OpCode::NEQ: case OpCode::NEQ_B: cond = NE; break;
+                        case OpCode::LT: case OpCode::LT_B: cond = L; break;
+                        default: cond = E; break; // Simplified fallback
+                    }
+                    emit_.setcc(cond, RAX);
+                    emit_.mov(RCX, 0xFF);
+                    emit_.and_(RAX, RCX);
+                    store_vm_reg(dst, RAX);
+                }
                 break;
             }
 
@@ -232,42 +295,26 @@ Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
                 bool b = (op == OpCode::JUMP_IF_TRUE_B);
                 uint16_t reg = b ? read_u8() : read_u16();
                 uint16_t target = read_u16();
-                
                 load_vm_reg(RAX, reg);
-                emit_.alu_reg_reg(0x21, RAX, RAX); // Test zero? No, AND. Use TEST logic implies CMP.
-                // Emitter chưa có TEST, dùng CMP RAX, 0
-                emit_.mov_reg_imm(RCX, 0);
-                emit_.alu_reg_reg(0x39, RCX, RAX); // CMP RAX, 0
-
-                // JNE (Not Equal 0) -> Jump if True
+                emit_.test(RAX, RAX);
                 fixups_.push_back({emit_.cursor(), (size_t)target, true});
-                emit_.jcc(Condition::NE, 0);
+                emit_.jcc(NE, 0);
                 break;
             }
 
             case OpCode::HALT:
-                emit_epilogue();
-                break;
-
-            default:
-                emit_.ret(); // Fallback
-                break;
+                emit_epilogue(); break;
+            default: emit_epilogue(); break;
         }
     }
 
-    // Patch Jumps
     for (const auto& fix : fixups_) {
-        size_t target_native = bc_to_native_[fix.target_bc];
-        // JMP (E9 xx xx xx xx) -> 5 bytes
-        // Jcc (0F 8x xx xx xx xx) -> 6 bytes
-        size_t instr_len = fix.is_cond ? 6 : 5;
-        size_t src_native = fix.jump_op_pos + instr_len; 
-        
-        int32_t rel = (int32_t)(target_native - src_native);
-        // Patch vào offset +1 (cho JMP) hoặc +2 (cho Jcc)
-        emit_.patch_u32(fix.jump_op_pos + (fix.is_cond ? 2 : 1), rel);
+        if (bc_to_native_.count(fix.target_bc)) {
+            size_t target = bc_to_native_[fix.target_bc];
+            size_t src = fix.jump_op_pos + (fix.is_cond ? 6 : 5);
+            emit_.patch_u32(fix.jump_op_pos + (fix.is_cond ? 2 : 1), (int32_t)(target - src));
+        }
     }
-
     return (JitFunc)code_mem_;
 }
 

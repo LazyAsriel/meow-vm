@@ -32,11 +32,14 @@ enum class OpCode : unsigned char {
 
     TAIL_CALL,
 
+    // Optimized Byte-operand instructions
     ADD_B, SUB_B, MUL_B, DIV_B, MOD_B,
     EQ_B, NEQ_B, GT_B, GE_B, LT_B, LE_B,
     JUMP_IF_TRUE_B, JUMP_IF_FALSE_B,
     MOVE_B, LOAD_INT_B,
-    
+    BIT_AND_B, BIT_OR_B, BIT_XOR_B, 
+    LSHIFT_B, RSHIFT_B,
+
     TOTAL_OPCODES
 };
 }
