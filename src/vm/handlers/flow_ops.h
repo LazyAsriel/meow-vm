@@ -178,6 +178,9 @@ namespace meow::handlers {
     template <bool IsVoid>
     [[gnu::always_inline]] 
     static inline const uint8_t* do_call(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+        // [FIX] Lưu lại vị trí bắt đầu instruction (Opcode) để debug
+        const uint8_t* start_ip = ip - 1; 
+
         uint16_t dst = 0;
         if constexpr (!IsVoid) dst = read_u16(ip);
         uint16_t fn_reg    = read_u16(ip);
@@ -197,14 +200,13 @@ namespace meow::handlers {
                 size_t num_params = proto->get_num_registers();
                 
                 if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
+                    state->ctx.current_frame_->ip_ = start_ip; // Sync IP
                     state->error("Stack Overflow!");
                     return impl_PANIC(ip, regs, constants, state);
                 }
 
                 Value* new_base = state->ctx.stack_top_;
                 
-                // Copy Arguments (Thủ công nhưng optimized)
-                // Tính trước số lượng cần copy để tránh if() trong vòng lặp
                 size_t copy_count = (argc < num_params) ? argc : num_params;
                 for (size_t i = 0; i < copy_count; ++i) {
                     new_base[i] = regs[arg_start + i];
@@ -281,6 +283,8 @@ namespace meow::handlers {
             }
         } 
         else [[unlikely]] {
+            // [FIX] Cập nhật IP chính xác trước khi báo lỗi
+            state->ctx.current_frame_->ip_ = start_ip;
             state->error(std::format("Giá trị loại '{}' không thể gọi được (Not callable).", to_string(callee)));
             return impl_PANIC(ip, regs, constants, state);
         }
@@ -289,6 +293,7 @@ namespace meow::handlers {
         size_t num_params = proto->get_num_registers();
 
         if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
+            state->ctx.current_frame_->ip_ = start_ip;
             state->error("Stack Overflow!");
             return impl_PANIC(ip, regs, constants, state);
         }
@@ -333,6 +338,8 @@ namespace meow::handlers {
 
 [[gnu::always_inline]] 
 static const uint8_t* impl_TAIL_CALL(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+    const uint8_t* start_ip = ip - 1; // [FIX]
+
     // 1. Decode (Inline)
     uint16_t dst = read_u16(ip); (void)dst;
     uint16_t fn_reg = read_u16(ip);
@@ -344,6 +351,8 @@ static const uint8_t* impl_TAIL_CALL(const uint8_t* ip, Value* regs, Value* cons
     // 2. Check Function (Unlikely fail)
     Value& callee = regs[fn_reg];
     if (!callee.is_function()) [[unlikely]] {
+        // [FIX]
+        state->ctx.current_frame_->ip_ = start_ip;
         state->error("TAIL_CALL: Target không phải là Function.");
         return nullptr;
     }
@@ -357,21 +366,18 @@ static const uint8_t* impl_TAIL_CALL(const uint8_t* ip, Value* regs, Value* cons
     meow::close_upvalues(state->ctx, current_base_idx);
 
     // 4. [SPEED OPTIMIZATION] DIRECT COPY
-    // Vì arg_start (src) luôn >= 0 (dst), ta copy xuôi chiều trực tiếp.
-    // Không cần mảng tạm, không cần malloc, không cần check điều kiện.
     size_t copy_count = (argc < num_params) ? argc : num_params;
 
     for (size_t i = 0; i < copy_count; ++i) {
         regs[i] = regs[arg_start + i]; // Overwrite trực tiếp an toàn
     }
 
-    // 5. Clean up (Xóa rác ở các thanh ghi thừa)
-    // Rất quan trọng để logic function mới không bị sai do rác cũ
+    // 5. Clean up
     for (size_t i = copy_count; i < num_params; ++i) {
         regs[i] = Value(null_t{});
     }
 
-    // 6. Update Frame (Reuse frame cũ, giữ nguyên Return Address)
+    // 6. Update Frame
     CallFrame* current_frame = state->ctx.frame_ptr_;
     current_frame->function_ = closure;
     

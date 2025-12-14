@@ -337,6 +337,8 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
                 uint16_t obj = read_u16(code, ip);
                 uint16_t idx = read_u16(code, ip);
                 std::format_to(std::back_inserter(line), "r{} = r{}.[{}]", dst, obj, idx);
+                
+                ip += 48; 
                 break;
             }
             case OpCode::SET_PROP: {
@@ -344,6 +346,8 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
                 uint16_t idx = read_u16(code, ip);
                 uint16_t val = read_u16(code, ip);
                 std::format_to(std::back_inserter(line), "r{}.[{}] = r{}", obj, idx, val);
+                
+                ip += 48;
                 break;
             }
             case OpCode::SET_METHOD: {

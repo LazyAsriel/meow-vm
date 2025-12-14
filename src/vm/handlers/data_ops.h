@@ -81,16 +81,17 @@ namespace meow::handlers {
         Value& key = regs[start_idx + i * 2];
         Value& val = regs[start_idx + i * 2 + 1];
         
-        if (!key.is_string()) {
-            state->error("NEW_HASH: Key phải là string.");
-            return impl_PANIC(ip, regs, constants, state);
+        if (key.is_string()) {
+            hash->set(key.as_string(), val);
+        } else {
+            std::string s = to_string(key);
+            string_t k = state->heap.new_string(s);
+            hash->set(k, val);
         }
-        hash->set(key.as_string(), val);
     }
     regs[dst] = Value(hash);
     return ip;
 }
-
 [[gnu::always_inline]] static const uint8_t* impl_GET_INDEX(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t src_reg = read_u16(ip);

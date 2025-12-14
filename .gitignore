@@ -1,6 +1,6 @@
 .vscode/
 .meowconfig/
-# libs/
+libs/
 build/
 build-*/
 dist/
