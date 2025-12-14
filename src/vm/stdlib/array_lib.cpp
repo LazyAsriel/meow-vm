@@ -80,7 +80,46 @@ static Value resize(Machine* vm, int argc, Value* argv) {
     return Value(null_t{});
 }
 
-} // namespace
+// [MỚI] Hàm cắt mảng (slice)
+static Value slice(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    
+    int64_t len = static_cast<int64_t>(self->size());
+    int64_t start = 0;
+    int64_t end = len;
+
+    // Tham số thứ 2: start index (có thể âm)
+    if (argc >= 2 && argv[1].is_int()) {
+        start = argv[1].as_int();
+        if (start < 0) start += len;
+        if (start < 0) start = 0;
+        if (start > len) start = len;
+    }
+
+    // Tham số thứ 3: end index (có thể âm)
+    if (argc >= 3 && argv[2].is_int()) {
+        end = argv[2].as_int();
+        if (end < 0) end += len;
+        if (end < 0) end = 0;
+        if (end > len) end = len;
+    }
+
+    // Nếu start >= end -> mảng rỗng
+    if (start >= end) {
+        return Value(vm->get_heap()->new_array());
+    }
+
+    auto new_arr = vm->get_heap()->new_array();
+    new_arr->reserve(static_cast<size_t>(end - start));
+    
+    for (int64_t i = start; i < end; ++i) {
+        new_arr->push(self->get(static_cast<size_t>(i)));
+    }
+    
+    return Value(new_arr);
+}
+
+} // namespace meow::natives::array
 
 namespace meow::stdlib {
 module_t create_array_module(Machine* vm, MemoryManager* heap) noexcept {
@@ -95,6 +134,7 @@ module_t create_array_module(Machine* vm, MemoryManager* heap) noexcept {
     reg("len", length);
     reg("size", length); 
     reg("resize", resize);
+    reg("slice", slice); // [Đăng ký]
     
     return mod;
 }

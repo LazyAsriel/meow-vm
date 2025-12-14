@@ -52,6 +52,30 @@ static Value contains(Machine* vm, int argc, Value* argv) {
     return Value(haystack.find(needle) != std::string::npos);
 }
 
+// [MỚI] Hàm kiểm tra chuỗi bắt đầu
+static Value startsWith(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 2 || !argv[1].is_string()) return Value(false);
+    
+    std::string_view haystack(self->c_str(), self->size());
+    string_t prefix_obj = argv[1].as_string();
+    std::string_view prefix(prefix_obj->c_str(), prefix_obj->size());
+    
+    return Value(haystack.starts_with(prefix));
+}
+
+// [MỚI] Hàm kiểm tra chuỗi kết thúc
+static Value endsWith(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 2 || !argv[1].is_string()) return Value(false);
+    
+    std::string_view haystack(self->c_str(), self->size());
+    string_t suffix_obj = argv[1].as_string();
+    std::string_view suffix(suffix_obj->c_str(), suffix_obj->size());
+    
+    return Value(haystack.ends_with(suffix));
+}
+
 static Value join(Machine* vm, int argc, Value* argv) {
     if (argc < 2 || !argv[0].is_string() || !argv[1].is_array()) {
         vm->error("Usage: string.join(separator, array_of_strings)");
@@ -70,7 +94,7 @@ static Value join(Machine* vm, int argc, Value* argv) {
     return Value(vm->get_heap()->new_string(res));
 }
 
-} // namespace
+} // namespace meow::natives::str
 
 namespace meow::stdlib {
 module_t create_string_module(Machine* vm, MemoryManager* heap) noexcept {
@@ -85,7 +109,11 @@ module_t create_string_module(Machine* vm, MemoryManager* heap) noexcept {
     reg("upper", upper);
     reg("lower", lower);
     reg("trim", trim);
+    
     reg("contains", contains);
+    reg("startsWith", startsWith); // [Đăng ký]
+    reg("endsWith", endsWith);     // [Đăng ký]
+    
     reg("join", join);
     
     return mod;
