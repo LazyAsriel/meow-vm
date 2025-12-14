@@ -19,4 +19,5 @@ namespace meow::stdlib {
     [[nodiscard]] module_t create_array_module(Machine* vm, MemoryManager* heap) noexcept;
     [[nodiscard]] module_t create_string_module(Machine* vm, MemoryManager* heap) noexcept;
     [[nodiscard]] module_t create_object_module(Machine* vm, MemoryManager* heap) noexcept;
+    [[nodiscard]] module_t create_json_module(Machine* vm, MemoryManager* heap) noexcept;
 }
