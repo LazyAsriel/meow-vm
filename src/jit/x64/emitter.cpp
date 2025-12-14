@@ -115,7 +115,7 @@ void Emitter::sub(Reg dst, Reg src) { alu(0x29, dst, src); }
 void Emitter::and_(Reg dst, Reg src) { alu(0x21, dst, src); }
 void Emitter::or_(Reg dst, Reg src)  { alu(0x09, dst, src); }
 void Emitter::xor_(Reg dst, Reg src) { alu(0x31, dst, src); }
-void Emitter::cmp(Reg dst, Reg src) { alu(0x39, dst, src); } // CMP uses opcode 39 (MR) or 3B (RM)? 39 is MR.
+void Emitter::cmp(Reg dst, Reg src) { alu(0x39, dst, src); } 
 
 void Emitter::imul(Reg dst, Reg src) {
     emit_rex(true, dst >= 8, false, src >= 8);
@@ -153,10 +153,7 @@ void Emitter::jcc_short(Condition cond, int8_t rel_offset) {
 }
 
 void Emitter::setcc(Condition cond, Reg dst) {
-    // SETcc only writes 8-bit, need rex if dst > 8? No, SETcc works on r/m8.
-    // However, typical usage expects cleaning high bits if used as int.
-    // For x64, if we want to target DL/CL etc, or R8B..R15B we need REX.
-    if (dst >= 4) emit_rex(false, false, false, dst >= 8); // Enable byte regs SPL/BPL/SIL/DIL or R8B-R15B
+    if (dst >= 4) emit_rex(false, false, false, dst >= 8); 
     emit(0x0F);
     emit(0x90 | (cond & 0xF));
     emit_modrm(3, 0, dst);
@@ -193,8 +190,9 @@ void Emitter::sar(Reg dst, uint8_t imm) {
 }
 
 void Emitter::align(size_t boundary) {
+    // Simple NOP padding (0x90)
     while ((size_ % boundary) != 0) {
-        emit(0x90); // NOP
+        emit(0x90); 
     }
 }
 

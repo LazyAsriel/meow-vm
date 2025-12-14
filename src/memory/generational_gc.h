@@ -15,6 +15,7 @@ public:
     ~GenerationalGC() noexcept override;
 
     void register_object(const MeowObject* object) override;
+    void register_permanent(const MeowObject* object) override;
     size_t collect() noexcept override;
 
     void write_barrier(MeowObject* owner, Value value) noexcept override;
@@ -30,6 +31,7 @@ private:
 
     std::vector<MeowObject*> young_gen_;
     std::vector<MeowObject*> old_gen_;
+    std::vector<MeowObject*> permanent_gen_;
     
     std::vector<MeowObject*> remembered_set_;
 

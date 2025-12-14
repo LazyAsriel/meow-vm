@@ -39,8 +39,6 @@ public:
     
     void shl(Reg dst, uint8_t imm);
     void sar(Reg dst, uint8_t imm);
-    void shl_cl(Reg dst);
-    void sar_cl(Reg dst);
 
     void cmp(Reg dst, Reg src);
     void test(Reg dst, Reg src);
@@ -60,8 +58,8 @@ public:
     void push(Reg r);
     void pop(Reg r);
     void ret();
-    void cqo();
     
+    // Align code to boundary (inject NOPs)
     void align(size_t boundary);
 
 private:

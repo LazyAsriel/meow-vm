@@ -12,12 +12,20 @@ GenerationalGC::~GenerationalGC() noexcept {
     if (heap_) {
         for (auto obj : young_gen_) heap_->destroy_dynamic(obj, obj->obj_size());
         for (auto obj : old_gen_) heap_->destroy_dynamic(obj, obj->obj_size());
+        for (auto obj : permanent_gen_) heap_->destroy_dynamic(obj, obj->obj_size());
     }
 }
+
 void GenerationalGC::register_object(const MeowObject* object) {
     auto* obj = const_cast<MeowObject*>(object);
     obj->gc_state = GCState::UNMARKED;
     young_gen_.push_back(obj);
+}
+
+void GenerationalGC::register_permanent(const MeowObject* object) {
+    auto* obj = const_cast<MeowObject*>(object);
+    obj->gc_state = GCState::OLD; 
+    permanent_gen_.push_back(obj);
 }
 
 void GenerationalGC::write_barrier(MeowObject* owner, Value value) noexcept {

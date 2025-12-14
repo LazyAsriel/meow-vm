@@ -26,9 +26,9 @@ string_t MemoryManager::new_string(std::string_view str_view) {
     
     string_t new_obj = heap_.create_varsize<ObjString>(length, str_view.data(), length, hash);
     
-    gc_->register_object(new_obj);
-    ++object_allocated_;
+    gc_->register_permanent(new_obj);
     
+    object_allocated_++;
     string_pool_.insert(new_obj);
     return new_obj;
 }
@@ -87,6 +87,7 @@ Shape* MemoryManager::new_shape() {
 Shape* MemoryManager::get_empty_shape() noexcept {
     if (empty_shape_ == nullptr) {
         empty_shape_ = new_shape();
+        if(gc_) gc_->register_permanent(empty_shape_);
     }
     return empty_shape_;
 }
