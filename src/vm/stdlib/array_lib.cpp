@@ -5,7 +5,7 @@
 #include <meow/memory/memory_manager.h>
 #include <meow/core/module.h>
 #include <meow/core/array.h> 
-#include <format> // Thêm thư viện này để in lỗi đẹp hơn
+#include <format> 
 
 namespace meow::natives::array {
 
@@ -21,8 +21,6 @@ constexpr size_t MAX_ARRAY_CAPACITY = 64 * 1024 * 1024;
 
 static Value push(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
-    // Nên check xem push có làm nổ RAM không, nhưng thường vector tự handle bad_alloc
-    // Nếu muốn an toàn tuyệt đối:
     if (self->size() + (argc - 1) >= MAX_ARRAY_CAPACITY) {
         vm->error("Array size exceeded limit during push.");
         return Value(null_t{});
@@ -54,7 +52,6 @@ static Value length(Machine* vm, int argc, Value* argv) {
     return Value((int64_t)self->size());
 }
 
-// --- HÀM GÂY LỖI CẦN SỬA ---
 static Value resize(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2 || !argv[1].is_int()) {
@@ -64,20 +61,16 @@ static Value resize(Machine* vm, int argc, Value* argv) {
 
     int64_t input_size = argv[1].as_int();
 
-    // 1. Chặn số âm (sẽ thành số siêu lớn khi cast sang size_t)
     if (input_size < 0) {
         vm->error("New size cannot be negative.");
         return Value(null_t{});
     }
 
-    // 2. Chặn số quá lớn (nguyên nhân gây std::length_error)
     if (static_cast<size_t>(input_size) > MAX_ARRAY_CAPACITY) {
         vm->error(std::format("New size too large ({}). Max allowed: {}", input_size, MAX_ARRAY_CAPACITY));
         return Value(null_t{});
     }
 
-    // 3. Thực hiện resize an toàn
-    // try-catch ở đây để bắt bad_alloc nếu hết RAM thật
     try {
         self->resize(static_cast<size_t>(input_size)); 
     } catch (const std::exception& e) {
@@ -100,6 +93,7 @@ module_t create_array_module(Machine* vm, MemoryManager* heap) noexcept {
     reg("pop", pop);
     reg("clear", clear);
     reg("len", length);
+    reg("size", length); 
     reg("resize", resize);
     
     return mod;

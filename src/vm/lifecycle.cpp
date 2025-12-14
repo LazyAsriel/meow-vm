@@ -33,6 +33,8 @@ Machine::Machine(const std::string& entry_point_directory, const std::string& en
     gc_ptr->set_module_manager(mod_manager_.get());
     
     load_builtins();
+
+    std::println("Size of Value is {} bytes", sizeof(Value));
 }
 
 Machine::~Machine() noexcept {}
