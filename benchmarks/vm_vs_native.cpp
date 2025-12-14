@@ -16,7 +16,7 @@
 #include <meow/memory/memory_manager.h>
 #include <meow/compiler/chunk.h>
 #include <meow/compiler/op_codes.h>
-#include "jit/compiler.h"
+#include "jit/jit_compiler.h"
 #include "make_chunk.h"
 #include <meow/config.h> // [CHANGE]
 
