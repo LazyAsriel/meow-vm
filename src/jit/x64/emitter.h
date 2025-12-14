@@ -48,6 +48,9 @@ public:
     void jcc(Condition cond, int32_t rel_offset);
     void setcc(Condition cond, Reg dst);
     
+    void call(Reg r);
+    void movzx_b(Reg dst, Reg src); 
+
     void push(Reg r);
     void pop(Reg r);
     void ret();

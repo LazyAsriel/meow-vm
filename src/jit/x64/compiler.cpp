@@ -5,13 +5,14 @@
 #include <iostream>
 #include <vector>
 
-// Include VM Handlers for fallback
+#include "vm/handlers/exception_ops.h" 
 #include "vm/handlers/math_ops.h"
 #include "vm/handlers/data_ops.h"
 #include "vm/handlers/flow_ops.h"
 #include "vm/handlers/memory_ops.h"
 #include "vm/handlers/oop_ops.h"
 #include "meow/core/meow_object.h"
+#include "vm/vm_state.h" // Include đầy đủ định nghĩa VMState
 
 namespace meow::jit::x64 {
 
@@ -21,18 +22,9 @@ namespace meow::jit::x64 {
 
 static constexpr size_t PAGE_SIZE = 4096;
 
-// --- Register Allocation Strategy: GLOBAL PINNING ---
-// Chúng ta sử dụng các thanh ghi Callee-Saved (được bảo tồn qua hàm gọi)
-// để lưu trữ các con trỏ context quan trọng. Điều này tránh việc reload liên tục.
-
-// RDI, RSI, RDX, RCX, R8, R9: Dùng để truyền tham số cho C++ Helper (System V ABI)
-// RAX: Thanh ghi kết quả / Scratch
-// R10, R11: Scratch
-
 static constexpr Reg REG_VM_REGS  = R15; // Pinned: VM Registers Array
 static constexpr Reg REG_CONSTS   = R14; // Pinned: Constants Array
 static constexpr Reg REG_STATE    = R13; // Pinned: VMState Pointer
-// RBX và R12 còn trống để dùng nếu cần.
 
 static constexpr Reg RAX_REG = RAX;
 static constexpr Reg RCX_REG = RCX;
@@ -42,12 +34,10 @@ static constexpr Reg RCX_REG = RCX;
 #define MEM_CONST(idx) REG_CONSTS, (idx) * 8
 
 // ============================================================================
-// 2. HELPER FUNCTIONS (Trampolines)
+// 2. HELPER FUNCTIONS
 // ============================================================================
 
-// Các hàm này bọc logic gọi C++ handler từ Assembly
 extern "C" {
-    // Wrapper cho các phép toán phức tạp hoặc Slow Path
     static void helper_add(Value* regs, VMState* state, uint16_t dst, uint16_t r1, uint16_t r2) {
         regs[dst] = OperatorDispatcher::find(OpCode::ADD, regs[r1], regs[r2])(&state->heap, regs[r1], regs[r2]);
     }
@@ -61,14 +51,7 @@ extern "C" {
         regs[dst] = OperatorDispatcher::find(OpCode::DIV, regs[r1], regs[r2])(&state->heap, regs[r1], regs[r2]);
     }
     
-    // Generic Helper cho Opcode phức tạp (New Array, Get Index...)
-    // Ta tái sử dụng các impl_XXX có sẵn trong handlers, nhưng cần cast signature.
-    // Lưu ý: Các impl_XXX trả về ip mới. Trong JIT ta không dùng ip return để nhảy (trừ khi Opcode đó đổi flow).
-    
     static void helper_new_array(Value* regs, Value* consts, VMState* state, uint16_t dst, uint16_t start, uint16_t count) {
-        // Giả lập instruction pointer giả để reuse hàm impl
-        // Tuy nhiên hàm impl đọc từ bytecode. Ở đây ta nên gọi thẳng logic.
-        // Viết lại logic ngắn gọn:
         auto arr = state->heap.new_array();
         arr->reserve(count);
         for(size_t i=0; i<count; ++i) arr->push(regs[start+i]);
@@ -76,28 +59,11 @@ extern "C" {
     }
 
     static void helper_get_global(Value* regs, Value* consts, VMState* state, uint16_t dst, uint16_t name_idx) {
-        Value name = consts[name_idx];
-        if(name.is_string()) {
-            Value val;
-            if(state->globals.get(name.as_string(), &val)) {
-                regs[dst] = val;
-            } else {
-                state->error("Undefined global variable.");
-            }
-        }
+        state->error("JIT Error: Global variable access is not fully implemented in JIT yet.");
     }
 
     static void helper_set_global(Value* regs, Value* consts, VMState* state, uint16_t name_idx, uint16_t val_reg) {
-        Value name = consts[name_idx];
-        if(name.is_string()) {
-            state->globals.set(name.as_string(), regs[val_reg]);
-        }
-    }
-    
-    static void helper_print(Value* regs, uint16_t reg) {
-        // Debugging purposes
-        Value v = regs[reg];
-        std::cout << "DEBUG PRINT REG[" << reg << "] = " << v.as_raw_u64() << std::endl;
+        state->error("JIT Error: Global variable access is not fully implemented in JIT yet.");
     }
 }
 
@@ -119,7 +85,6 @@ Compiler::Compiler() : emit_(nullptr, 0) {
         exit(1);
     }
 #else
-    // Windows implementation (VirtualAlloc) would go here
     code_mem_ = new uint8_t[capacity_]; 
 #endif
     emit_ = Emitter(code_mem_, capacity_);
@@ -131,18 +96,6 @@ Compiler::~Compiler() {
 #else
     if (code_mem_) delete[] code_mem_;
 #endif
-}
-
-// Hàm trợ giúp: Gọi C++ Helper
-// Tự động setup tham số theo System V ABI (RDI, RSI, RDX, RCX, R8, R9)
-// Lưu ý: Các thanh ghi Pinned (R12-R15) an toàn qua hàm gọi.
-void Compiler::emit_call_helper(void* func_ptr, const std::vector<Reg>& args_regs, const std::vector<size_t>& args_imm) {
-    // 1. Move arguments to ABI registers
-    static const Reg abi_regs[] = {RDI, RSI, RDX, RCX, R8, R9};
-    
-    // Xử lý các tham số cố định (Pointer tới VM structures)
-    // Helper signature thường là: (Value* regs, VMState* state, ...)
-    // Nhưng để linh hoạt ta sẽ truyền thủ công ở nơi gọi.
 }
 
 Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
@@ -161,15 +114,9 @@ Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
         auto read_u16 = [&]() { 
             uint16_t v; std::memcpy(&v, bytecode + ip + 1, 2); ip += 2; return v; 
         };
-        auto read_u32 = [&]() { 
-            uint32_t v; std::memcpy(&v, bytecode + ip + 1, 4); ip += 4; return v; 
-        };
-        ip++; // Consume opcode
+        ip++; 
 
         switch (op) {
-            // ----------------------------------------------------------------
-            // LOAD & MOVE
-            // ----------------------------------------------------------------
             case OpCode::LOAD_CONST: {
                 uint16_t dst = read_u16();
                 uint16_t idx = read_u16();
@@ -214,40 +161,32 @@ Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
                 break;
             }
 
-            // ----------------------------------------------------------------
-            // ARITHMETIC (Optimized with Nanbox Checking)
-            // ----------------------------------------------------------------
             #define JIT_MATH_OP(OP_NAME, HELPER_FUNC, NATIVE_ALU) \
             case OpCode::OP_NAME: case OpCode::OP_NAME##_B: { \
                 bool is_b = (op == OpCode::OP_NAME##_B); \
                 uint16_t dst = is_b ? read_u8() : read_u16(); \
                 uint16_t r1  = is_b ? read_u8() : read_u16(); \
                 uint16_t r2  = is_b ? read_u8() : read_u16(); \
-                /* 1. Load Operands */ \
                 emit_.mov(RAX_REG, MEM_REG(r1)); \
                 emit_.mov(RCX_REG, MEM_REG(r2)); \
-                /* 2. Check Int Tag (Inline) */ \
                 uint64_t tag_mask = 0xFFFF000000000000ULL; \
-                uint64_t int_tag  = Value(0).as_raw_u64() & tag_mask; \
-                emit_.mov(R8, RAX_REG); emit_.and_(R8, tag_mask); \
-                emit_.mov(R9, RCX_REG); emit_.and_(R9, tag_mask); \
+                uint64_t int_tag  = Value((int_t)0).as_raw_u64() & tag_mask; \
+                emit_.mov(R11, tag_mask); \
+                emit_.mov(R8, RAX_REG); emit_.and_(R8, R11); \
+                emit_.mov(R9, RCX_REG); emit_.and_(R9, R11); \
                 emit_.mov(R10, int_tag); \
                 emit_.cmp(R8, R10); emit_.jcc(Condition::NE, 0); size_t l1 = emit_.cursor(); \
                 emit_.cmp(R9, R10); emit_.jcc(Condition::NE, 0); size_t l2 = emit_.cursor(); \
-                /* 3. Fast Path */ \
                 uint64_t payload_mask = 0x0000FFFFFFFFFFFFULL; \
                 emit_.mov(R11, payload_mask); \
                 emit_.and_(RAX_REG, R11); emit_.and_(RCX_REG, R11); \
-                /* Sign extend if needed (omitted for speed, assuming safe range) */ \
-                NATIVE_ALU /* e.g., emit_.add(RAX_REG, RCX_REG); */ \
-                emit_.or_(RAX_REG, R10); /* Rebox */ \
+                NATIVE_ALU \
+                emit_.or_(RAX_REG, R10); \
                 emit_.mov(MEM_REG(dst), RAX_REG); \
                 emit_.jmp(0); size_t done = emit_.cursor(); \
-                /* 4. Slow Path */ \
                 size_t slow = emit_.cursor(); \
                 emit_.patch_u32(l1 - 4, slow - l1); \
                 emit_.patch_u32(l2 - 4, slow - l2); \
-                /* Call Helper: helper(regs, state, dst, r1, r2) */ \
                 emit_.mov(RDI, REG_VM_REGS); \
                 emit_.mov(RSI, REG_STATE); \
                 emit_.mov(RDX, dst); \
@@ -255,7 +194,6 @@ Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
                 emit_.mov(R8, r2); \
                 emit_.mov(RAX_REG, (uint64_t)HELPER_FUNC); \
                 emit_.call(RAX_REG); \
-                /* 5. Done */ \
                 size_t exit_pos = emit_.cursor(); \
                 emit_.patch_u32(done - 4, exit_pos - done); \
                 break; \
@@ -263,12 +201,7 @@ Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
 
             JIT_MATH_OP(ADD, helper_add, emit_.add(RAX_REG, RCX_REG);)
             JIT_MATH_OP(SUB, helper_sub, emit_.sub(RAX_REG, RCX_REG);)
-            // MUL needs specific reg usage (IMUL), manual implementation preferred for correctness
-            // but macro works for simple structure.
             
-            // ----------------------------------------------------------------
-            // COMPARISON FUSION (CMP + JCC)
-            // ----------------------------------------------------------------
             case OpCode::EQ: case OpCode::EQ_B:
             case OpCode::NEQ: case OpCode::NEQ_B:
             case OpCode::LT: case OpCode::LT_B:
@@ -276,7 +209,7 @@ Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
             case OpCode::GT: case OpCode::GT_B:
             case OpCode::GE: case OpCode::GE_B: 
             {
-                bool b = (op >= OpCode::ADD_B); // Generic check
+                bool b = (op >= OpCode::ADD_B); 
                 uint16_t dst = b ? read_u8() : read_u16();
                 uint16_t r1  = b ? read_u8() : read_u16();
                 uint16_t r2  = b ? read_u8() : read_u16();
@@ -285,7 +218,6 @@ Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
                 emit_.mov(RCX_REG, MEM_REG(r2));
                 emit_.cmp(RAX_REG, RCX_REG);
 
-                // --- Fusion Check ---
                 size_t next_ip = ip;
                 bool fused = false;
                 if (next_ip < len) {
@@ -294,16 +226,12 @@ Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
                                          next_op == OpCode::JUMP_IF_TRUE_B || next_op == OpCode::JUMP_IF_FALSE_B);
                     
                     if (is_cond_jump) {
-                        // Check if Jump relies on DST
-                        // JUMP_B: Op(1) + Reg(1) + Off(2)
-                        // JUMP:   Op(1) + Reg(2) + Off(2)
                         bool is_jb = (next_op == OpCode::JUMP_IF_TRUE_B || next_op == OpCode::JUMP_IF_FALSE_B);
                         size_t reg_idx_pos = next_ip + 1;
                         int cond_reg = is_jb ? bytecode[reg_idx_pos] : (*(uint16_t*)(bytecode + reg_idx_pos));
                         
                         if (cond_reg == dst) {
                             fused = true;
-                            // Map condition
                             Condition cc = E;
                             switch(op) {
                                 case OpCode::EQ: case OpCode::EQ_B: cc = E; break;
@@ -315,7 +243,6 @@ Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
                                 default: break;
                             }
                             if (next_op == OpCode::JUMP_IF_FALSE || next_op == OpCode::JUMP_IF_FALSE_B) {
-                                // Invert condition (E -> NE, etc.)
                                 if (cc % 2 == 0) cc = (Condition)(cc + 1); else cc = (Condition)(cc - 1);
                             }
                             
@@ -324,16 +251,22 @@ Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
                             
                             fixups_.push_back({emit_.cursor(), (size_t)jump_target, true});
                             emit_.jcc(cc, 0);
-                            
-                            ip = off_pos + 2; // Skip fused instruction
+                            ip = off_pos + 2; 
                         }
                     }
                 }
                 
                 if (!fused) {
-                    // Normal Set Boolean
                     Condition cc = E;
-                    // ... switch cc ...
+                    switch(op) {
+                        case OpCode::EQ: case OpCode::EQ_B: cc = E; break;
+                        case OpCode::NEQ: case OpCode::NEQ_B: cc = NE; break;
+                        case OpCode::LT: case OpCode::LT_B: cc = L; break;
+                        case OpCode::LE: case OpCode::LE_B: cc = LE; break;
+                        case OpCode::GT: case OpCode::GT_B: cc = G; break;
+                        case OpCode::GE: case OpCode::GE_B: cc = GE; break;
+                        default: break;
+                    }
                     emit_.setcc(cc, RAX_REG);
                     emit_.movzx_b(RAX_REG, RAX_REG);
                     uint64_t bool_tag = Value(false).as_raw_u64() & 0xFFFF000000000000ULL;
@@ -344,26 +277,20 @@ Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
                 break;
             }
 
-            // ----------------------------------------------------------------
-            // FLOW CONTROL
-            // ----------------------------------------------------------------
             case OpCode::JUMP: {
                 uint16_t off = read_u16();
                 size_t target = off;
-                if (target < ip) { // Backward
+                if (target < ip) { 
                     size_t target_native = bc_to_native_[target];
                     size_t curr = emit_.cursor();
                     emit_.jmp((int32_t)(target_native) - (int32_t)(curr) - 5);
-                } else { // Forward
+                } else { 
                     fixups_.push_back({emit_.cursor(), target, false});
                     emit_.jmp(0);
                 }
                 break;
             }
 
-            // ----------------------------------------------------------------
-            // GLOBAL / ARRAY / HELPER FALLBACKS
-            // ----------------------------------------------------------------
             case OpCode::GET_GLOBAL: {
                 uint16_t dst = read_u16();
                 uint16_t name = read_u16();
@@ -404,21 +331,15 @@ Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
             }
 
             case OpCode::RETURN: {
-                // Restore & Ret
                 emit_epilogue();
                 break;
             }
 
             default:
-                // Các Opcode chưa implement sẽ bị bỏ qua hoặc crash.
-                // Tốt nhất là in warning hoặc fallback to Interpreter (khó trong JIT function).
                 break;
         }
     }
 
-    // ----------------------------------------------------------------
-    // 4. FIXUP RESOLUTION (Backpatching)
-    // ----------------------------------------------------------------
     for (const auto& fix : fixups_) {
         if (bc_to_native_.count(fix.target_bc)) {
             size_t target_native = bc_to_native_[fix.target_bc];
@@ -431,30 +352,26 @@ Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
     return reinterpret_cast<JitFunc>(code_mem_);
 }
 
-// ----------------------------------------------------------------
-// PROLOGUE / EPILOGUE (Setup Stack & Registers)
-// ----------------------------------------------------------------
-
 void Compiler::emit_prologue() {
     emit_.push(RBP);
     emit_.mov(RBP, RSP);
     
-    // Save Callee-Saved Registers
     emit_.push(RBX);
     emit_.push(R12);
     emit_.push(R13);
     emit_.push(R14);
     emit_.push(R15);
 
-    // Load Context into Pinned Registers (System V ABI input)
-    // Func(Value* regs [RDI], Value* consts [RSI], VMState* state [RDX])
-    emit_.mov(REG_VM_REGS, RDI);  // Pin regs to R15
-    emit_.mov(REG_CONSTS, RSI);   // Pin consts to R14
-    emit_.mov(REG_STATE, RDX);    // Pin state to R13
+    // Chú ý: Thứ tự này phải khớp với JitFunc(regs, consts, state)
+    // RDI = regs
+    // RSI = consts
+    // RDX = state
+    emit_.mov(REG_VM_REGS, RDI);  
+    emit_.mov(REG_CONSTS, RSI);   
+    emit_.mov(REG_STATE, RDX);    
 }
 
 void Compiler::emit_epilogue() {
-    // Restore Callee-Saved
     emit_.pop(R15);
     emit_.pop(R14);
     emit_.pop(R13);
@@ -466,7 +383,6 @@ void Compiler::emit_epilogue() {
     emit_.ret();
 }
 
-// Stub function for interface compliance (not used in Direct Mode)
 Reg Compiler::map_vm_reg(int vm_reg) const { return INVALID_REG; }
 void Compiler::load_vm_reg(Reg cpu_dst, int vm_src) {}
 void Compiler::store_vm_reg(int vm_dst, Reg cpu_src) {}

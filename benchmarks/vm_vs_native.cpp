@@ -75,17 +75,30 @@ int main(int argc, char* argv[]) {
         machine.execute(func);
     });
 
-    meow::jit::Compiler jit;
+    meow::jit::x64::Compiler jit;
     const uint8_t* bytecode_ptr = proto->get_chunk().get_code();
     size_t bytecode_len = proto->get_chunk().get_code_size();
     
+    Value* constants = proto->get_chunk().get_constants_raw();
+    
     auto jit_func = jit.compile(bytecode_ptr, bytecode_len);
+
+    meow::VMState state {
+        machine,
+        *machine.context_,
+        *machine.heap_,
+        *machine.mod_manager_
+    };
 
     double t_jit = measure("MeowVM (JIT x64)", [&]() {
         machine.context_->reset();
-        Value* regs = machine.context_->stack_;
         
-        jit_func(regs);
+        Value* regs = machine.context_->stack_;
+        Value* consts = constants;
+
+        meow::VMState* state_ptr = &state;
+        
+        jit_func(regs, consts, state_ptr);
     });
 
     std::cout << "\n--------------------------------------------------\n";
