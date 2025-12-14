@@ -6,6 +6,7 @@ file(GLOB_RECURSE CORE_SOURCES
     "runtime/*.cpp"     "runtime/*.h"
     "jit/*.h"           "module/*.cpp"      
     "diagnostics/*.cpp"
+    "jit/*.cpp"
 )
 
 # Tạo thư viện Core

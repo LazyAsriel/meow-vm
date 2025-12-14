@@ -16,7 +16,7 @@
 #include <meow/memory/memory_manager.h>
 #include <meow/compiler/chunk.h>
 #include <meow/compiler/op_codes.h>
-#include "jit/meow_jit.h"
+#include "jit/compiler.h"
 #include "make_chunk.h"
 #include <meow/config.h> // [CHANGE]
 
@@ -75,9 +75,10 @@ int main(int argc, char* argv[]) {
         machine.execute(func);
     });
 
-    JitCompiler jit;
+    meow::jit::Compiler jit;
     const uint8_t* bytecode_ptr = proto->get_chunk().get_code();
     size_t bytecode_len = proto->get_chunk().get_code_size();
+    
     auto jit_func = jit.compile(bytecode_ptr, bytecode_len);
 
     double t_jit = measure("MeowVM (JIT x64)", [&]() {
