@@ -4,6 +4,8 @@
 #include <meow/core/module.h>
 #include <meow/core/string.h>
 #include <meow/memory/memory_manager.h>
+#include <meow/memory/gc_disable_guard.h>
+#include <meow/memory/gc_visitor.h>
 #include "module/module_utils.h"
 #include "compiler/loader.h"
 
@@ -137,7 +139,9 @@ module_t ModuleManager::load_module(string_t module_path_obj, string_t importer_
     
     file.close();
 
-proto_t main_proto = nullptr;
+    GCDisableGuard guard(heap_);
+
+    proto_t main_proto = nullptr;
     try {
         Loader loader(heap_, buffer);
         main_proto = loader.load_module();
@@ -161,6 +165,14 @@ proto_t main_proto = nullptr;
     module_cache_[binary_file_path_obj] = meow_module;
     
     return meow_module;
+}
+
+void ModuleManager::trace(GCVisitor& visitor) const noexcept {
+    // Duyệt qua tất cả module trong cache và báo cáo cho GC
+    for (const auto& [key, mod] : module_cache_) {
+        visitor.visit_object(key); // Mark cái tên module (String)
+        visitor.visit_object(mod); // Mark cái module object
+    }
 }
 
 }

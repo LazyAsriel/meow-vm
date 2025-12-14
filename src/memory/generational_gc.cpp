@@ -3,6 +3,7 @@
 #include <meow/value.h>
 #include "runtime/execution_context.h"
 #include <meow/core/meow_object.h>
+#include <module/module_manager.h>
 #include "meow_heap.h"
 
 namespace meow {
@@ -32,6 +33,7 @@ void GenerationalGC::write_barrier(MeowObject* owner, Value value) noexcept {
 
 size_t GenerationalGC::collect() noexcept {
     context_->trace(*this);
+    module_manager_->trace(*this);
 
     if (old_gen_.size() <= old_gen_threshold_) {
         for (auto* old_obj : remembered_set_) {

@@ -7,6 +7,7 @@
 
 namespace meow {
 struct ExecutionContext;
+class ModuleManager;
 
 class GenerationalGC : public GarbageCollector, public GCVisitor {
 public:
@@ -21,8 +22,11 @@ public:
     void visit_value(param_t value) noexcept override;
     void visit_object(const MeowObject* object) noexcept override;
 
+    void set_module_manager(ModuleManager* mm) { module_manager_ = mm; }
+
 private:
     ExecutionContext* context_ = nullptr;
+    ModuleManager* module_manager_ = nullptr;
 
     std::vector<MeowObject*> young_gen_;
     std::vector<MeowObject*> old_gen_;

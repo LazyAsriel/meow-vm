@@ -4,13 +4,12 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <ctype.h> // <--- Đã thêm thư viện này
+#include <ctype.h>
 
 // ==========================================
 // 1. COMMON & MEMORY
 // ==========================================
 
-// Helper macro for allocation
 #define ALLOC(type, count) (type*)malloc(sizeof(type) * (count))
 
 typedef enum { VAL_BOOL, VAL_NIL, VAL_INT, VAL_OBJ } ValueType;
@@ -53,7 +52,7 @@ typedef struct {
 #define AS_BOOL(v)    ((v).as.boolean)
 #define AS_INT(v)     ((v).as.number)
 
-// Value Constructors (Đổi tên thành _VAL để tránh xung đột với Enum)
+// Value Constructors
 #define BOOL_VAL(v)   ((Value){VAL_BOOL, {.boolean = v}})
 #define NIL_VAL       ((Value){VAL_NIL, {.number = 0}})
 #define INT_VAL(v)    ((Value){VAL_INT, {.number = v}})
@@ -85,7 +84,6 @@ typedef enum {
     OP_RETURN
 } OpCode;
 
-// Hash Table Entry
 typedef struct {
     ObjString* key;
     Value value;
@@ -97,7 +95,6 @@ typedef struct {
     Entry* entries;
 } Table;
 
-// Chunk definition moved up needed for VM
 typedef struct {
     int count;
     int capacity;
@@ -116,8 +113,8 @@ typedef struct {
     Value stack[STACK_MAX];
     Value* stackTop;
     Table globals;
-    Obj* objects; // GC list head
-    Chunk* chunk; // Reference to current chunk
+    Obj* objects;
+    Chunk* chunk;
 } VM;
 
 VM vm;
@@ -171,7 +168,7 @@ Entry* findEntry(Entry* entries, int capacity, ObjString* key) {
 }
 
 void adjustCapacity(Table* table, int capacity) {
-    Entry* entries = ALLOC(Entry, capacity); // Used ALLOC here
+    Entry* entries = ALLOC(Entry, capacity);
     for (int i = 0; i < capacity; i++) entries[i].key = NULL;
     table->count = 0;
     for (int i = 0; i < table->capacity; i++) {
@@ -308,7 +305,7 @@ void interpret() {
             }
             case OP_ADD: {
                 Value b = peek(0); Value a = peek(1);
-                if (IS_STRING(a) && IS_STRING(b)) { // Đã có macro IS_STRING
+                if (IS_STRING(a) && IS_STRING(b)) {
                     ObjString* s2 = AS_STRING(pop());
                     ObjString* s1 = AS_STRING(pop());
                     int len = s1->length + s2->length;
@@ -395,22 +392,24 @@ Token scanToken() {
     if (*scanner.current == '\0') return (Token){TOKEN_EOF, scanner.start, 0, scanner.line};
 
     char c = *scanner.current++;
-    if (isdigit(c)) { // <ctype.h> needed
+    if (isdigit(c)) {
         while (isdigit(*scanner.current)) scanner.current++;
         return (Token){TOKEN_NUMBER, scanner.start, (int)(scanner.current - scanner.start), scanner.line};
     }
-    if (isalpha(c)) { // <ctype.h> needed
+    if (isalpha(c)) {
         while (isalnum(*scanner.current)) scanner.current++;
         int len = (int)(scanner.current - scanner.start);
         TokenType type = TOKEN_IDENTIFIER;
-        // Simple manual keyword check
+        
         if (len == 3 && memcmp(scanner.start, "var", 3) == 0) type = TOKEN_VAR;
-        if (len == 5 && memcmp(scanner.start, "print", 5) == 0) type = TOKEN_PRINT;
-        if (len == 2 && memcmp(scanner.start, "if", 2) == 0) type = TOKEN_IF;
-        if (len == 4 && memcmp(scanner.start, "else", 4) == 0) type = TOKEN_ELSE;
-        if (len == 5 && memcmp(scanner.start, "while", 5) == 0) type = TOKEN_WHILE;
-        if (len == 4 && memcmp(scanner.start, "true", 4) == 0) type = TOKEN_TRUE;
-        if (len == 5 && memcmp(scanner.start, "false", 5) == 0) type = TOKEN_FALSE;
+        else if (len == 5 && memcmp(scanner.start, "print", 5) == 0) type = TOKEN_PRINT;
+        else if (len == 2 && memcmp(scanner.start, "if", 2) == 0) type = TOKEN_IF;
+        else if (len == 4 && memcmp(scanner.start, "else", 4) == 0) type = TOKEN_ELSE;
+        else if (len == 5 && memcmp(scanner.start, "while", 5) == 0) type = TOKEN_WHILE;
+        else if (len == 4 && memcmp(scanner.start, "true", 4) == 0) type = TOKEN_TRUE;
+        else if (len == 5 && memcmp(scanner.start, "false", 5) == 0) type = TOKEN_FALSE;
+        else if (len == 3 && memcmp(scanner.start, "nil", 3) == 0) type = TOKEN_NIL;
+
         return (Token){type, scanner.start, len, scanner.line};
     }
     if (c == '"') {
@@ -505,13 +504,25 @@ void grouping() {
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
+// --- FIXED PRIMARY LOGIC ---
 void primary() {
-    if (parser.previous.type == TOKEN_FALSE) emitByte(OP_FALSE);
-    else if (parser.previous.type == TOKEN_TRUE) emitByte(OP_TRUE);
-    else if (parser.previous.type == TOKEN_NUMBER) number();
-    else if (parser.previous.type == TOKEN_STRING) string();
-    else if (parser.previous.type == TOKEN_IDENTIFIER) variable(true); 
-    else if (parser.previous.type == TOKEN_LEFT_PAREN) grouping();
+    if (parser.current.type == TOKEN_FALSE) {
+        advance(); emitByte(OP_FALSE);
+    } else if (parser.current.type == TOKEN_TRUE) {
+        advance(); emitByte(OP_TRUE);
+    } else if (parser.current.type == TOKEN_NIL) {
+        advance(); emitByte(OP_NIL);
+    } else if (parser.current.type == TOKEN_NUMBER) {
+        advance(); number();
+    } else if (parser.current.type == TOKEN_STRING) {
+        advance(); string();
+    } else if (parser.current.type == TOKEN_IDENTIFIER) {
+        advance(); variable(true);
+    } else if (parser.current.type == TOKEN_LEFT_PAREN) {
+        advance(); grouping();
+    } else {
+        errorAtCurrent("Expect expression.");
+    }
 }
 
 void term() {

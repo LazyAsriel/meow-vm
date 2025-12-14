@@ -7,6 +7,7 @@
 
 namespace meow {
 struct ExecutionContext;
+class ModuleManager;
 struct GCMetadata {
     bool is_marked_ = false;
 };
@@ -23,9 +24,12 @@ public:
     // --- Visitor ---
     void visit_value(param_t value) noexcept override;
     void visit_object(const MeowObject* object) noexcept override;
+
+    void set_module_manager(ModuleManager* mm) { module_manager_ = mm; }
 private:
     std::unordered_map<const MeowObject*, GCMetadata> metadata_;
     ExecutionContext* context_ = nullptr;
+    ModuleManager* module_manager_ = nullptr;
 
     void mark(const MeowObject* object);
 };

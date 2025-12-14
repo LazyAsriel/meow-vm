@@ -1,5 +1,6 @@
 #include "compiler/loader.h"
 #include <meow/memory/memory_manager.h>
+#include <meow/memory/gc_disable_guard.h>
 #include <meow/core/string.h>
 #include <meow/core/function.h>
 #include <meow/core/module.h>
@@ -167,6 +168,7 @@ void Loader::link_prototypes() {
 }
 
 proto_t Loader::load_module() {
+    GCDisableGuard guard(heap_);
     check_magic();
     
     uint32_t main_proto_index = read_u32();

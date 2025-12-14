@@ -4,9 +4,13 @@
 #include <meow/value.h>
 #include <meow/memory/memory_manager.h>
 #include <meow/core/module.h>
-#include <meow/core/array.h> //
+#include <meow/core/array.h> 
+#include <format> // Thêm thư viện này để in lỗi đẹp hơn
 
 namespace meow::natives::array {
+
+// Định nghĩa giới hạn cứng (64 triệu phần tử) để tránh crash
+constexpr size_t MAX_ARRAY_CAPACITY = 64 * 1024 * 1024; 
 
 #define CHECK_SELF() \
     if (argc < 1 || !argv[0].is_array()) { \
@@ -17,7 +21,13 @@ namespace meow::natives::array {
 
 static Value push(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
-    // Đẩy tất cả các tham số còn lại vào mảng
+    // Nên check xem push có làm nổ RAM không, nhưng thường vector tự handle bad_alloc
+    // Nếu muốn an toàn tuyệt đối:
+    if (self->size() + (argc - 1) >= MAX_ARRAY_CAPACITY) {
+        vm->error("Array size exceeded limit during push.");
+        return Value(null_t{});
+    }
+
     for (int i = 1; i < argc; ++i) {
         self->push(argv[i]);
     }
@@ -26,7 +36,7 @@ static Value push(Machine* vm, int argc, Value* argv) {
 
 static Value pop(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
-    if (self->empty()) return Value(null_t{}); // Pop mảng rỗng ra null
+    if (self->empty()) return Value(null_t{}); 
     
     Value val = self->back();
     self->pop();
@@ -44,14 +54,36 @@ static Value length(Machine* vm, int argc, Value* argv) {
     return Value((int64_t)self->size());
 }
 
+// --- HÀM GÂY LỖI CẦN SỬA ---
 static Value resize(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2 || !argv[1].is_int()) {
         vm->error("resize expects an integer size.");
         return Value(null_t{});
     }
-    size_t new_size = static_cast<size_t>(argv[1].as_int());
-    self->resize(new_size); // Mặc định fill null
+
+    int64_t input_size = argv[1].as_int();
+
+    // 1. Chặn số âm (sẽ thành số siêu lớn khi cast sang size_t)
+    if (input_size < 0) {
+        vm->error("New size cannot be negative.");
+        return Value(null_t{});
+    }
+
+    // 2. Chặn số quá lớn (nguyên nhân gây std::length_error)
+    if (static_cast<size_t>(input_size) > MAX_ARRAY_CAPACITY) {
+        vm->error(std::format("New size too large ({}). Max allowed: {}", input_size, MAX_ARRAY_CAPACITY));
+        return Value(null_t{});
+    }
+
+    // 3. Thực hiện resize an toàn
+    // try-catch ở đây để bắt bad_alloc nếu hết RAM thật
+    try {
+        self->resize(static_cast<size_t>(input_size)); 
+    } catch (const std::exception& e) {
+        vm->error("Out of memory during array resize.");
+    }
+
     return Value(null_t{});
 }
 

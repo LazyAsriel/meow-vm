@@ -7,6 +7,7 @@
 namespace meow {
     class Machine;
     class MemoryManager;
+    struct GCVisitor;
 }
 
 namespace meow {
@@ -28,6 +29,8 @@ public:
     inline void add_cache(string_t name, module_t mod) {
         module_cache_[name] = mod;
     }
+
+    void trace(GCVisitor& visitor) const noexcept;
 private:
     std::unordered_map<string_t, module_t> module_cache_;
     MemoryManager* heap_;

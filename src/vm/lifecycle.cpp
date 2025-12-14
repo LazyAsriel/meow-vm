@@ -16,9 +16,21 @@ Machine::Machine(const std::string& entry_point_directory, const std::string& en
     }
 
     context_ = std::make_unique<ExecutionContext>();
+    
+    // 1. Tạo GC
     auto gc = std::make_unique<GenerationalGC>(context_.get());
+    
+    // 👇 2. Giữ lại con trỏ thô trước khi move quyền sở hữu
+    GenerationalGC* gc_ptr = gc.get(); 
+
+    // 3. Chuyển quyền sở hữu GC cho Heap
     heap_ = std::make_unique<MemoryManager>(std::move(gc));
+    
+    // 4. Tạo ModuleManager
     mod_manager_ = std::make_unique<ModuleManager>(heap_.get(), this);
+    
+    // 👇 5. KẾT NỐI: Đưa ModuleManager cho GC quản lý
+    gc_ptr->set_module_manager(mod_manager_.get());
     
     load_builtins();
 }

@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "memory/mark_sweep_gc.h"
 #include <meow/value.h>
+#include <module/module_manager.h>
 #include "runtime/execution_context.h"
 #include "meow_heap.h"
 
@@ -18,6 +19,7 @@ void MarkSweepGC::register_object(const MeowObject* object) {
 
 size_t MarkSweepGC::collect() noexcept {
     context_->trace(*this);
+    module_manager_->trace(*this);
 
     for (auto it = metadata_.begin(); it != metadata_.end();) {
         const MeowObject* object = it->first;
