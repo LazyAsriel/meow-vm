@@ -139,7 +139,7 @@ namespace {
 } // namespace anonymous
 
 // --- Public API ---
-void Interpreter::run(VMState state) noexcept {
+void Interpreter::run(VMState state) {
     if (!state.ctx.current_frame_) return;
     
     // 1. Cập nhật cache pointers lần đầu tiên

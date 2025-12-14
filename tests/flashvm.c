@@ -2,103 +2,89 @@
 #include <stdlib.h>
 #include <time.h>
 
-// --- 1. Dynamic Typing System (Tagged Union) ---
-typedef enum {
-    VAL_INT,
-    VAL_FLOAT
-} ValueType;
+// --- Types ---
+typedef struct { long i; } Value; // Tối giản chỉ dùng Int cho bài test này
 
-typedef struct {
-    ValueType type;
-    union {
-        long i;
-        double f;
-    } as;
-} Value;
-
-// Helpers để tạo giá trị nhanh
-Value val_int(long x) {
-    Value v; v.type = VAL_INT; v.as.i = x; return v;
-}
-
-// --- 2. VM Structure ---
+// --- VM State ---
 #define STACK_MAX 256
+#define VARS_MAX 16 
 
 typedef struct {
     Value stack[STACK_MAX];
-    int sp; // Stack Pointer
+    Value vars[VARS_MAX]; 
+    int sp;
 } VM;
 
-void push(VM* vm, Value v) {
-    vm->stack[vm->sp++] = v;
-}
-
-Value pop(VM* vm) {
-    return vm->stack[--vm->sp];
-}
-
-// --- 3. Instruction Set (OpCode) ---
+// --- Instruction Set ---
 typedef enum {
-    OP_CONST, // Đẩy hằng số vào stack
-    OP_ADD,   // Cộng 2 giá trị trên đỉnh stack
-    OP_LESS,  // So sánh nhỏ hơn (cho vòng lặp)
-    OP_JUMP_IF_FALSE, // Nhảy nếu sai
-    OP_JUMP,  // Nhảy không điều kiện
-    OP_PRINT, // In kết quả
-    OP_HALT   // Dừng
+    OP_CONST,       
+    OP_LOAD_VAR,    
+    OP_STORE_VAR,   
+    OP_ADD,
+    OP_LESS,         // So sánh <
+    OP_JUMP_IF_TRUE, // Nhảy nếu True (khác logic cũ tí)
+    OP_PRINT,       
+    OP_HALT
 } OpCode;
 
-// --- 4. The Interpreter Loop ---
+// --- Interpreter ---
 void run(int* code, int code_size, Value* constants) {
     VM vm;
     vm.sp = 0;
-    int ip = 0; // Instruction Pointer
-
-    while (ip < code_size) {
-        int instruction = code[ip];
-        
+    
+    register int rip = 0; 
+    register int instruction;
+    
+    // Cache stack pointer vào register để tối ưu
+    register Value* stack = vm.stack; 
+    register int sp = 0;
+    
+    while (1) {
+        instruction = code[rip];
         switch (instruction) {
             case OP_CONST: {
-                int const_idx = code[ip + 1];
-                push(&vm, constants[const_idx]);
-                ip += 2;
+                stack[sp++].i = constants[code[rip + 1]].i;
+                rip += 2;
+                break;
+            }
+            case OP_LOAD_VAR: {
+                stack[sp++].i = vm.vars[code[rip + 1]].i;
+                rip += 2;
+                break;
+            }
+            case OP_STORE_VAR: {
+                vm.vars[code[rip + 1]].i = stack[--sp].i;
+                rip += 2;
                 break;
             }
             case OP_ADD: {
-                Value b = pop(&vm);
-                Value a = pop(&vm);
-                // Dynamic Type Check cực nhanh
-                if (a.type == VAL_INT && b.type == VAL_INT) {
-                    push(&vm, val_int(a.as.i + b.as.i));
-                } else {
-                    // Xử lý float nếu cần (bỏ qua để tối ưu demo int)
-                }
-                ip++;
+                // Stack: [..., a, b] -> a + b
+                sp--;
+                stack[sp-1].i += stack[sp].i;
+                rip++;
                 break;
             }
             case OP_LESS: {
-                Value b = pop(&vm);
-                Value a = pop(&vm);
-                push(&vm, val_int(a.as.i < b.as.i)); // 1 = True, 0 = False
-                ip++;
+                // Stack: [..., a, b] -> (a < b)
+                sp--;
+                stack[sp-1].i = (stack[sp-1].i < stack[sp].i);
+                rip++;
                 break;
             }
-            case OP_JUMP_IF_FALSE: {
-                int offset = code[ip + 1];
-                Value condition = pop(&vm);
-                if (condition.as.i == 0) ip += offset;
-                else ip += 2;
-                break;
-            }
-            case OP_JUMP: {
-                int offset = code[ip + 1];
-                ip += offset;
+            case OP_JUMP_IF_TRUE: {
+                int offset = code[rip + 1];
+                sp--;
+                if (stack[sp].i != 0) { // If True
+                    rip += offset;
+                } else {
+                    rip += 2;
+                }
                 break;
             }
             case OP_PRINT: {
-                Value v = pop(&vm);
-                printf("Result: %ld\n", v.as.i);
-                ip++;
+                sp--;
+                printf("Result (Total): %ld\n", stack[sp].i);
+                rip++;
                 break;
             }
             case OP_HALT:
@@ -107,116 +93,80 @@ void run(int* code, int code_size, Value* constants) {
     }
 }
 
-// --- 5. Main & Benchmark ---
-int main() {
-    // Chương trình: Tính tổng từ 0 đến 10,000,000
-    // Python tương đương:
-    // i = 0
-    // total = 0
-    // while i < 10000000:
-    //     total = total + i
-    //     i = i + 1
-    // print(total)
-    
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        printf("Usage: %s <limit>\n", argv[0]);
+        return 1;
+    }
+    long limit = atol(argv[1]);
+
+    // Constants setup
     Value constants[] = {
-        val_int(0),         // [0] total
-        val_int(0),         // [1] i
-        val_int(100000000), // [2] limit (100 triệu)
-        val_int(1)          // [3] step
+        {0},    // [0]
+        {1},    // [1]
+        {limit} // [2]
     };
 
-    // Bytecode thủ công (Assembly của VM)
+    // --- MAPPING LOGIC MEOW SANG STACK ---
+    // Register Map:
+    // vars[0] = Total
+    // vars[1] = i
+    // vars[2] = Step (1)
+    // vars[3] = Limit
+
     int code[] = {
-        OP_CONST, 0, // Push total (0) -> Stack: [0]
-        OP_CONST, 1, // Push i (0)     -> Stack: [0, 0]
-        
-        // LABEL_LOOP: (ip = 4)
-        // Kiểm tra điều kiện: i < 100000000
-        // Stack đang là [total, i]. Ta cần copy i để so sánh nhưng đơn giản hóa:
-        // Giả sử stack management trong loop phức tạp, ta hardcode logic loop đơn giản 
-        // để test tốc độ tính toán thuần túy.
-        
-        // Để công bằng với Python, ta cần logic: Load i, Load Limit, Compare.
-        // Nhưng viết bytecode bằng tay cho stack manipulation khá chua, 
-        // nên ta sẽ test phép cộng thuần túy trong loop C vs Python loop.
-        
-        // Code test: Cộng 100 triệu lần
-        // Tái tạo logic: 
-        // 0: LOAD total
-        // 2: LOAD i
-        // 4: LOAD limit
-        // 6: LESS (i < limit)
-        // 7: JMP_FALSE 16 (Exit)
-        // 9: LOAD total
-        // 11: LOAD i
-        // 13: ADD
-        // ... (Quá phức tạp để viết tay bytecode chuẩn xác trong 1 lần)
-    };
+        // --- INIT ---
+        // chunk.write_byte(LOAD_INT); 0; 0; -> var[0] = 0
+        OP_CONST, 0, OP_STORE_VAR, 0,
+        // chunk.write_byte(LOAD_INT); 1; 0; -> var[1] = 0
+        OP_CONST, 0, OP_STORE_VAR, 1,
+        // chunk.write_byte(LOAD_INT); 2; 1; -> var[2] = 1 (step)
+        OP_CONST, 1, OP_STORE_VAR, 2,
+        // chunk.write_byte(LOAD_INT); 3; LIMIT; -> var[3] = limit
+        OP_CONST, 2, OP_STORE_VAR, 3,
 
-    // CHẠY TEST ĐƠN GIẢN HÓA (Hardcore Loop in C vs Python Loop)
-    // Tôi sẽ viết logic loop trực tiếp bằng OpCode đơn giản nhất để so sánh instruction dispatch.
-    
-    printf("Benchmarking FlashVM (C-based Dynamic Type)...\n");
-    clock_t start = clock();
-
-    // Re-implementing a tight loop inside the VM run function logic 
-    // to simulate `total = 0; for i in range(100000000): total += 1`
-    
-    // Bytecode giả lập loop cộng:
-    // 0: OP_CONST (step 1)
-    // 2: OP_ADD
-    // 3: OP_JUMP -3 (Loop lại)
-    // Nhưng ta cần điều kiện dừng.
-    
-    // Để cho "xanh chín", tôi sẽ dùng một biến đếm trong VM để benchmark tốc độ dispatch.
-    // Thực tế: CPython check check bytecode loop. 
-    
-    // Logic: 
-    // total = 0
-    // i = 100,000,000
-    // while i > 0:
-    //    total = total + 1
-    //    i = i - 1
-    
-    int loop_bytecode[] = {
-        OP_CONST, 0, // Stack: [total(0)]
-        OP_CONST, 2, // Stack: [total, limit(100tr)] - Index 2 trong constants
+        // --- LOOP START (Offset tương đối từ đây = 0) ---
         
-        // LOOP_START (ip = 4)
-        OP_CONST, 3, // Stack: [total, limit, 1]
-        OP_ADD,      // Stack: [total, limit+1] -> Sai logic
-                     // Stack manipulation khó viết tay, nên ta sẽ benchmark 
-                     // việc execute 100 triệu instruction ADD.
+        // 1. ADD 0 0 2 (Total = Total + Step)
+        // Stack conversion: Load 0, Load 2, Add, Store 0
+        /* 0 */ OP_LOAD_VAR, 0,
+        /* 2 */ OP_LOAD_VAR, 2,
+        /* 4 */ OP_ADD,
+        /* 5 */ OP_STORE_VAR, 0, // Tổng length: 7 ints
+
+        // 2. ADD 1 1 2 (i = i + Step)
+        // Stack conversion: Load 1, Load 2, Add, Store 1
+        /* 7 */ OP_LOAD_VAR, 1,
+        /* 9 */ OP_LOAD_VAR, 2,
+        /* 11 */ OP_ADD,
+        /* 12 */ OP_STORE_VAR, 1, // Tổng length: 7 ints
+
+        // 3. LT 4 1 3 (Check i < Limit)
+        // Stack conversion: Load 1 (i), Load 3 (limit), LESS
+        // (Kết quả nằm trên stack, không cần store vào vars[4] như register VM)
+        /* 14 */ OP_LOAD_VAR, 1,
+        /* 16 */ OP_LOAD_VAR, 3,
+        /* 18 */ OP_LESS,         // Tổng length: 5 ints
+
+        // 4. JUMP_IF_TRUE loop_start
+        /* 19 */ OP_JUMP_IF_TRUE, -19, 
+        // Tính offset: Ta đang ở index 19. Loop start ở index 0 (tính từ lệnh đầu trong loop).
+        // Tổng length loop body = 7 + 7 + 5 = 19.
+        // Vậy phải lùi 19 bước.
+
+        // --- END ---
+        OP_LOAD_VAR, 0, // Load Total ra để in
+        OP_PRINT,
         OP_HALT
     };
-    
-    // ĐỂ SO SÁNH CÔNG BẰNG: Tôi sẽ dùng logic C thuần để chạy loop dispatch 
-    // mô phỏng việc VM decode lệnh.
-    
-    VM vm; vm.sp = 0;
-    push(&vm, val_int(0)); // Total
-    Value one = val_int(1);
-    
-    // 100 triệu lần dispatch lệnh ADD
-    long limit = 100000000;
-    for(long i=0; i<limit; i++) {
-        // Mô phỏng decode
-        // case OP_ADD:
-        Value a = pop(&vm);    // total
-        // Value b = pop(&vm); // (giả sử số 1 đã ở đó hoặc là hằng số)
-        
-        // Type check
-        if (a.type == VAL_INT) {
-             a.as.i += one.as.i;
-        }
-        push(&vm, a);
-    }
-    
+
+    printf("Benchmarking FlashVM (Meow Logic)... Input: %ld\n", limit);
+    clock_t start = clock();
+    run(code, sizeof(code)/sizeof(int), constants);
     clock_t end = clock();
+    
     double time_taken = ((double)(end - start)) / CLOCKS_PER_SEC;
-    
-    printf("FlashVM Result: %ld\n", pop(&vm).as.i);
     printf("Time taken: %f seconds\n", time_taken);
-    
+
     return 0;
 }

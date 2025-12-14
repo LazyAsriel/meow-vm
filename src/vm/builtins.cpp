@@ -194,6 +194,7 @@ void Machine::load_builtins() {
     mod_manager_->add_cache(heap_->new_string("array"), stdlib::create_array_module(this, heap_.get()));
     mod_manager_->add_cache(heap_->new_string("string"), stdlib::create_string_module(this, heap_.get()));
     mod_manager_->add_cache(heap_->new_string("object"), stdlib::create_object_module(this, heap_.get()));
+    mod_manager_->add_cache(heap_->new_string("json"), stdlib::create_json_module(this, heap_.get()));
     // printl("Loaded built-in 'native' module");
 }
 

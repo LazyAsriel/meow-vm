@@ -56,6 +56,27 @@ static Value contains(Machine* vm, int argc, Value* argv) {
     return Value(haystack.find(needle) != std::string::npos);
 }
 
+static Value join(Machine* vm, int argc, Value* argv) {
+    if (argc < 2 || !argv[0].is_string() || !argv[1].is_array()) {
+        vm->error("Usage: string.join(separator, array_of_strings)");
+        return Value(null_t{});
+    }
+
+    string_t sep = argv[0].as_string();
+    array_t arr = argv[1].as_array();
+    
+    std::string res = "";
+    for (size_t i = 0; i < arr->size(); ++i) {
+        if (i > 0) res += sep->c_str();
+        
+        Value item = arr->get(i);
+        if (item.is_string()) {
+            res += item.as_string()->c_str();
+        } else {}
+    }
+    return Value(vm->get_heap()->new_string(res));
+}
+
 } // namespace
 
 namespace meow::stdlib {
@@ -70,6 +91,7 @@ module_t create_string_module(Machine* vm, MemoryManager* heap) noexcept {
     reg("lower", lower);
     reg("trim", trim);
     reg("contains", contains);
+    reg("join", join);
     
     return mod;
 }

@@ -122,8 +122,7 @@ class ObjClosure : public ObjBase<ObjectType::FUNCTION> {
     std::vector<upvalue_t> upvalues_;
 
    public:
-    explicit ObjClosure(proto_t proto = nullptr) noexcept : proto_(proto), upvalues_(proto ? proto->get_num_upvalues() : 0) {
-    }
+    explicit ObjClosure(proto_t proto = nullptr) : proto_(proto), upvalues_(proto ? proto->get_num_upvalues() : 0) {}
 
     inline proto_t get_proto() const noexcept {
         return proto_;

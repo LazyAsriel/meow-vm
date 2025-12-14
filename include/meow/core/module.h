@@ -16,7 +16,7 @@
 #include <meow/definitions.h>
 #include <meow/value.h>
 #include <meow/memory/gc_visitor.h>
-#include <meow_flat_map.h> // [NEW]
+#include <meow_flat_map.h>
 
 namespace meow {
 class ObjModule : public ObjBase<ObjectType::MODULE> {
@@ -25,7 +25,7 @@ private:
     using proto_t = proto_t;
     using visitor_t = GCVisitor;
 
-    enum class State { EXECUTING, EXECUTED };
+    enum class State { INITIAL, EXECUTING, EXECUTED };
 
     std::vector<Value> globals_store_;
     
@@ -43,7 +43,7 @@ private:
 
 public:
     explicit ObjModule(string_t file_name, string_t file_path, proto_t main_proto = nullptr) noexcept 
-        : file_name_(file_name), file_path_(file_path), main_proto_(main_proto), state(State::EXECUTING) {}
+        : file_name_(file_name), file_path_(file_path), main_proto_(main_proto), state(State::INITIAL) {}
 
     // --- Globals ---
     
@@ -132,11 +132,9 @@ public:
     inline bool is_executing() const noexcept { return state == State::EXECUTING; }
     inline bool is_executed() const noexcept { return state == State::EXECUTED; }
 
-    // Friend để trace truy cập private members
     friend void obj_module_trace(const ObjModule* mod, visitor_t& visitor);
     void trace(visitor_t& visitor) const noexcept override;
     
-    // Getter raw cho trace
     const auto& get_global_names_raw() const { return global_names_; }
     const auto& get_exports_raw() const { return exports_; }
 

@@ -24,4 +24,4 @@ done
 
 echo "------------------------------------------------"
 echo "🚀 Chạy thử main..."
-./build/release/bin/meow-vm -b dist/main.meowc
+./build/debug/bin/meow-vm -b dist/main.meowc

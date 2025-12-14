@@ -7,7 +7,7 @@ namespace meow {
 
 class Interpreter {
 public:
-    static void run(VMState state) noexcept;
+    static void run(VMState state);
 };
 
 }
