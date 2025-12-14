@@ -2,6 +2,7 @@
 .meowconfig/
 # libs/
 build/
+build-*/
 dist/
 output/
 out/
