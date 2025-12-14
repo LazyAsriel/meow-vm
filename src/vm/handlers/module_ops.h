@@ -8,9 +8,12 @@ namespace meow::handlers {
 [[gnu::always_inline]] static const uint8_t* impl_EXPORT(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t name_idx = read_u16(ip);
     uint16_t src_reg = read_u16(ip);
-    string_t name = constants[name_idx].as_string();
     
-    // [FIX] Dùng state->current_module thay vì frame_ptr_->module_
+    string_t name = constants[name_idx].as_string();
+    string_t mod_path = state->current_module ? state->current_module->get_file_path() : state->heap.new_string("NULL");
+    
+    std::println(">>> OP_EXPORT: Key='{}' | Into Module={}", name->c_str(), mod_path->c_str());
+
     state->current_module->set_export(name, regs[src_reg]);
     return ip;
 }
@@ -57,13 +60,13 @@ namespace meow::handlers {
     uint16_t path_idx = read_u16(ip);
     
     string_t path = constants[path_idx].as_string();
-    // [FIX] Dùng state->current_module
     string_t importer_path = state->current_module->get_file_path();
     
     module_t mod = state->modules.load_module(path, importer_path);
     regs[dst] = Value(mod);
-    
+
     if (mod->is_executed() || mod->is_executing()) {
+        std::println("[DEBUG] Skipping execution for: {} (Executed: {}, Executing: {})", path->c_str(), mod->is_executed(), mod->is_executing());
         return ip;
     }
     if (!mod->is_has_main()) {
@@ -91,7 +94,6 @@ namespace meow::handlers {
     Value* new_base = state->ctx.stack_top_;
     state->ctx.frame_ptr_++; 
     
-    // [FIX] Bỏ tham số 'mod' trong constructor CallFrame
     *state->ctx.frame_ptr_ = CallFrame(
         main_closure,
         new_base,

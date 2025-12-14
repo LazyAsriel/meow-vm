@@ -149,6 +149,13 @@ namespace meow::handlers {
         }
 
         CallFrame* popped_frame = state->ctx.frame_ptr_;
+        
+        if (state->current_module) [[likely]] {
+             if (popped_frame->function_->get_proto() == state->current_module->get_main_proto()) [[unlikely]] {
+                 state->current_module->set_executed();
+             }
+        }
+
         state->ctx.frame_ptr_--;
         CallFrame* caller = state->ctx.frame_ptr_;
         
@@ -164,7 +171,6 @@ namespace meow::handlers {
 
         return popped_frame->ip_; 
     }
-
     // ========================================================================
     // CALL (OPTIMIZED)
     // ========================================================================
