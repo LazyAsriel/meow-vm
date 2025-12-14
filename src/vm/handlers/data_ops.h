@@ -146,8 +146,6 @@ namespace meow::handlers {
     return ip;
 }
 
-constexpr size_t MAX_ARRAY_CAPACITY = 64 * 1024 * 1024; 
-
 [[gnu::always_inline]] static const uint8_t* impl_SET_INDEX(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t src_reg = read_u16(ip);
     uint16_t key_reg = read_u16(ip);
@@ -157,60 +155,39 @@ constexpr size_t MAX_ARRAY_CAPACITY = 64 * 1024 * 1024;
     Value& key = regs[key_reg];
     Value& val = regs[val_reg];
 
-    int64_t idx = key.as_int();
-    std::cerr << "DEBUG: SET_INDEX idx = " << idx << std::endl;
-
-    // Case 1: Array (Nguyên nhân gây crash)
     if (src.is_array()) {
-        if (!key.is_int()) [[unlikely]] { // [[unlikely]] gợi ý compiler tối ưu nhánh này ít xảy ra
-            state->error("Array index phải là số nguyên (int).");
+        if (!key.is_int()) {
+            state->error("Array index phải là số nguyên.");
             return impl_PANIC(ip, regs, constants, state);
         }
-        
         array_t arr = src.as_array();
         int64_t idx = key.as_int();
-        
-        // 1. Check âm
-        if (idx < 0) [[unlikely]] {
+        if (idx < 0) {
             state->error("Array index không được âm.");
             return impl_PANIC(ip, regs, constants, state);
         }
-
-        // 2. Check "trên trời" (Fix crash here without try-catch)
-        // Nếu idx là một số rác cực lớn, nó sẽ bị chặn ở đây ngay lập tức.
-        if (static_cast<size_t>(idx) >= MAX_ARRAY_CAPACITY) [[unlikely]] {
-            state->error(std::format("Array index quá lớn ({}). Giới hạn cho phép: {}", idx, MAX_ARRAY_CAPACITY));
-            return impl_PANIC(ip, regs, constants, state);
-        }
-        
-        // 3. Auto-expand (An toàn rồi mới resize)
         if (static_cast<size_t>(idx) >= arr->size()) {
-            // Logic resize của std::vector có thể gây realloc, nhưng ta đã chặn size quá lớn ở trên
-            // nên khả năng bad_alloc là cực thấp trừ khi hết sạch RAM vật lý.
             arr->resize(idx + 1);
         }
         
         arr->set(idx, val);
         state->heap.write_barrier(src.as_object(), val);
     }
-    // Case 2: Hash Table
     else if (src.is_hash_table()) {
-        if (!key.is_string()) [[unlikely]] {
-            state->error("Hash key phải là chuỗi (string).");
+        if (!key.is_string()) {
+            state->error("Hash key phải là string.");
             return impl_PANIC(ip, regs, constants, state);
         }
         src.as_hash_table()->set(key.as_string(), val);
+        
         state->heap.write_barrier(src.as_object(), val);
     }
-    // Case 3: Error
     else {
-        state->error("Không thể gán index [] trên kiểu dữ liệu này (chỉ hỗ trợ Array/Map).");
+        state->error("Không thể gán index [] trên kiểu dữ liệu này.");
         return impl_PANIC(ip, regs, constants, state);
     }
-
     return ip;
 }
-
 [[gnu::always_inline]] static const uint8_t* impl_GET_KEYS(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t src_reg = read_u16(ip);

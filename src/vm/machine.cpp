@@ -2,6 +2,7 @@
 #include "vm/interpreter.h"
 #include "vm/vm_state.h"
 #include <meow/memory/memory_manager.h>
+#include "vm/handlers/oop_ops.h"
 
 namespace meow {
 
@@ -134,6 +135,8 @@ void Machine::execute(function_t func) {
 }
 
 void Machine::run() noexcept {
+    std::cout << "Size of Entry: " << sizeof(meow::handlers::InlineCacheEntry) << "\n";
+    std::cout << "Size of Cache: " << sizeof(meow::handlers::InlineCache) << "\n";
     const uint8_t* initial_code = context_->frame_ptr_->function_->get_proto()->get_chunk().get_code();
     
     VMState state {

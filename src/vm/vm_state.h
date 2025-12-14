@@ -6,6 +6,7 @@
 #include "runtime/call_frame.h"
 #include <meow/compiler/chunk.h>
 #include <meow/core/function.h>
+#include <meow/compiler/disassemble.h>
 
 namespace meow {
 struct ExecutionContext;
@@ -27,13 +28,23 @@ struct VMState {
     const uint8_t* instruction_base;
     module_t current_module = nullptr;
 
-    // [FIX] Dùng std::string để copy và sở hữu chuỗi lỗi
     std::string error_msg;
     bool has_error_ = false;
 
+    // void error(std::string_view msg) noexcept {
+    //     error_msg = msg;
+    //     has_error_ = true;
+    // }
+
     void error(std::string_view msg) noexcept {
-        error_msg = msg; // Copy dữ liệu từ view sang string
+        std::cerr << "Runtime Error: " << msg << "\n";
+        error_msg = msg;
         has_error_ = true;
+        if (ctx.current_frame_ && ctx.current_frame_->function_) {
+            const auto& chunk = ctx.current_frame_->function_->get_proto()->get_chunk();
+            size_t ip = ctx.current_frame_->ip_ - chunk.get_code();
+            std::cerr << disassemble_around(chunk, ip, 3);
+        }
     }
     bool has_error() const noexcept { return has_error_; }
     void clear_error() noexcept { has_error_ = false; error_msg.clear(); }

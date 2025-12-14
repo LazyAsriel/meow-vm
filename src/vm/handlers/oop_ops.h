@@ -12,11 +12,11 @@ static constexpr int IC_CAPACITY = 4;
 struct InlineCacheEntry {
     const Shape* shape;
     uint32_t offset;
-};
+} __attribute__((packed));
 
 struct InlineCache {
     InlineCacheEntry entries[IC_CAPACITY];
-};
+} __attribute__((packed));
 
 [[gnu::always_inline]]
 inline static InlineCache* get_inline_cache(const uint8_t*& ip) {

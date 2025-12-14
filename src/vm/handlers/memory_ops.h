@@ -52,11 +52,17 @@ namespace meow::handlers {
     uint16_t dst = read_u16(ip);
     uint16_t proto_idx = read_u16(ip);
     
-    proto_t proto = constants[proto_idx].as_proto();
+    // --- [FIX BEGIN] ---
+    Value val = constants[proto_idx];
+    if (!val.is_proto()) [[unlikely]] {
+        state->ctx.current_frame_->ip_ = ip - 5;
+        std::println("[DEBUG] CLOSURE {}, {}", dst, proto_idx);
+        state->error("CLOSURE: Constant index " + std::to_string(proto_idx) + " is not a Proto (Found: " + to_string(val) + ")");
+        return impl_PANIC(ip, regs, constants, state);
+    }
+    proto_t proto = val.as_proto();
     function_t closure = state->heap.new_function(proto);
     
-    // Tính index cơ sở của frame hiện tại để capture upvalue
-    // Lưu ý: current_regs_ lúc này chính là regs
     size_t current_base_idx = regs - state->ctx.stack_;
 
     for (size_t i = 0; i < proto->get_num_upvalues(); ++i) {
@@ -70,7 +76,6 @@ namespace meow::handlers {
     regs[dst] = Value(closure);
     return ip;
 }
-
 [[gnu::always_inline]] static const uint8_t* impl_CLOSE_UPVALUES(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t last_reg = read_u16(ip);
     (void)constants;
