@@ -7,6 +7,7 @@
 #include <meow/core/array.h> 
 #include <meow/cast.h>
 #include <format> 
+#include <algorithm>
 
 namespace meow::natives::array {
 
@@ -49,9 +50,18 @@ static Value clear(Machine* vm, int argc, Value* argv) {
 }
 
 static Value length(Machine* vm, int argc, Value* argv) {
-    std::println("[DEBUG] {}.size() is called", meow::to_string(argv[0]));
     CHECK_SELF();
     return Value((int64_t)self->size());
+}
+
+static Value reserve(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 2 || !argv[1].is_int()) return Value(null_t{});
+    int64_t cap = argv[1].as_int();
+    if (cap > 0 && static_cast<size_t>(cap) < MAX_ARRAY_CAPACITY) {
+        self->reserve(static_cast<size_t>(cap));
+    }
+    return Value(null_t{});
 }
 
 static Value resize(Machine* vm, int argc, Value* argv) {
@@ -62,6 +72,7 @@ static Value resize(Machine* vm, int argc, Value* argv) {
     }
 
     int64_t input_size = argv[1].as_int();
+    Value fill_val = (argc > 2) ? argv[2] : Value(null_t{});
 
     if (input_size < 0) {
         vm->error("New size cannot be negative.");
@@ -74,7 +85,16 @@ static Value resize(Machine* vm, int argc, Value* argv) {
     }
 
     try {
-        self->resize(static_cast<size_t>(input_size)); 
+        size_t old_size = self->size();
+        size_t new_size = static_cast<size_t>(input_size);
+        self->resize(new_size);
+        
+        // Fill giá trị mới nếu resize lớn hơn
+        if (new_size > old_size && !fill_val.is_null()) {
+            for(size_t i = old_size; i < new_size; ++i) {
+                self->set(i, fill_val);
+            }
+        }
     } catch (const std::exception& e) {
         vm->error("Out of memory during array resize.");
     }
@@ -82,7 +102,6 @@ static Value resize(Machine* vm, int argc, Value* argv) {
     return Value(null_t{});
 }
 
-// [MỚI] Hàm cắt mảng (slice)
 static Value slice(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     
@@ -90,7 +109,6 @@ static Value slice(Machine* vm, int argc, Value* argv) {
     int64_t start = 0;
     int64_t end = len;
 
-    // Tham số thứ 2: start index (có thể âm)
     if (argc >= 2 && argv[1].is_int()) {
         start = argv[1].as_int();
         if (start < 0) start += len;
@@ -98,7 +116,6 @@ static Value slice(Machine* vm, int argc, Value* argv) {
         if (start > len) start = len;
     }
 
-    // Tham số thứ 3: end index (có thể âm)
     if (argc >= 3 && argv[2].is_int()) {
         end = argv[2].as_int();
         if (end < 0) end += len;
@@ -106,7 +123,6 @@ static Value slice(Machine* vm, int argc, Value* argv) {
         if (end > len) end = len;
     }
 
-    // Nếu start >= end -> mảng rỗng
     if (start >= end) {
         return Value(vm->get_heap()->new_array());
     }
@@ -121,6 +137,166 @@ static Value slice(Machine* vm, int argc, Value* argv) {
     return Value(new_arr);
 }
 
+// --- High Order Functions ---
+
+static Value reverse(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    std::reverse(self->begin(), self->end());
+    return argv[0]; // Trả về chính mảng đó
+}
+
+static Value forEach(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 2) return Value(null_t{});
+    Value callback = argv[1];
+
+    for (size_t i = 0; i < self->size(); ++i) {
+        std::vector<Value> args = { self->get(i), Value((int64_t)i) };
+        vm->call_callable(callback, args);
+        if (vm->has_error()) return Value(null_t{});
+    }
+    return Value(null_t{});
+}
+
+static Value map(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 2) return Value(null_t{});
+    Value callback = argv[1];
+
+    auto result_arr = vm->get_heap()->new_array();
+    result_arr->reserve(self->size());
+
+    for (size_t i = 0; i < self->size(); ++i) {
+        std::vector<Value> args = { self->get(i), Value((int64_t)i) };
+        Value res = vm->call_callable(callback, args);
+        if (vm->has_error()) return Value(null_t{});
+        result_arr->push(res);
+    }
+    return Value(result_arr);
+}
+
+static Value filter(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 2) return Value(null_t{});
+    Value callback = argv[1];
+
+    auto result_arr = vm->get_heap()->new_array();
+
+    for (size_t i = 0; i < self->size(); ++i) {
+        Value val = self->get(i);
+        std::vector<Value> args = { val, Value((int64_t)i) };
+        Value condition = vm->call_callable(callback, args);
+        if (vm->has_error()) return Value(null_t{});
+        
+        if (to_bool(condition)) {
+            result_arr->push(val);
+        }
+    }
+    return Value(result_arr);
+}
+
+static Value reduce(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 2) return Value(null_t{});
+    Value callback = argv[1];
+    Value accumulator = (argc > 2) ? argv[2] : Value(null_t{});
+    
+    size_t start_index = 0;
+
+    // Nếu không cung cấp initialValue, lấy phần tử đầu tiên làm init
+    if (argc < 3) {
+        if (self->empty()) {
+            vm->error("Reduce on empty array with no initial value.");
+            return Value(null_t{});
+        }
+        accumulator = self->get(0);
+        start_index = 1;
+    }
+
+    for (size_t i = start_index; i < self->size(); ++i) {
+        std::vector<Value> args = { accumulator, self->get(i), Value((int64_t)i) };
+        accumulator = vm->call_callable(callback, args);
+        if (vm->has_error()) return Value(null_t{});
+    }
+    return accumulator;
+}
+
+static Value find(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 2) return Value(null_t{});
+    Value callback = argv[1];
+
+    for (size_t i = 0; i < self->size(); ++i) {
+        Value val = self->get(i);
+        std::vector<Value> args = { val, Value((int64_t)i) };
+        Value res = vm->call_callable(callback, args);
+        if (vm->has_error()) return Value(null_t{});
+        
+        if (to_bool(res)) return val;
+    }
+    return Value(null_t{});
+}
+
+// [FIX] Sửa lỗi ambiguous conversion: Value(-1) -> Value((int64_t)-1)
+static Value findIndex(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 2) return Value((int64_t)-1);
+    Value callback = argv[1];
+
+    for (size_t i = 0; i < self->size(); ++i) {
+        Value val = self->get(i);
+        std::vector<Value> args = { val, Value((int64_t)i) };
+        Value res = vm->call_callable(callback, args);
+        if (vm->has_error()) return Value((int64_t)-1);
+        
+        if (to_bool(res)) return Value((int64_t)i);
+    }
+    return Value((int64_t)-1);
+}
+
+static Value sort(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    
+    // Bubble sort đơn giản để tránh phức tạp với std::sort callback trong VM
+    size_t n = self->size();
+    if (n < 2) return argv[0];
+
+    bool has_comparator = (argc > 1);
+    Value comparator = has_comparator ? argv[1] : Value(null_t{});
+
+    for (size_t i = 0; i < n - 1; i++) {
+        for (size_t j = 0; j < n - i - 1; j++) {
+            Value a = self->get(j);
+            Value b = self->get(j + 1);
+            bool swap = false;
+
+            if (has_comparator) {
+                std::vector<Value> args = { a, b };
+                Value res = vm->call_callable(comparator, args);
+                if (vm->has_error()) return Value(null_t{});
+                if (res.is_int() && res.as_int() > 0) swap = true; // a > b
+                else if (res.is_float() && res.as_float() > 0) swap = true;
+            } else {
+                // Mặc định: So sánh số hoặc chuỗi
+                if (a.is_int() && b.is_int()) {
+                    if (a.as_int() > b.as_int()) swap = true;
+                } else if (a.is_float() || b.is_float()) {
+                    if (to_float(a) > to_float(b)) swap = true;
+                } else {
+                    // String compare
+                    if (std::string_view(to_string(a)) > std::string_view(to_string(b))) swap = true;
+                }
+            }
+
+            if (swap) {
+                self->set(j, b);
+                self->set(j + 1, a);
+            }
+        }
+    }
+    return argv[0];
+}
+
 } // namespace meow::natives::array
 
 namespace meow::stdlib {
@@ -130,14 +306,27 @@ module_t create_array_module(Machine* vm, MemoryManager* heap) noexcept {
     auto reg = [&](const char* n, native_t fn) { mod->set_export(heap->new_string(n), Value(fn)); };
 
     using namespace meow::natives::array;
+    // Cơ bản
     reg("push", push);
     reg("pop", pop);
     reg("clear", clear);
     reg("len", length);
     reg("size", length); 
-    reg("resize", resize);
-    reg("slice", slice); // [Đăng ký]
     reg("length", length);
+    reg("resize", resize);
+    reg("reserve", reserve);
+    reg("slice", slice); 
+    
+    // High-order functions
+    reg("map", map);
+    reg("filter", filter);
+    reg("reduce", reduce);
+    reg("forEach", forEach);
+    reg("find", find);
+    reg("findIndex", findIndex);
+    reg("reverse", reverse);
+    reg("sort", sort);
+
     return mod;
 }
 }

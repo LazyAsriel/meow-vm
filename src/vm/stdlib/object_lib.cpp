@@ -4,6 +4,7 @@
 #include <meow/memory/memory_manager.h>
 #include <meow/core/module.h>
 #include <meow/core/hash_table.h>
+#include <meow/core/array.h> // Cần để tạo mảng kết quả
 
 namespace meow::natives::obj {
 
@@ -24,6 +25,31 @@ static Value keys(Machine* vm, int argc, Value* argv) {
     return Value(arr);
 }
 
+static Value values(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    auto arr = vm->get_heap()->new_array();
+    arr->reserve(self->size());
+    for(auto it = self->begin(); it != self->end(); ++it) {
+        arr->push(it->second);
+    }
+    return Value(arr);
+}
+
+static Value entries(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    auto arr = vm->get_heap()->new_array();
+    arr->reserve(self->size());
+    
+    for(auto it = self->begin(); it != self->end(); ++it) {
+        // Tạo mảng con [key, value]
+        auto pair = vm->get_heap()->new_array();
+        pair->push(Value(it->first));
+        pair->push(it->second);
+        arr->push(Value(pair));
+    }
+    return Value(arr);
+}
+
 static Value has(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2 || !argv[1].is_string()) return Value(false);
@@ -33,6 +59,24 @@ static Value has(Machine* vm, int argc, Value* argv) {
 static Value len(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     return Value((int64_t)self->size());
+}
+
+static Value merge(Machine* vm, int argc, Value* argv) {
+    // Merge tạo ra object mới, không sửa 'this' (hoặc tham số đầu)
+    // obj.merge(obj1, obj2, ...) -> return new object
+    
+    auto result = vm->get_heap()->new_hash();
+    
+    // Duyệt qua tất cả các tham số truyền vào
+    for (int i = 0; i < argc; ++i) {
+        if (argv[i].is_hash_table()) {
+            hash_table_t src = argv[i].as_hash_table();
+            for (auto it = src->begin(); it != src->end(); ++it) {
+                result->set(it->first, it->second); // Ghi đè nếu trùng key
+            }
+        }
+    }
+    return Value(result);
 }
 
 } // namespace
@@ -45,8 +89,11 @@ module_t create_object_module(Machine* vm, MemoryManager* heap) noexcept {
 
     using namespace meow::natives::obj;
     reg("keys", keys);
+    reg("values", values);
+    reg("entries", entries);
     reg("has", has);
     reg("len", len);
+    reg("merge", merge);
     
     return mod;
 }

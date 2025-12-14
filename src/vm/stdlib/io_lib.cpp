@@ -47,7 +47,7 @@ static Value input(Machine* vm, int argc, Value* argv) {
 
 static Value read_file(Machine* vm, int argc, Value* argv) {
     CHECK_ARGS(1);
-    CHECK_PATH_ARG(0); // Đảm bảo argv[0] là String và tạo path_str_0
+    CHECK_PATH_ARG(0);
     
     std::ifstream file(path_str_0, std::ios::binary | std::ios::ate);
     if (!file) return Value(null_t{});
@@ -59,6 +59,13 @@ static Value read_file(Machine* vm, int argc, Value* argv) {
 
     std::string content(static_cast<size_t>(size), '\0');
     if (file.read(content.data(), size)) {
+        if (content.size() >= 3 && 
+            static_cast<unsigned char>(content[0]) == 0xEF && 
+            static_cast<unsigned char>(content[1]) == 0xBB && 
+            static_cast<unsigned char>(content[2]) == 0xBF) {
+            content.erase(0, 3);
+        }
+
         return Value(vm->get_heap()->new_string(content));
     }
     return Value(null_t{});

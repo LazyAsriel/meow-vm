@@ -3,7 +3,10 @@
 #include <meow/machine.h>
 #include <meow/memory/memory_manager.h>
 #include <meow/core/module.h>
+#include <meow/core/array.h> // Cho split
+#include <meow/cast.h>       // [FIX] Cần thiết cho to_string()
 #include <algorithm> 
+#include <sstream>
 
 namespace meow::natives::str {
 
@@ -12,86 +15,281 @@ namespace meow::natives::str {
         vm->error("String method expects 'this' to be a String."); \
         return Value(null_t{}); \
     } \
-    string_t self = argv[0].as_string();
+    string_t self_obj = argv[0].as_string(); \
+    std::string_view self(self_obj->c_str(), self_obj->size());
 
 static Value len(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
-    return Value((int64_t)self->size());
+    return Value((int64_t)self.size());
 }
 
 static Value upper(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
-    std::string s(self->c_str(), self->size());
+    std::string s(self);
     std::transform(s.begin(), s.end(), s.begin(), ::toupper);
     return Value(vm->get_heap()->new_string(s));
 }
 
 static Value lower(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
-    std::string s(self->c_str(), self->size());
+    std::string s(self);
     std::transform(s.begin(), s.end(), s.begin(), ::tolower);
     return Value(vm->get_heap()->new_string(s));
 }
 
 static Value trim(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
-    std::string_view sv(self->c_str(), self->size());
-    while (!sv.empty() && std::isspace(sv.front())) sv.remove_prefix(1);
-    while (!sv.empty() && std::isspace(sv.back())) sv.remove_suffix(1);
-    return Value(vm->get_heap()->new_string(sv));
+    while (!self.empty() && std::isspace(self.front())) self.remove_prefix(1);
+    while (!self.empty() && std::isspace(self.back())) self.remove_suffix(1);
+    return Value(vm->get_heap()->new_string(self));
 }
 
 static Value contains(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2 || !argv[1].is_string()) return Value(false);
-    
-    std::string_view haystack(self->c_str(), self->size());
     string_t needle_obj = argv[1].as_string();
     std::string_view needle(needle_obj->c_str(), needle_obj->size());
-    
-    return Value(haystack.find(needle) != std::string::npos);
+    return Value(self.find(needle) != std::string::npos);
 }
 
-// [MỚI] Hàm kiểm tra chuỗi bắt đầu
 static Value startsWith(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2 || !argv[1].is_string()) return Value(false);
-    
-    std::string_view haystack(self->c_str(), self->size());
     string_t prefix_obj = argv[1].as_string();
     std::string_view prefix(prefix_obj->c_str(), prefix_obj->size());
-    
-    return Value(haystack.starts_with(prefix));
+    return Value(self.starts_with(prefix));
 }
 
-// [MỚI] Hàm kiểm tra chuỗi kết thúc
 static Value endsWith(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2 || !argv[1].is_string()) return Value(false);
-    
-    std::string_view haystack(self->c_str(), self->size());
     string_t suffix_obj = argv[1].as_string();
     std::string_view suffix(suffix_obj->c_str(), suffix_obj->size());
-    
-    return Value(haystack.ends_with(suffix));
+    return Value(self.ends_with(suffix));
 }
 
 static Value join(Machine* vm, int argc, Value* argv) {
-    if (argc < 2 || !argv[0].is_string() || !argv[1].is_array()) {
-        vm->error("Usage: string.join(separator, array_of_strings)");
-        return Value(null_t{});
+    // "sep".join(array)
+    CHECK_SELF(); // self là separator
+    if (argc < 2 || !argv[1].is_array()) return Value(vm->get_heap()->new_string(""));
+
+    array_t arr = argv[1].as_array();
+    std::ostringstream ss;
+    for (size_t i = 0; i < arr->size(); ++i) {
+        if (i > 0) ss << self;
+        Value item = arr->get(i);
+        if (item.is_string()) ss << item.as_string()->c_str();
+        else ss << to_string(item); // Bây giờ đã có meow::to_string từ meow/cast.h
+    }
+    return Value(vm->get_heap()->new_string(ss.str()));
+}
+
+static Value split(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    std::string_view delim = " ";
+    if (argc >= 2 && argv[1].is_string()) {
+        string_t d = argv[1].as_string();
+        delim = std::string_view(d->c_str(), d->size());
     }
 
-    string_t sep = argv[0].as_string();
-    array_t arr = argv[1].as_array();
+    auto arr = vm->get_heap()->new_array();
     
-    std::string res = "";
-    for (size_t i = 0; i < arr->size(); ++i) {
-        if (i > 0) res += sep->c_str();
-        Value item = arr->get(i);
-        if (item.is_string()) res += item.as_string()->c_str();
+    if (delim.empty()) {
+        // Split từng ký tự
+        for (char c : self) {
+            arr->push(Value(vm->get_heap()->new_string(&c, 1)));
+        }
+    } else {
+        size_t start = 0;
+        size_t end = self.find(delim);
+        while (end != std::string::npos) {
+            std::string_view token = self.substr(start, end - start);
+            arr->push(Value(vm->get_heap()->new_string(token)));
+            start = end + delim.length();
+            end = self.find(delim, start);
+        }
+        std::string_view last = self.substr(start);
+        arr->push(Value(vm->get_heap()->new_string(last)));
     }
+    return Value(arr);
+}
+
+static Value replace(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 3 || !argv[1].is_string() || !argv[2].is_string()) {
+        return argv[0];
+    }
+    string_t from_obj = argv[1].as_string();
+    string_t to_obj = argv[2].as_string();
+    
+    std::string_view from(from_obj->c_str(), from_obj->size());
+    std::string_view to(to_obj->c_str(), to_obj->size());
+    
+    std::string s(self);
+    size_t pos = s.find(from);
+    if (pos != std::string::npos) {
+        s.replace(pos, from.length(), to);
+    }
+    return Value(vm->get_heap()->new_string(s));
+}
+
+// [FIX] Value(-1) -> Value((int64_t)-1)
+static Value indexOf(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 2 || !argv[1].is_string()) return Value((int64_t)-1);
+    
+    string_t sub_obj = argv[1].as_string();
+    size_t start_pos = 0;
+    if (argc > 2 && argv[2].is_int()) {
+        int64_t p = argv[2].as_int();
+        if (p > 0) start_pos = static_cast<size_t>(p);
+    }
+
+    size_t pos = self.find(sub_obj->c_str(), start_pos);
+    if (pos == std::string::npos) return Value((int64_t)-1);
+    return Value((int64_t)pos);
+}
+
+// [FIX] Value(-1) -> Value((int64_t)-1)
+static Value lastIndexOf(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 2 || !argv[1].is_string()) return Value((int64_t)-1);
+    
+    string_t sub_obj = argv[1].as_string();
+    size_t pos = self.rfind(sub_obj->c_str());
+    if (pos == std::string::npos) return Value((int64_t)-1);
+    return Value((int64_t)pos);
+}
+
+static Value substring(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 2 || !argv[1].is_int()) return argv[0];
+    
+    int64_t start = argv[1].as_int();
+    int64_t length = (int64_t)self.size();
+    
+    if (argc > 2 && argv[2].is_int()) {
+        length = argv[2].as_int();
+    }
+    
+    if (start < 0) start = 0;
+    if (start >= (int64_t)self.size()) return Value(vm->get_heap()->new_string(""));
+    
+    return Value(vm->get_heap()->new_string(self.substr(start, length)));
+}
+
+static Value slice_str(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    int64_t len = (int64_t)self.size();
+    int64_t start = 0;
+    int64_t end = len;
+
+    if (argc >= 2 && argv[1].is_int()) {
+        start = argv[1].as_int();
+        if (start < 0) start += len;
+        if (start < 0) start = 0;
+    }
+    if (argc >= 3 && argv[2].is_int()) {
+        end = argv[2].as_int();
+        if (end < 0) end += len;
+    }
+    if (start >= end || start >= len) return Value(vm->get_heap()->new_string(""));
+    if (end > len) end = len;
+
+    return Value(vm->get_heap()->new_string(self.substr(start, end - start)));
+}
+
+static Value repeat(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 2 || !argv[1].is_int()) return Value(vm->get_heap()->new_string(""));
+    int64_t count = argv[1].as_int();
+    if (count <= 0) return Value(vm->get_heap()->new_string(""));
+    
+    std::string res;
+    res.reserve(self.size() * count);
+    for(int i=0; i<count; ++i) res.append(self);
+    
     return Value(vm->get_heap()->new_string(res));
+}
+
+// [FIX] Xóa biến unused 'needed' và sửa warning sign comparison
+static Value padLeft(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 2 || !argv[1].is_int()) return argv[0];
+    int64_t target_len_i64 = argv[1].as_int();
+    if (target_len_i64 < 0) return argv[0];
+    size_t target_len = static_cast<size_t>(target_len_i64);
+
+    if (target_len <= self.size()) return argv[0];
+    
+    std::string_view pad_char = " ";
+    if (argc > 2 && argv[2].is_string()) {
+        string_t p = argv[2].as_string();
+        if (!p->empty()) pad_char = std::string_view(p->c_str(), p->size());
+    }
+
+    std::string res;
+    size_t needed_len = target_len - self.size();
+    while (res.size() < needed_len) res.append(pad_char);
+    res.resize(needed_len); 
+    res.append(self);
+    
+    return Value(vm->get_heap()->new_string(res));
+}
+
+// [FIX] Sửa warning sign comparison
+static Value padRight(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 2 || !argv[1].is_int()) return argv[0];
+    int64_t target_len_i64 = argv[1].as_int();
+    if (target_len_i64 < 0) return argv[0];
+    size_t target_len = static_cast<size_t>(target_len_i64);
+
+    if (target_len <= self.size()) return argv[0];
+    
+    std::string_view pad_char = " ";
+    if (argc > 2 && argv[2].is_string()) {
+        string_t p = argv[2].as_string();
+        if (!p->empty()) pad_char = std::string_view(p->c_str(), p->size());
+    }
+
+    std::string res(self);
+    size_t needed_len = target_len - self.size();
+    while (res.size() < target_len) res.append(pad_char);
+    res.resize(target_len);
+    
+    return Value(vm->get_heap()->new_string(res));
+}
+
+static Value equalsIgnoreCase(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 2 || !argv[1].is_string()) return Value(false);
+    string_t other = argv[1].as_string();
+    if (self.size() != other->size()) return Value(false);
+    
+    return Value(std::equal(self.begin(), self.end(), other->c_str(), 
+        [](char a, char b) { return tolower(a) == tolower(b); }));
+}
+
+// [FIX] Value(-1) -> Value((int64_t)-1)
+static Value charAt(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 2 || !argv[1].is_int()) return Value(vm->get_heap()->new_string(""));
+    int64_t idx = argv[1].as_int();
+    if (idx < 0 || idx >= (int64_t)self.size()) return Value(vm->get_heap()->new_string(""));
+    
+    char c = self[idx];
+    return Value(vm->get_heap()->new_string(&c, 1));
+}
+
+// [FIX] Value(-1) -> Value((int64_t)-1)
+static Value charCodeAt(Machine* vm, int argc, Value* argv) {
+    CHECK_SELF();
+    if (argc < 2 || !argv[1].is_int()) return Value((int64_t)-1);
+    int64_t idx = argv[1].as_int();
+    if (idx < 0 || idx >= (int64_t)self.size()) return Value((int64_t)-1);
+    
+    return Value((int64_t)(unsigned char)self[idx]);
 }
 
 } // namespace meow::natives::str
@@ -105,16 +303,28 @@ module_t create_string_module(Machine* vm, MemoryManager* heap) noexcept {
     using namespace meow::natives::str;
     reg("len", len);
     reg("size", len);
+    reg("length", len);
     
     reg("upper", upper);
     reg("lower", lower);
     reg("trim", trim);
     
     reg("contains", contains);
-    reg("startsWith", startsWith); // [Đăng ký]
-    reg("endsWith", endsWith);     // [Đăng ký]
-    
+    reg("startsWith", startsWith);
+    reg("endsWith", endsWith);
     reg("join", join);
+    reg("split", split);
+    reg("replace", replace);
+    reg("indexOf", indexOf);
+    reg("lastIndexOf", lastIndexOf);
+    reg("substring", substring);
+    reg("slice", slice_str);
+    reg("repeat", repeat);
+    reg("padLeft", padLeft);
+    reg("padRight", padRight);
+    reg("equalsIgnoreCase", equalsIgnoreCase);
+    reg("charAt", charAt);
+    reg("charCodeAt", charCodeAt);
     
     return mod;
 }
