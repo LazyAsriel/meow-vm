@@ -86,10 +86,12 @@ char Lexer::advance() { return src_[pos_++]; }
 Token Lexer::scan_directive() {
     size_t start = pos_;
     advance(); 
-    while (isalnum(peek()) || peek() == '_') advance();
+    while (isalnum(peek()) || peek() == '_' || peek() == '-' || peek() == '/' || peek() == '.') advance();
+    
     std::string_view text = src_.substr(start, pos_ - start);
     
-    TokenType type = TokenType::UNKNOWN;
+    TokenType type = TokenType::IDENTIFIER; 
+    
     if (text == ".func") type = TokenType::DIR_FUNC;
     else if (text == ".endfunc") type = TokenType::DIR_ENDFUNC;
     else if (text == ".registers") type = TokenType::DIR_REGISTERS;
@@ -131,7 +133,7 @@ Token Lexer::scan_number() {
 
 Token Lexer::scan_identifier() {
     size_t start = pos_;
-    while (isalnum(peek()) || peek() == '_' || peek() == '@') advance();
+    while (isalnum(peek()) || peek() == '_' || peek() == '@' || peek() == '/' || peek() == '-' || peek() == '.') advance();
     
     if (peek() == ':') {
         advance(); 

@@ -1,7 +1,7 @@
 #pragma once
 #include "vm/handlers/utils.h"
 #include <meow/core/objects.h>
-#include <cstring> // Cho memcpy (nếu cần dùng chỗ khác)
+#include <cstring>
 
 namespace meow::handlers {
 
