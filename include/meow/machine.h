@@ -30,26 +30,22 @@ public:
     // --- Public API ---
     void interpret() noexcept;
     
-    // [CHANGE] API mới: Chạy trực tiếp một function (Dùng cho Benchmark/REPL)
     void execute(function_t func);
 
     inline MemoryManager* get_heap() const noexcept { return heap_.get(); }
+    inline const VMArgs& get_args() const noexcept { return args_; }
     
     inline void error(std::string message) noexcept {
         has_error_ = true;
         error_message_ = std::move(message);
     }
 
+
     inline bool has_error() const noexcept { return has_error_; }
     
     inline std::string_view get_error_message() const noexcept { return error_message_; }
     
     inline void clear_error() noexcept { has_error_ = false; error_message_.clear(); }
-
-    // [CHANGE] Cần public context_ cho các file benchmark cũ nếu chưa refactor hết, 
-    // nhưng tốt nhất là dùng friend hoặc refactor hết. 
-    // Ở đây ta để public tạm hoặc friend class (như trong benchmark bạn đã hack define private public).
-    // Tuy nhiên, để đúng chuẩn OOP, ta sẽ đưa create_state vào private.
     
 private:
     // --- Subsystems ---
@@ -66,10 +62,5 @@ private:
     bool prepare() noexcept;
     void run() noexcept;
     void load_builtins();
-
-    // [CHANGE] Helper nội bộ
-    
-    // Allow benchmarks to access internals via the hack macros provided in benchmark files
-    // friend class ...; 
 };
 }
