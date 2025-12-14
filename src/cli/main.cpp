@@ -125,11 +125,26 @@ int main(int argc, char* argv[]) {
 
     // --- EXECUTE PHASE ---
     try {
+        // [FIX] Tạo danh sách arguments "sạch" cho VM (loại bỏ cờ -b, -c)
+        // Điều này giúp index của script (System.argv) không bị lệch
+        std::vector<char*> clean_argv;
+        clean_argv.push_back(argv[0]); // Giữ lại tên chương trình (argv[0])
+
+        for (int i = 1; i < argc; ++i) {
+            std::string arg = argv[i];
+            // Bỏ qua các cờ điều khiển của VM
+            if (arg == "-b" || arg == "--bytecode" || arg == "-c" || arg == "--compile") {
+                continue; 
+            }
+            clean_argv.push_back(argv[i]);
+        }
+
         fs::path abs_path = fs::absolute(input_file);
         std::string root_dir = abs_path.parent_path().string();
         std::string entry_file = abs_path.filename().string();
         
-        Machine vm(root_dir, entry_file, argc, argv); 
+        // Truyền clean_argv vào Machine thay vì argv gốc
+        Machine vm(root_dir, entry_file, static_cast<int>(clean_argv.size()), clean_argv.data()); 
         vm.interpret();
         
     } catch (const std::exception& e) {
