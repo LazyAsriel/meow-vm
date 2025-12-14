@@ -8,13 +8,12 @@ MemoryManager::MemoryManager(std::unique_ptr<GarbageCollector> gc) noexcept
       heap_(arena_),
       gc_(std::move(gc)), 
       gc_threshold_(1024), 
-      object_allocated_(0) {
-          
+      object_allocated_(0) 
+{ 
     if (gc_) {
         gc_->set_heap(&heap_);
     }
 }
-
 MemoryManager::~MemoryManager() noexcept {}
 
 string_t MemoryManager::new_string(std::string_view str_view) {

@@ -1,6 +1,7 @@
 #pragma once
 #include "vm/handlers/utils.h"
 #include "meow_nanbox_layout.h"
+#include "vm/handlers/flow_ops.h"
 
 namespace meow::handlers {
 

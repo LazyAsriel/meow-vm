@@ -18,7 +18,7 @@
 #include <meow/compiler/op_codes.h>
 #include "jit/jit_compiler.h"
 #include "make_chunk.h"
-#include <meow/config.h> // [CHANGE]
+#include <meow/config.h>
 
 using namespace meow;
 
@@ -45,7 +45,7 @@ double measure(const std::string& name, Func func) {
     func();
     auto end = std::chrono::high_resolution_clock::now();
     double ms = std::chrono::duration<double, std::milli>(end - start).count();
-    std::cout << "\033[1;32m" << std::fixed << std::setprecision(2) << ms << " ms\033[0m\n";
+    std::cout << "\033[1;32m" << std::fixed << std::setprecision(2) << ms << " ms\033[0m";
     return ms;
 }
 
@@ -64,23 +64,26 @@ int main(int argc, char* argv[]) {
     auto proto = machine.heap_->new_proto(5, 0, machine.heap_->new_string("bench"), std::move(code));
     auto func = machine.heap_->new_function(proto);
 
-    run_native_cpp(limit); // Warmup cache
+    // Warmup & Check Native
+    int64_t native_result = run_native_cpp(limit);
     
     double t_native = measure("Native C++ (Hardcoded)", [&]() {
         run_native_cpp(limit);
     });
+    std::cout << " (Sum: " << native_result << ")\n";
 
+    // Check Interpreter
     double t_vm = measure("MeowVM (Interpreter)", [&]() {
-        // [CHANGE] Code cũ dài dòng đã bay màu!
         machine.execute(func);
     });
+    int64_t vm_result = machine.context_->stack_[0].as_int(); // R0 = sum
+    std::cout << " (Sum: " << vm_result << ")\n";
 
+    // JIT
     meow::jit::x64::Compiler jit;
     const uint8_t* bytecode_ptr = proto->get_chunk().get_code();
     size_t bytecode_len = proto->get_chunk().get_code_size();
-    
     Value* constants = proto->get_chunk().get_constants_raw();
-    
     auto jit_func = jit.compile(bytecode_ptr, bytecode_len);
 
     meow::VMState state {
@@ -91,15 +94,12 @@ int main(int argc, char* argv[]) {
     };
 
     double t_jit = measure("MeowVM (JIT x64)", [&]() {
-        machine.context_->reset();
-        
+        machine.context_->reset(); // Reset stack/regs
         Value* regs = machine.context_->stack_;
-        Value* consts = constants;
-
-        meow::VMState* state_ptr = &state;
-        
-        jit_func(regs, consts, state_ptr);
+        jit_func(regs, constants, &state);
     });
+    int64_t jit_result = machine.context_->stack_[0].as_int(); // R0 = sum
+    std::cout << " (Sum: " << jit_result << ")\n";
 
     std::cout << "\n--------------------------------------------------\n";
     std::cout << "📊 KẾT QUẢ:\n";
@@ -110,6 +110,10 @@ int main(int argc, char* argv[]) {
     std::cout << "Native C++ : 1x (Baseline)\n";
     std::cout << "MeowVM     : " << std::fixed << std::setprecision(2) << vm_ratio << "x slower\n";
     std::cout << "MeowJIT    : " << std::fixed << std::setprecision(2) << jit_ratio << "x slower\n";
+
+    if (native_result != vm_result || native_result != jit_result) {
+        std::cout << "\n❌ CẢNH BÁO: KẾT QUẢ TÍNH TOÁN KHÔNG KHỚP!\n";
+    }
 
     return 0;
 }

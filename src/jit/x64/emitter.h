@@ -44,8 +44,14 @@ public:
 
     void cmp(Reg dst, Reg src);
     void test(Reg dst, Reg src);
-    void jmp(int32_t rel_offset);
-    void jcc(Condition cond, int32_t rel_offset);
+    
+    // Jumps
+    void jmp(int32_t rel_offset);               // Near Jump (5 bytes)
+    void jmp_short(int8_t rel_offset);          // Short Jump (2 bytes)
+    
+    void jcc(Condition cond, int32_t rel_offset); // Near Jcc (6 bytes)
+    void jcc_short(Condition cond, int8_t rel_offset); // Short Jcc (2 bytes)
+
     void setcc(Condition cond, Reg dst);
     
     void call(Reg r);
@@ -55,6 +61,8 @@ public:
     void pop(Reg r);
     void ret();
     void cqo();
+    
+    void align(size_t boundary);
 
 private:
     uint8_t* buffer_;
@@ -68,8 +76,6 @@ private:
     void emit_modrm(int mode, int reg, int rm);
     
     void alu(uint8_t opcode, Reg dst, Reg src);
-    void shift(uint8_t opcode, uint8_t subcode, Reg dst);
-    void shift(uint8_t opcode, uint8_t subcode, Reg dst, uint8_t imm);
 };
 
 } // namespace meow::jit::x64

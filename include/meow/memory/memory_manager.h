@@ -38,13 +38,19 @@ public:
     Shape* get_empty_shape() noexcept;
 
     // --- GC Control ---
-    void enable_gc() noexcept { gc_enabled_ = true; }
-    void disable_gc() noexcept { gc_enabled_ = false; }
+    void enable_gc() noexcept { 
+        if (gc_pause_count_ > 0) gc_pause_count_--; 
+    }
+    
+    void disable_gc() noexcept { 
+        gc_pause_count_++; 
+    }
+    
     void collect() noexcept { object_allocated_ = gc_->collect(); }
 
     [[gnu::always_inline]]
     void write_barrier(MeowObject* owner, Value value) noexcept {
-        if (gc_enabled_) {
+        if (gc_pause_count_ == 0) {
             gc_->write_barrier(owner, value);
         }
     }
@@ -73,11 +79,12 @@ private:
 
     size_t gc_threshold_;
     size_t object_allocated_;
-    bool gc_enabled_ = true;
+    size_t gc_pause_count_ = 0;
+    // bool gc_enabled_ = true;
 
     template <typename T, typename... Args>
     T* new_object(Args&&... args) {
-        if (object_allocated_ >= gc_threshold_ && gc_enabled_) {
+        if (object_allocated_ >= gc_threshold_ && gc_pause_count_ == 0) {
             collect();
             gc_threshold_ = std::max(gc_threshold_ * 2, object_allocated_ * 2);
         }
