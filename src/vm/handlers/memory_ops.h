@@ -1,6 +1,7 @@
 #pragma once
 #include "vm/handlers/utils.h"
 #include "vm/handlers/flow_ops.h"
+#include <meow/memory/gc_disable_guard.h>
 
 namespace meow::handlers {
 
@@ -58,15 +59,19 @@ namespace meow::handlers {
     uint16_t dst = read_u16(ip);
     uint16_t proto_idx = read_u16(ip);
     
-    // --- [FIX BEGIN] ---
     Value val = constants[proto_idx];
     if (!val.is_proto()) [[unlikely]] {
         state->ctx.current_frame_->ip_ = ip - 5;
-        std::println("[DEBUG] CLOSURE {}, {}", dst, proto_idx);
-        state->error("CLOSURE: Constant index " + std::to_string(proto_idx) + " is not a Proto (Found: " + to_string(val) + ")");
+        state->error("CLOSURE: Constant index " + std::to_string(proto_idx) + " is not a Proto");
         return impl_PANIC(ip, regs, constants, state);
     }
     proto_t proto = val.as_proto();
+
+    // [FIX] Cấm GC trong quá trình tạo Closure và Capture Upvalues.
+    // Vì capture_upvalue() có thể cấp phát bộ nhớ (new_upvalue), 
+    // nếu GC chạy lúc này, 'closure' sẽ bị xóa vì chưa ai giữ nó cả.
+    meow::GCDisableGuard guard(&state->heap);
+
     function_t closure = state->heap.new_function(proto);
     
     size_t current_base_idx = regs - state->ctx.stack_;
@@ -74,14 +79,17 @@ namespace meow::handlers {
     for (size_t i = 0; i < proto->get_num_upvalues(); ++i) {
         const auto& desc = proto->get_desc(i);
         if (desc.is_local_) {
+            // capture_upvalue có thể trigger GC -> NGUY HIỂM nếu không có Guard
             closure->set_upvalue(i, capture_upvalue(&state->ctx, &state->heap, current_base_idx + desc.index_));
         } else {
             closure->set_upvalue(i, state->ctx.frame_ptr_->function_->get_upvalue(desc.index_));
         }
     }
+    
     regs[dst] = Value(closure);
     return ip;
 }
+
 [[gnu::always_inline]] static const uint8_t* impl_CLOSE_UPVALUES(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t last_reg = read_u16(ip);
     (void)constants;

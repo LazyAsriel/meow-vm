@@ -8,6 +8,7 @@
 #include <meow/machine.h>
 #include <meow/value.h>
 #include <meow/memory/memory_manager.h>
+#include <meow/memory/gc_disable_guard.h>
 #include <meow/core/array.h>
 #include <meow/core/hash_table.h>
 #include <meow/core/string.h>
@@ -414,10 +415,11 @@ static std::string to_json_recursive(const Value& val, int indent_level, int tab
 
 static Value json_parse(Machine* vm, int argc, Value* argv) {
     if (argc < 1 || !argv[0].is_string()) {
-        // Trả về null nếu không có input hợp lệ
         return Value(null_t{});
     }
     
+    meow::GCDisableGuard guard(vm->get_heap()); 
+
     std::string_view json_str = argv[0].as_string()->c_str();
     JsonParser parser(vm);
     return parser.parse(json_str);

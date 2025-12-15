@@ -8,6 +8,7 @@
 #include <meow/cast.h>
 #include <format> 
 #include <algorithm>
+#include <meow/memory/gc_disable_guard.h> // [NEW] Thêm cái này
 
 namespace meow::natives::array {
 
@@ -27,6 +28,9 @@ static Value push(Machine* vm, int argc, Value* argv) {
         vm->error("Array size exceeded limit during push.");
         return Value(null_t{});
     }
+
+    // Push có thể trigger resize (allocate), nên cứ guard cho chắc
+    meow::GCDisableGuard guard(vm->get_heap()); 
 
     for (int i = 1; i < argc; ++i) {
         self->push(argv[i]);
@@ -58,6 +62,9 @@ static Value reserve(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2 || !argv[1].is_int()) return Value(null_t{});
     int64_t cap = argv[1].as_int();
+    
+    meow::GCDisableGuard guard(vm->get_heap()); // Reserve cấp phát bộ nhớ
+
     if (cap > 0 && static_cast<size_t>(cap) < MAX_ARRAY_CAPACITY) {
         self->reserve(static_cast<size_t>(cap));
     }
@@ -83,6 +90,8 @@ static Value resize(Machine* vm, int argc, Value* argv) {
         vm->error(std::format("New size too large ({}). Max allowed: {}", input_size, MAX_ARRAY_CAPACITY));
         return Value(null_t{});
     }
+
+    meow::GCDisableGuard guard(vm->get_heap()); // Resize cấp phát bộ nhớ
 
     try {
         size_t old_size = self->size();
@@ -123,6 +132,8 @@ static Value slice(Machine* vm, int argc, Value* argv) {
         if (end > len) end = len;
     }
 
+    meow::GCDisableGuard guard(vm->get_heap()); // Tạo array mới
+
     if (start >= end) {
         return Value(vm->get_heap()->new_array());
     }
@@ -137,18 +148,21 @@ static Value slice(Machine* vm, int argc, Value* argv) {
     return Value(new_arr);
 }
 
-// --- High Order Functions ---
+// --- High Order Functions (Khu vực nguy hiểm nhất) ---
 
 static Value reverse(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     std::reverse(self->begin(), self->end());
-    return argv[0]; // Trả về chính mảng đó
+    return argv[0];
 }
 
 static Value forEach(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2) return Value(null_t{});
     Value callback = argv[1];
+
+    // [BLOCK GC] Chặn GC trong lúc loop
+    meow::GCDisableGuard guard(vm->get_heap()); 
 
     for (size_t i = 0; i < self->size(); ++i) {
         std::vector<Value> args = { self->get(i), Value((int64_t)i) };
@@ -163,12 +177,18 @@ static Value map(Machine* vm, int argc, Value* argv) {
     if (argc < 2) return Value(null_t{});
     Value callback = argv[1];
 
+    // [BLOCK GC] Chặn GC để result_arr không bị xóa oan
+    meow::GCDisableGuard guard(vm->get_heap());
+
     auto result_arr = vm->get_heap()->new_array();
     result_arr->reserve(self->size());
 
     for (size_t i = 0; i < self->size(); ++i) {
         std::vector<Value> args = { self->get(i), Value((int64_t)i) };
+        
+        // Nguy hiểm: call_callable tạo nhiều rác nhưng GC bị cấm
         Value res = vm->call_callable(callback, args);
+        
         if (vm->has_error()) return Value(null_t{});
         result_arr->push(res);
     }
@@ -179,6 +199,9 @@ static Value filter(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2) return Value(null_t{});
     Value callback = argv[1];
+
+    // [BLOCK GC]
+    meow::GCDisableGuard guard(vm->get_heap());
 
     auto result_arr = vm->get_heap()->new_array();
 
@@ -203,7 +226,6 @@ static Value reduce(Machine* vm, int argc, Value* argv) {
     
     size_t start_index = 0;
 
-    // Nếu không cung cấp initialValue, lấy phần tử đầu tiên làm init
     if (argc < 3) {
         if (self->empty()) {
             vm->error("Reduce on empty array with no initial value.");
@@ -212,6 +234,9 @@ static Value reduce(Machine* vm, int argc, Value* argv) {
         accumulator = self->get(0);
         start_index = 1;
     }
+
+    // [BLOCK GC]
+    meow::GCDisableGuard guard(vm->get_heap());
 
     for (size_t i = start_index; i < self->size(); ++i) {
         std::vector<Value> args = { accumulator, self->get(i), Value((int64_t)i) };
@@ -226,6 +251,9 @@ static Value find(Machine* vm, int argc, Value* argv) {
     if (argc < 2) return Value(null_t{});
     Value callback = argv[1];
 
+    // [BLOCK GC]
+    meow::GCDisableGuard guard(vm->get_heap());
+
     for (size_t i = 0; i < self->size(); ++i) {
         Value val = self->get(i);
         std::vector<Value> args = { val, Value((int64_t)i) };
@@ -237,11 +265,13 @@ static Value find(Machine* vm, int argc, Value* argv) {
     return Value(null_t{});
 }
 
-// [FIX] Sửa lỗi ambiguous conversion: Value(-1) -> Value((int64_t)-1)
 static Value findIndex(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2) return Value((int64_t)-1);
     Value callback = argv[1];
+
+    // [BLOCK GC]
+    meow::GCDisableGuard guard(vm->get_heap());
 
     for (size_t i = 0; i < self->size(); ++i) {
         Value val = self->get(i);
@@ -257,12 +287,14 @@ static Value findIndex(Machine* vm, int argc, Value* argv) {
 static Value sort(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     
-    // Bubble sort đơn giản để tránh phức tạp với std::sort callback trong VM
     size_t n = self->size();
     if (n < 2) return argv[0];
 
     bool has_comparator = (argc > 1);
     Value comparator = has_comparator ? argv[1] : Value(null_t{});
+
+    // [BLOCK GC]
+    meow::GCDisableGuard guard(vm->get_heap());
 
     for (size_t i = 0; i < n - 1; i++) {
         for (size_t j = 0; j < n - i - 1; j++) {
@@ -274,16 +306,14 @@ static Value sort(Machine* vm, int argc, Value* argv) {
                 std::vector<Value> args = { a, b };
                 Value res = vm->call_callable(comparator, args);
                 if (vm->has_error()) return Value(null_t{});
-                if (res.is_int() && res.as_int() > 0) swap = true; // a > b
+                if (res.is_int() && res.as_int() > 0) swap = true; 
                 else if (res.is_float() && res.as_float() > 0) swap = true;
             } else {
-                // Mặc định: So sánh số hoặc chuỗi
                 if (a.is_int() && b.is_int()) {
                     if (a.as_int() > b.as_int()) swap = true;
                 } else if (a.is_float() || b.is_float()) {
                     if (to_float(a) > to_float(b)) swap = true;
                 } else {
-                    // String compare
                     if (std::string_view(to_string(a)) > std::string_view(to_string(b))) swap = true;
                 }
             }
@@ -306,7 +336,6 @@ module_t create_array_module(Machine* vm, MemoryManager* heap) noexcept {
     auto reg = [&](const char* n, native_t fn) { mod->set_export(heap->new_string(n), Value(fn)); };
 
     using namespace meow::natives::array;
-    // Cơ bản
     reg("push", push);
     reg("pop", pop);
     reg("clear", clear);
@@ -317,7 +346,6 @@ module_t create_array_module(Machine* vm, MemoryManager* heap) noexcept {
     reg("reserve", reserve);
     reg("slice", slice); 
     
-    // High-order functions
     reg("map", map);
     reg("filter", filter);
     reg("reduce", reduce);
