@@ -1,17 +1,13 @@
 #include <meow/masm/lexer.h>
-#include <meow/compiler/op_codes.h> // Cần để lấy OpCode enum
+#include <meow/compiler/op_codes.h>
 #include <cctype>
 #include <string_view>
-#include <utility> // std::index_sequence
+#include <utility>
 
 namespace meow::masm {
 
 std::unordered_map<std::string_view, meow::OpCode> OP_MAP;
 
-// ============================================================================
-// MAGIC ENUM (Embedded Version)
-// Tự động map OpCode::ADD -> chuỗi "ADD" ngay tại thời điểm biên dịch
-// ============================================================================
 namespace {
     template <auto V>
     consteval std::string_view get_raw_name() {

@@ -20,8 +20,8 @@ COMPILER_DIR="$ROOT_DIR/compiler"
 TEST_SRC="$COMPILER_DIR/builds/build-stage${STAGE}"
 DIST_DIR="$ROOT_DIR/dist"
 
-MASM="$ROOT_DIR/build/debug/bin/masm"
-MEOW_VM="$ROOT_DIR/build/debug/bin/meow-vm"
+MASM="$ROOT_DIR/build/release/bin/masm"
+MEOW_VM="$ROOT_DIR/build/release/bin/meow-vm"
 
 # =========================
 # Build compiler theo stage

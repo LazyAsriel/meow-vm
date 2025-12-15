@@ -282,15 +282,17 @@ std::string Assembler::parse_string_literal(std::string_view sv) {
     for (size_t i = 0; i < sv.length(); ++i) {
         if (sv[i] == '\\' && i + 1 < sv.length()) {
             char next = sv[++i];
-            if (next == 'n') res += '\n'; else if (next == 't') res += '\t';
-            else if (next == '\\') res += '\\'; else if (next == '"') res += '"';
+            if (next == 'n') res += '\n'; 
+            else if (next == 'r') res += '\r';
+            else if (next == 't') res += '\t';
+            else if (next == '\\') res += '\\'; 
+            else if (next == '"') res += '"';
             else res += next;
         } else res += sv[i];
     }
     return res;
 }
 
-// --- [NEW] Serialize Binary (Lưu vào RAM) ---
 std::vector<uint8_t> Assembler::serialize_binary() {
     std::vector<uint8_t> buffer;
     buffer.reserve(4096); 
