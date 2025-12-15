@@ -1,27 +1,69 @@
-# Tạo thư mục dist
-mkdir -p dist
+#!/usr/bin/env bash
+set -e
 
-# Duyệt qua các file nguồn
-for file in tests/build-stage40/*.meowb; do
-    # Lấy tên file gốc (bỏ đuôi)
-    filename=$(basename "$file" .meowb)
-    
-    # [QUAN TRỌNG] Tạo một file tạm (.asm), dùng sed để thay thế:
-    # Tất cả chuỗi .meowb" thành .meowc" trong code
-    # Điều này đảm bảo các lệnh IMPORT/LOAD file sẽ trỏ đúng sang file bytecode mới
-    sed 's/\.meowb"/\.meowc"/g' "$file" > "dist/$filename.temp.asm"
+# =========================
+# Kiểm tra tham số
+# =========================
+if [ -z "$1" ]; then
+    echo "❌ Thiếu stage!"
+    echo "👉 Cách dùng: ./scripts/build_tests.sh <stage>"
+    exit 1
+fi
 
-    # Compile từ file tạm (.temp.asm) ra file bytecode (.meowc)
-    if ./build/release/bin/masm "dist/$filename.temp.asm" "dist/$filename.meowc"; then
-        echo "✅ Patched & Compiled: $filename.meowb -> dist/$filename.meowc"
+STAGE="$1"
+
+# =========================
+# Cấu hình đường dẫn
+# =========================
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+COMPILER_DIR="$ROOT_DIR/compiler"
+TEST_SRC="$COMPILER_DIR/builds/build-stage${STAGE}"
+DIST_DIR="$ROOT_DIR/dist"
+
+MASM="$ROOT_DIR/build/debug/bin/masm"
+MEOW_VM="$ROOT_DIR/build/debug/bin/meow-vm"
+
+# =========================
+# Build compiler theo stage
+# =========================
+echo "🐱 Build compiler stage $STAGE..."
+cd "$COMPILER_DIR"
+./scripts/build.sh "$STAGE"
+./scripts/meow.sh -s "$STAGE"
+
+# =========================
+# Chuẩn bị dist
+# =========================
+echo "🧹 Dọn dẹp dist cũ..."
+rm -rf "$DIST_DIR"
+mkdir -p "$DIST_DIR"
+
+# =========================
+# Compile test files
+# =========================
+echo "⚙️  Compile tests từ: $TEST_SRC"
+
+for file in "$TEST_SRC"/*.meowb; do
+    filename="$(basename "$file" .meowb)"
+    temp_asm="$DIST_DIR/$filename.temp.asm"
+    out_bytecode="$DIST_DIR/$filename.meowc"
+
+    # Patch IMPORT/LOAD
+    sed 's/\.meowb"/\.meowc"/g' "$file" > "$temp_asm"
+
+    if "$MASM" "$temp_asm" "$out_bytecode"; then
+        echo "✅ Compiled: $filename.meowb → $filename.meowc"
     else
-        echo "❌ Lỗi khi compile: $filename"
+        echo "❌ Compile lỗi: $filename"
+        exit 1
     fi
 
-    # Xóa file tạm cho gọn nhà cửa
-    rm "dist/$filename.temp.asm"
+    rm "$temp_asm"
 done
 
+# =========================
+# Chạy thử main
+# =========================
 echo "------------------------------------------------"
-echo "🚀 Chạy thử main..."
-./build/debug/bin/meow-vm -b dist/main.meowc
+echo "🚀 Chạy thử main.meowc"
+"$MEOW_VM" -b "$DIST_DIR/main.meowc"
