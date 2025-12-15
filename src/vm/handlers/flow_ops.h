@@ -234,15 +234,23 @@ namespace meow::handlers {
         } 
         // 2. FAST PATH: Native Call
         else if (callee.is_native()) {
-            native_t fn = callee.as_native();
-            
-            if (ic->check_tag == (void*)fn) [[likely]] {
-                Value result = fn(&state->machine, argc, &regs[arg_start]);
-                if constexpr (!IsVoid) regs[dst] = result;
-                return ip; 
+                native_t fn = callee.as_native();
+                
+                if (ic->check_tag == (void*)fn) [[likely]] {
+                    Value result = fn(&state->machine, argc, &regs[arg_start]);
+                    
+                    // [FIX] Kiểm tra lỗi ngay sau khi gọi Native
+                    if (state->machine.has_error()) [[unlikely]] {
+                        state->error(std::string(state->machine.get_error_message()));
+                        state->machine.clear_error();
+                        return impl_PANIC(ip, regs, constants, state);
+                    }
+
+                    if constexpr (!IsVoid) regs[dst] = result;
+                    return ip; 
+                }
+                ic->check_tag = (void*)fn;
             }
-            ic->check_tag = (void*)fn;
-        }
 
         // 3. SLOW PATH / FALLBACK
         
@@ -250,10 +258,17 @@ namespace meow::handlers {
         if constexpr (!IsVoid) {
             if (dst != 0xFFFF) ret_dest_ptr = &regs[dst];
         }
-
         if (callee.is_native()) {
             native_t fn = callee.as_native();
             Value result = fn(&state->machine, argc, &regs[arg_start]);
+            
+            // [FIX] Kiểm tra lỗi ngay sau khi gọi Native (Slow Path)
+            if (state->machine.has_error()) [[unlikely]] {
+                state->error(std::string(state->machine.get_error_message()));
+                state->machine.clear_error();
+                return impl_PANIC(ip, regs, constants, state);
+            }
+
             if (ret_dest_ptr) *ret_dest_ptr = result;
             return ip;
         }

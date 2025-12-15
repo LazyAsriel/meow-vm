@@ -43,8 +43,8 @@ public:
 };
 
 struct ObjStringHasher {
-    inline size_t operator()(ObjString* s) const noexcept {
-        return s->hash(); 
+    inline size_t operator()(string_t s) const noexcept {
+        return s->hash();
     }
 };
 }

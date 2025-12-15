@@ -1,6 +1,7 @@
 #pragma once
 #include "vm/handlers/utils.h"
 #include "vm/handlers/flow_ops.h"
+#include <meow/cast.h>
 #include <cstring> 
 
 namespace meow::handlers {
@@ -144,7 +145,51 @@ namespace meow::handlers {
         char c = str->get(idx);
         regs[dst] = Value(state->heap.new_string(&c, 1));
     }
+
+    else if (src.is_instance()) {
+        if (!key.is_string()) {
+            state->error("Instance index key phải là chuỗi (tên thuộc tính/phương thức).");
+            return impl_PANIC(ip, regs, constants, state);
+        }
+        
+        string_t name = key.as_string();
+        instance_t inst = src.as_instance();
+        
+        // 1. Tìm trong Fields (thuộc tính)
+        int offset = inst->get_shape()->get_offset(name);
+        if (offset != -1) {
+            regs[dst] = inst->get_field_at(offset);
+        } 
+        else {
+            // 2. Tìm trong Methods (phương thức)
+            class_t k = inst->get_class();
+            Value method = Value(null_t{});
+            
+            while (k) {
+                if (k->has_method(name)) {
+                    method = k->get_method(name);
+                    break;
+                }
+                k = k->get_super();
+            }
+            
+            if (!method.is_null()) {
+                // Nếu là hàm thì Bind nó vào Instance (để dùng được 'this')
+                if (method.is_function() || method.is_native()) {
+                    auto bound = state->heap.new_bound_method(src, method);
+                    regs[dst] = Value(bound);
+                } else {
+                    regs[dst] = method;
+                }
+            } else {
+                // Không tìm thấy -> Trả về NULL (giống behavior của Hash Table)
+                regs[dst] = Value(null_t{});
+            }
+        }
+    }
+
     else {
+        std::println("[DEBUG] Không thể dùng toán tử index [] trên kiểu dữ liệu {} với key là {}", to_string(src), to_string(key));
         state->error("Không thể dùng toán tử index [] trên kiểu dữ liệu này.");
         return impl_PANIC(ip, regs, constants, state);
     }
@@ -192,7 +237,34 @@ namespace meow::handlers {
         hash->set(k, val);
         
         state->heap.write_barrier(src.as_object(), val);
-    }    else {
+    } 
+        else if (src.is_instance()) {
+        if (!key.is_string()) {
+            state->error("Instance set index key phải là chuỗi.");
+            return impl_PANIC(ip, regs, constants, state);
+        }
+        
+        string_t name = key.as_string();
+        instance_t inst = src.as_instance();
+        
+        // Logic tương tự SET_PROP nhưng không dùng Inline Cache
+        int offset = inst->get_shape()->get_offset(name);
+        if (offset != -1) {
+            inst->set_field_at(offset, val);
+            state->heap.write_barrier(inst, val);
+        } else {
+            // Transition sang Shape mới
+            Shape* current_shape = inst->get_shape();
+            Shape* next_shape = current_shape->get_transition(name);
+            if (next_shape == nullptr) {
+                next_shape = current_shape->add_transition(name, &state->heap);
+            }
+            inst->set_shape(next_shape);
+            inst->get_fields_raw().push_back(val);
+            state->heap.write_barrier(inst, val);
+        }
+    }
+    else {
         state->error("Không thể gán index [] trên kiểu dữ liệu này.");
         return impl_PANIC(ip, regs, constants, state);
     }
