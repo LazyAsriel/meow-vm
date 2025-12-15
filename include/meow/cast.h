@@ -5,6 +5,13 @@
 #include <string>
 #include <variant>
 #include <memory>
+#include <charconv>
+#include <system_error>
+#include <cmath>
+#include <algorithm>
+#include <cstdlib>
+#include <iostream>
+
 #include <meow/definitions.h>
 #include <meow/core/objects.h>
 #include <meow/value.h>
@@ -17,7 +24,6 @@ inline constexpr bool is_space(char c) noexcept {
 }
 
 inline constexpr char to_lower(char c) noexcept {
-    // return c | 0x20;
     return (c >= 'A' && c <= 'Z') ? c + 32 : c;
 }
 
@@ -45,38 +51,38 @@ inline int64_t to_int(param_t value) noexcept {
             return static_cast<int64_t>(r);
         },
         [](bool_t b) -> int64_t { return b ? 1 : 0; },
-        [](string_t s) -> int64_t {
-            std::string_view sv = s->c_str();
-            sv = trim_whitespace(sv);
-            if (sv.empty()) return 0;
-
-            int base = 10;
+        
+        [](object_t obj) -> int64_t {
+            if (!obj) return 0;
             
-            bool negative = false;
-            if (sv.front() == '-') {
-                negative = true;
-                sv.remove_prefix(1);
-            } else if (sv.front() == '+') {
-                sv.remove_prefix(1);
+            if (obj->get_type() == ObjectType::STRING) {
+                string_t s = reinterpret_cast<string_t>(obj);
+                const char* ptr = s->c_str();
+
+                while (is_space(*ptr)) ptr++;
+                
+                if (ptr[0] == '0' && (ptr[1] == 'x' || ptr[1] == 'X')) {
+                    char* end;
+                    return static_cast<int64_t>(std::strtoll(ptr, &end, 16));
+                }
+
+                int64_t res = 0;
+                int sign = 1;
+                
+                if (*ptr == '-') { sign = -1; ptr++; } 
+                else if (*ptr == '+') { ptr++; }
+                
+                bool found_digit = false;
+                while (*ptr >= '0' && *ptr <= '9') {
+                    res = res * 10 + (*ptr - '0');
+                    ptr++;
+                    found_digit = true;
+                }
+                
+                if (found_digit) return res * sign;
+                return 0;
             }
-
-            if (sv.size() >= 2 && sv.front() == '0') {
-                char indicator = to_lower(sv[1]);
-                if (indicator == 'x') { base = 16; sv.remove_prefix(2); }
-                else if (indicator == 'b') { base = 2; sv.remove_prefix(2); }
-                else if (indicator == 'o') { base = 8; sv.remove_prefix(2); }
-            }
-
-            if (sv.empty()) return 0;
-
-            int64_t result = 0;
-            auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), result, base);
-
-            if (ec == std::errc::result_out_of_range) [[unlikely]] {
-                return negative ? i64_limits::min() : i64_limits::max();
-            }
-            
-            return negative ? -result : result;
+            return 0;
         },
         [](auto&&) -> int64_t { return 0; }
     );
@@ -88,35 +94,34 @@ inline double to_float(param_t value) noexcept {
         [](int_t i) -> double { return static_cast<double>(i); },
         [](float_t f) -> double { return f; },
         [](bool_t b) -> double { return b ? 1.0 : 0.0; },
-        [](string_t s) -> double {
-            std::string_view sv = s->c_str();
-            sv = trim_whitespace(sv);
-            if (sv.empty()) return 0.0;
-            auto is_case_insensitive = [](std::string_view a, std::string_view b) {
-                return std::ranges::equal(a, b, [](char c1, char c2) {
-                    return to_lower(c1) == to_lower(c2);
-                });
-            };
+        
+        [](object_t obj) -> double {
+            if (!obj) return 0.0;
 
-            if (is_case_insensitive(sv, "nan")) return std::numeric_limits<double>::quiet_NaN();
-            
-            bool negative = (sv.front() == '-');
-            std::string_view temp_sv = sv;
-            if (negative || sv.front() == '+') temp_sv.remove_prefix(1);
+            if (obj->get_type() == ObjectType::STRING) {
+                string_t s = reinterpret_cast<string_t>(obj);
+                std::string_view sv = s->c_str();
+                sv = trim_whitespace(sv);
+                if (sv.empty()) return 0.0;
+                
+                if (sv == "NaN" || sv == "nan") return std::numeric_limits<double>::quiet_NaN();
+                if (sv == "Infinity" || sv == "inf") return std::numeric_limits<double>::infinity();
+                if (sv == "-Infinity" || sv == "-inf") return -std::numeric_limits<double>::infinity();
 
-            if (is_case_insensitive(temp_sv, "infinity") || is_case_insensitive(temp_sv, "inf")) {
-                return negative ? -std::numeric_limits<double>::infinity() : std::numeric_limits<double>::infinity();
+                double result = 0.0;
+                auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), result);
+                
+                if (ec == std::errc::result_out_of_range) {
+                    return (sv.front() == '-') ? -std::numeric_limits<double>::infinity() 
+                                               : std::numeric_limits<double>::infinity();
+                }
+                if (ec == std::errc::invalid_argument) {
+                    char* end;
+                    result = std::strtod(s->c_str(), &end);
+                }
+                return result;
             }
-
-            double result = 0.0;
-            auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), result, std::chars_format::general);
-
-            if (ec == std::errc::result_out_of_range) [[unlikely]] {
-                return (sv.front() == '-') ? -std::numeric_limits<double>::infinity() 
-                                           : std::numeric_limits<double>::infinity();
-            }
-            
-            return result;
+            return 0.0;
         },
         [](auto&&) -> double { return 0.0; }
     );
@@ -128,9 +133,21 @@ inline bool to_bool(param_t value) noexcept {
         [](int_t i) -> bool { return i != 0; },
         [](float_t f) -> bool { return f != 0.0 && !std::isnan(f); },
         [](bool_t b) -> bool { return b; },
-        [](string_t s) -> bool { return !s->empty(); },
-        [](array_t a) -> bool { return !a->empty(); },
-        [](hash_table_t o) -> bool { return !o->empty(); },
+        
+        [](object_t obj) -> bool {
+            if (!obj) return false;
+
+            switch(obj->get_type()) {
+                case ObjectType::STRING:
+                    return !reinterpret_cast<string_t>(obj)->empty();
+                case ObjectType::ARRAY:
+                    return !reinterpret_cast<array_t>(obj)->empty();
+                case ObjectType::HASH_TABLE:
+                    return !reinterpret_cast<hash_table_t>(obj)->empty();
+                default:
+                    return true;
+            }
+        },
         [](auto&&) -> bool { return true; }
     );
 }
@@ -146,9 +163,7 @@ inline void object_to_string(object_t obj, std::string& out) noexcept {
     
     switch (obj->get_type()) {
         case ObjectType::STRING:
-            // out.push_back('"');
             out += reinterpret_cast<string_t>(obj)->c_str();
-            // out.push_back('"');
             break;
 
         case ObjectType::ARRAY: {
@@ -168,7 +183,7 @@ inline void object_to_string(object_t obj, std::string& out) noexcept {
             bool first = true;
             for (const auto& [key, val] : *hash) {
                 if (!first) out += ", ";
-                std::format_to(std::back_inserter(out), "\"{}\": {}", key->c_str(), meow::to_string(val));
+                std::format_to(std::back_inserter(out), "{}: {}", key->c_str(), meow::to_string(val));
                 first = false;
             }
             out.push_back('}');
@@ -226,7 +241,7 @@ inline void object_to_string(object_t obj, std::string& out) noexcept {
             break;
     }
 }
-}
+} // namespace detail
 
 inline std::string to_string(param_t value) noexcept {
     return value.visit(
@@ -249,4 +264,4 @@ inline std::string to_string(param_t value) noexcept {
     );
 }
 
-}
+} // namespace meow

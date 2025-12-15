@@ -1,0 +1,12 @@
+let x = 10
+let y = x + 5
+
+fn greet(name) {
+    print("Hello " + name)
+}
+
+if (y > 10) {
+    greet("Cat")
+} else {
+    print("Too small")
+}
