@@ -1,0 +1,163 @@
+import * as Emitter from "backend/emitter.meow";
+import { OpCodes } from "backend/opCodes.meow";
+
+fn getRegArgIndices(opcode) {
+    return Emitter.getRegArgIndices(opcode);
+}
+
+// Hàm này sẽ tối ưu hóa một proto và trả về bảng ánh xạ vReg -> pReg
+fn optimizeProtoAndGetMapping(proto) {
+    let code = proto.code;
+    if (code.size() == 0) {
+        proto.numRegisters = 0;
+        return {}; // Trả về map rỗng
+    }
+    
+    // Bước 1: Phân tích Live Range (tìm lần sử dụng cuối cùng)
+    let vRegLastUse = {};
+    let allVRegs = {};
+    
+    for (let ip = 0; ip < code.size(); ++ip) {
+        let inst = code[ip];
+        let regIdxs = getRegArgIndices(inst.op);
+        if (regIdxs == null) continue;
+
+        let args = inst.args;
+        for (let i = 0; i < regIdxs.size(); ++i) {
+            let argIndex = regIdxs[i];
+            if (argIndex >= args.size()) continue;
+            let vReg = args[argIndex];
+
+            if (typeof(vReg) != "int") continue;
+            
+            let sReg = str(vReg);
+            allVRegs[sReg] = true;
+            let isDestinationReg = (i == 0) && (inst.op != OpCodes.JUMP_IF_FALSE) && (inst.op != OpCodes.JUMP_IF_TRUE) && (inst.op != OpCodes.SETUP_TRY) && (inst.op != OpCodes.SET_GLOBAL) && (inst.op != OpCodes.SET_UPVALUE) && (inst.op != OpCodes.SET_PROP) && (inst.op != OpCodes.SET_INDEX) && (inst.op != OpCodes.EXPORT) && (inst.op != OpCodes.RETURN);
+
+            if (!isDestinationReg) {
+                vRegLastUse[sReg] = ip;
+            }
+        }
+    }
+    
+    // Bước 2: Chuẩn bị cho Linear Scan (Sắp xếp các khoảng sống)
+    let intervals = [];
+    let vRegs = allVRegs.keys();
+    vRegs.sort(fn(a, b) { return int(a) - int(b); });
+    
+    for (let i = 0; i < vRegs.size(); ++i) {
+        let sReg = vRegs[i];
+        intervals.push({ 
+            vReg: int(sReg), 
+            sReg: sReg,
+            start: i,
+            end: vRegLastUse[sReg] != null ? vRegLastUse[sReg] : i,
+        });
+    }
+
+    // Bước 3: Linear Scan
+    let active = [];
+    let vToNewReg = {};
+    let freeRegs = [];
+    let nextNewReg = 0;
+
+    for (let i = 0; i < intervals.size(); ++i) {
+        let interval = intervals[i];
+        let newActive = [];
+        for (let j = 0; j < active.size(); ++j) {
+            let activeInterval = active[j];
+            if (activeInterval.end < interval.start) { 
+                freeRegs.push(vToNewReg[activeInterval.sReg]);
+            } else {
+                newActive.push(activeInterval);
+            }
+        }
+        active = newActive;
+        
+        let newReg;
+        if (freeRegs.size() > 0) {
+            freeRegs.sort(fn(a, b) { return a - b; });
+            newReg = freeRegs[0];
+            let newFreeRegs = [];
+            for (let k = 1; k < freeRegs.size(); ++k) newFreeRegs.push(freeRegs[k]);
+            freeRegs = newFreeRegs;
+        } else {
+            newReg = nextNewReg++;
+        }
+        
+        vToNewReg[interval.sReg] = newReg;
+        active.push(interval);
+        active.sort(fn(a, b) { return a.end - b.end; });
+    }
+    
+    // Bước 4: Áp dụng ánh xạ lên Bytecode
+    for (inst in code) {
+        let regIdxs = getRegArgIndices(inst.op);
+        if (regIdxs == null) continue;
+
+        for (argIndex in regIdxs) {
+            if (argIndex >= inst.args.size()) continue;
+            let vReg = inst.args[argIndex];
+
+            if (typeof(vReg) == "int") {
+                let sReg = str(vReg);
+                let newReg = vToNewReg[sReg];
+                if (newReg != null) {
+                    inst.args[argIndex] = newReg;
+                }
+            }
+        }
+    }
+    
+    // Bước 5: Cập nhật thông tin Proto
+    proto.numRegisters = Emitter.computeMaxRegister(proto) + 1;
+    return vToNewReg;
+}
+
+// Hàm chính được export, điều phối 2 giai đoạn
+export fn optimizeRegisters(protos) {
+    let allMappings = {};
+    let protoNames = protos.keys();
+    protoNames.sort(); // Sắp xếp để đảm bảo thứ tự xử lý nhất quán
+
+    // GIAI ĐOẠN 1: Tối ưu hóa bytecode và thu thập bảng ánh xạ
+    for (pName in protoNames) {
+        let proto = protos[pName];
+        allMappings[pName] = optimizeProtoAndGetMapping(proto);
+    }
+
+    // GIAI ĐOẠN 2: Dùng các bảng ánh xạ để vá lại upvalueDescs
+    for (pName in protoNames) {
+        let parentProto = protos[pName];
+        if (!parentProto || !parentProto.constantPool) continue;
+
+        let parentMap = allMappings[pName];
+        if (!parentMap) continue;
+
+        for (constant in parentProto.constantPool) {
+            // Kiểm tra xem hằng số có phải là một hàm con không
+            if (typeof(constant) == "object" && constant != null && constant.sourceName) {
+                let childProto = protos[constant.sourceName];
+
+                if (childProto && childProto.upvalueDescs) {
+                    for (desc in childProto.upvalueDescs) {
+                        // Nếu upvalue này là một biến local của hàm cha
+                        if (desc.isLocal) {
+                            let oldVirtualReg = desc.index;
+                            let newPhysicalReg = parentMap[str(oldVirtualReg)];
+
+                            if (newPhysicalReg != null) {
+                                // Cập nhật lại chỉ số thành số hiệu thanh ghi vật lý mới
+                                desc.index = newPhysicalReg;
+                            } else {
+                                print("[WARN] Optimizer: Không tìm thấy ánh xạ cho upvalue vReg " + str(oldVirtualReg) + " từ hàm " + pName);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return protos;
+}

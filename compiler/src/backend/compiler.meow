@@ -1,0 +1,149 @@
+import * as Io from "io";
+import * as Json from "json";
+import * as System from "system";
+import { Lexer } from "frontend/lexer.meow";
+import { Parser } from "frontend/parser.meow";
+import { Preprocessor } from "frontend/preprocessor.meow";
+import { ScopeAnalyzer } from "middle-end/scopeAnalyzer.meow";
+import { BytecodeStringifier } from "backend/bytecodeStringifier.meow";
+import { CodeGenerator } from "backend/codeGenerator.meow";
+import { getDirectoryPath, isAbsolutePath } from "backend/utils/pathUtils.meow";
+
+export class Compiler {
+    fn init(options) {
+        this.options = options || {};
+    }
+
+    fn getImportsOnly(absolutePath) {
+        if (!Io.fileExists(absolutePath)) {
+            print("[ERROR] getImportsOnly: File nguồn không tồn tại: " + absolutePath);
+            return [];
+        }
+        let source = Io.read(absolutePath);
+        if (source == null) {
+            print("[ERROR] getImportsOnly: Không thể đọc file nguồn: " + absolutePath);
+            return [];
+        }
+
+        let preprocessor = new Preprocessor();
+        let processedSource = preprocessor.process(source, absolutePath);
+        let lexer = new Lexer(processedSource, absolutePath);
+        let tokens = lexer.tokenize();
+        let parser = new Parser(tokens);
+        let ast = parser.parseProgram();
+        if (parser.diagnostics.size() > 0) {
+            for (diagnostic in parser.diagnostics) {
+                print(diagnostic);
+            }
+            print("[ERROR] compileFile: Dừng biên dịch do có lỗi cú pháp.");
+            System.exit(1);
+        }
+        if (!ast) {
+            print("[ERROR] getImportsOnly: Không thể parse AST: " + absolutePath);
+            return [];
+        }
+        
+        let sourceDir = getDirectoryPath(absolutePath);
+        let imports = this._extractImportsFromAST(ast, sourceDir);
+        return imports;
+    }
+
+
+    fn compileFile(absolutePath, cacheManager) {
+        if (!Io.fileExists(absolutePath)) {
+            print("[ERROR] File nguồn không tồn tại: " + absolutePath);
+            System.exit(1);
+        }
+
+        let source = Io.read(absolutePath);
+        if (source == null) {
+            print("[ERROR] Không thể đọc file nguồn: " + absolutePath);
+            System.exit(1);
+        }
+
+        let preprocessor = new Preprocessor();
+        let processedSource = preprocessor.process(source, absolutePath);
+        let lexer = new Lexer(processedSource, absolutePath);
+        let tokens = lexer.tokenize();
+        let parser = new Parser(tokens);
+        let ast = parser.parseProgram();
+        if (parser.diagnostics.size() > 0) {
+            for (diagnostic in parser.diagnostics) {
+                print(diagnostic);
+            }
+            print("[ERROR] getImportsOnly: Dừng lại do có lỗi cú pháp.");
+            return [];
+        }
+        if (!ast) {
+            print("[ERROR] Meta.compile trả về null/undefined cho: " + absolutePath);
+            System.exit(1);
+        }
+        let analyzer = new ScopeAnalyzer(ast);
+        analyzer.analyze();
+        
+        let sourceDir = getDirectoryPath(absolutePath);
+        let imports = this._extractImportsFromAST(ast, sourceDir);
+        
+        let generator = CodeGenerator(ast, this, cacheManager, absolutePath);
+        let protos = generator.compile();
+
+        let stringifier = BytecodeStringifier();
+        let bytecodeText = stringifier.stringify(protos);
+
+        return {
+            "bytecodeText": bytecodeText,
+            "imports": imports
+        };
+    }
+
+    fn _resolvePath(p, importerDir) {
+        if (isAbsolutePath(p)) return Io.getAbsolutePath(p);
+        let absImporter = null;
+        if (importerDir && importerDir.size() > 0) {
+            absImporter = Io.getAbsolutePath(importerDir);
+        }
+
+        let isExplicitRelative = false;
+        if (p.startsWith("./") || p.startsWith("../")) isExplicitRelative = true;
+        let candidates = [];
+        if (isExplicitRelative && absImporter) {
+            candidates.push(absImporter + "/" + p);
+        }
+
+        if (this && this.options && this.options.includePaths) {
+            for (ip in this.options.includePaths) {
+                candidates.push(Io.getAbsolutePath(ip) + "/" + p);
+            }
+        }
+
+        candidates.push(Io.getAbsolutePath(".") + "/" + p);
+        candidates.push(p);
+        let tryWithExt = !p.endsWith(".meow");
+        for (cand in candidates) {
+            let absCand = Io.getAbsolutePath(cand);
+            if (Io.fileExists(absCand)) return absCand;
+            if (tryWithExt) {
+                let absExt = Io.getAbsolutePath(cand + ".meow");
+                if (Io.fileExists(absExt)) return absExt;
+            }
+        }
+
+        if (isExplicitRelative && absImporter) return Io.getAbsolutePath(absImporter + "/" + p);
+        if (absImporter && !isExplicitRelative) return Io.getAbsolutePath(absImporter + "/" + p);
+        return Io.getAbsolutePath(p);
+    }
+
+    fn _extractImportsFromAST(ast, sourceDir) {
+        let imports = [];
+        if (!ast || !ast.body) return imports;
+        for (stmt in ast.body) {
+            if (stmt.type == "ImportStatement") {
+                let dependencyPath = stmt.path.value;
+                if (dependencyPath.endsWith(".meow")) {
+                    imports.push(this._resolvePath(dependencyPath, sourceDir));
+                }
+            }
+        }
+        return imports;
+    }
+}

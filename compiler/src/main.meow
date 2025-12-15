@@ -1,0 +1,62 @@
+import * as System from "system";
+import * as Io from "io";
+import * as String from "string";
+import { Compiler } from "backend/compiler.meow";
+import { CacheManager } from "backend/cacheManager.meow";
+
+let argv = System.argv();
+if (argv.size() <= 2) {
+    print("Usage: meow-vm (meow-alpha or anything else) <launcher-script> <entry.meow> [flags] [-- runtime-args]");
+    print("Flags: --nocache --out <path> --force --run --vm <vm-path>");
+    System.exit(42);
+}
+
+let startIndex = 2;
+let entrypoint = null;
+let isNoCache = false;
+let options = { includePaths: ["src"] };
+let runtimeArgs = [];
+let shouldRun = false;
+for (let i = startIndex; i < argv.size(); ++i) {
+    let a = argv[i];
+    if (a == "--") {
+        runtimeArgs = argv.slice(i + 1);
+        break;
+    }
+    if (entrypoint == null && !(a.startsWith("-"))) {
+        entrypoint = a;
+        continue;
+    }
+    if (a == "--nocache") isNoCache = true;
+    else if (a == "--force") options.force = true;
+    else if (a == "--out" && i + 1 < argv.size()) { options.out = argv[i + 1]; ++i; }
+    else if (a == "--include" && i + 1 < argv.size()) { options.includePaths.push(argv[i + 1]); ++i; }
+    else if (a == "--vm" && i + 1 < argv.size()) { options.vm = argv[i + 1]; ++i; }
+    else if (a == "--buildDir" && i + 1 < argv.size()) { options.buildDir = argv[i + 1]; ++i; }
+    else if (a == "--run") shouldRun = true;
+    else {
+
+    }
+}
+
+if (entrypoint == null) {
+    print("Error: Không tìm thấy entrypoint (.meow).");
+    System.exit(43);
+}
+
+let compiler = Compiler(options); 
+let cacheManager = CacheManager(compiler, isNoCache, options);
+
+let entryCachePath = cacheManager.compileProject(entrypoint);
+
+if (shouldRun) {
+    let vmPath = options.vm || "./bin/meow-vm";
+    let cmd = vmPath + " " + entryCachePath;
+    if (runtimeArgs.size() > 0) {
+        cmd = cmd + " " + String.join(" ", runtimeArgs);
+    }
+    print("Chạy: " + cmd);
+    let code = System.exec(cmd);
+    print("\n✅ Hoàn thành chạy (exit code: " + code + ")");
+} else {
+}
