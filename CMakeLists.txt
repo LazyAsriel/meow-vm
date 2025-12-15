@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(meow-vm VERSION 0.1.0 LANGUAGES CXX)
+project(meow-vm VERSION 0.0.1 LANGUAGES CXX)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
 set(CMAKE_CXX_STANDARD 23)

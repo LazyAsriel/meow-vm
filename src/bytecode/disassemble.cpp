@@ -1,9 +1,9 @@
-#include <meow/compiler/disassemble.h>
+#include <meow/bytecode/disassemble.h>
 #include <meow/definitions.h>
 #include <meow/core/objects.h>
-#include <meow/compiler/op_codes.h>
+#include <meow/bytecode/op_codes.h>
 #include <meow/value.h>
-#include <meow/compiler/chunk.h>
+#include <meow/bytecode/chunk.h>
 
 #include <format> // C++20/23: Nhanh hơn rất nhiều so với iostream
 #include <vector>

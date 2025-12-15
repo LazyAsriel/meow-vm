@@ -1,7 +1,7 @@
 #pragma once
 #include "emitter.h"
 #include <meow/value.h>
-#include <meow/compiler/op_codes.h>
+#include <meow/bytecode/op_codes.h>
 #include <vector>
 #include <unordered_map>
 

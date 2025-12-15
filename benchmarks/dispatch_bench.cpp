@@ -16,8 +16,8 @@
 #pragma clang diagnostic pop
 
 #include <meow/memory/memory_manager.h>
-#include <meow/compiler/chunk.h>
-#include <meow/compiler/op_codes.h>
+#include <meow/bytecode/chunk.h>
+#include <meow/bytecode/op_codes.h>
 #include <meow/config.h> // [CHANGE]
 
 using namespace meow;

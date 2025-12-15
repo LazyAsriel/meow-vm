@@ -4,7 +4,7 @@
 #include <vector>
 #include <unordered_map>
 #include <string_view>
-#include <meow/compiler/op_codes.h>
+#include <meow/bytecode/op_codes.h>
 
 namespace meow::masm {
 

@@ -2,7 +2,7 @@
 
 #include "pch.h"
 #include <meow/definitions.h>
-#include <meow/compiler/chunk.h>
+#include <meow/bytecode/chunk.h>
 #include <meow/core/function.h>
 #include <meow/core/module.h> // Cần để dùng module_t
 

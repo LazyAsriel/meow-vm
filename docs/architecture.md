@@ -1,21 +1,29 @@
 # 🏛️ MEOW-VM ARCHITECTURE & INTERNALS
 
-> **Phiên bản:** 1.0 (Draft)  
-> **Ngôn ngữ:** C++23  
-> **Kiến trúc:** Register-based VM + Template JIT (x64)  
+> **Phiên bản:** 1.0 (Draft)
+> **Ngôn ngữ:** C++23
+> **Kiến trúc:** Register-based VM + Template JIT (x64)
 > **Mục tiêu:** Máy ảo ngôn ngữ động hiệu năng cao, tối ưu hóa bộ nhớ.
 
 ---
 
 ## 1. 🗺️ Tổng quan hệ thống (System Overview)
 
-`meow-vm` không chỉ là một trình thông dịch (interpreter) đơn thuần, mà là một hệ thống runtime hoàn chỉnh bao gồm:
-1.  **Compiler Chain:** Từ Source (`.meow`) -> Assembly (`masm`) -> Bytecode (`.meowc`).
-2.  **Smart Loader:** Linker tĩnh giúp tối ưu hóa truy cập global và constant ngay thời điểm load.
-3.  **High-Performance Runtime:**
-    * **Direct Threaded Code:** Dispatch lệnh cực nhanh bằng `[[clang::musttail]]`.
-    * **JIT Compiler:** Biến mã nóng (hot code) thành mã máy x64 native.
-    * **Generational GC:** Quản lý bộ nhớ tự động hiệu quả, giảm pause time.
+`meow-vm` là một hệ thống runtime hiệu năng cao, được thiết kế tối ưu cho việc thực thi ngôn ngữ MeowScript. Hệ thống hoạt động dựa trên sự phân tách rõ ràng giữa mã nguồn và mã thực thi:
+
+### 1.1. Các định dạng file (File Formats)
+Hệ thống sử dụng 3 định dạng file chính trong chuỗi biên dịch:
+1.  **`.meow` (Source Code):** Mã nguồn bậc cao (High-level). Dễ đọc, dễ viết, dành cho lập trình viên (human-readable).
+2.  **`.meowb` (Assembly Text):** Mã hợp ngữ trung gian (Intermediate Representation). Đây là biểu diễn dạng văn bản của bytecode, giúp việc debug hoặc viết mã thủ công trở nên minh bạch trước khi đóng gói.
+3.  **`.meowc` (Binary Bytecode):** Định dạng nhị phân cuối cùng. Được trình `masm` (Meow Assembler) tối ưu hóa, nén gọn và có cấu trúc để VM có thể nạp trực tiếp vào bộ nhớ (Zero-copy loading) với tốc độ cao nhất.
+
+### 1.2. Thành phần cốt lõi (Core Components)
+Ngoài chuỗi Compiler, `meow-vm` bao gồm các thành phần runtime mạnh mẽ:
+* **Smart Loader:** Linker tĩnh giúp giải quyết các tham chiếu global và constant pool ngay thời điểm load file `.meowc`.
+* **High-Performance Runtime:**
+    * **Direct Threaded Code:** Dispatch lệnh cực nhanh bằng kỹ thuật `[[clang::musttail]]`.
+    * **JIT Compiler:** Biến mã nóng (hot code) từ bytecode thành mã máy x64 native.
+    * **Generational GC:** Quản lý bộ nhớ tự động theo thế hệ (Young/Old), giảm thiểu thời gian "ngưng đọng" (pause time).
 
 ---
 
@@ -39,7 +47,7 @@ root/
 │   ├── definitions.h       # Các định nghĩa kiểu dữ liệu cơ bản (ValueType)
 │   ├── machine.h           # Class chính điều khiển máy ảo
 │   ├── value.h             # Cấu trúc dữ liệu Value (NaN Boxing)
-│   ├── compiler/           # Interface Compiler
+│   ├── bytecode/           # Bytecode format & tooling interface
 │   │   ├── chunk.h         # Mảng bytecode và constant pool
 │   │   ├── disassemble.h   # Công cụ dịch ngược bytecode -> text
 │   │   └── op_codes.h      # Danh sách các lệnh (Instruction Set)
@@ -64,7 +72,7 @@ root/
 ├── src/                    # [Implementation] Mã nguồn thực thi
 │   ├── pch.h               # Precompiled Header (Tăng tốc build)
 │   ├── cli/                # Giao diện dòng lệnh (meow-vm.exe)
-│   ├── compiler/           # Logic Compiler & Loader
+│   ├── bytecode/           # Bytecode loader & tools
 │   │   ├── disassemble.cpp # Triển khai Disassembler
 │   │   └── loader.cpp      # Đọc và link file .meowc
 │   ├── core/               # Logic của các Object (Shape, Object tracing)
@@ -107,50 +115,50 @@ root/
 │           └── ...
 └── tests/                  # Test cases (.meow source & .meowb binary)
 
------
+---
 
-## 3\. 🧠 Kiến trúc chi tiết (Detailed Architecture)
+## 3. 🧠 Kiến trúc chi tiết (Detailed Architecture)
 
 ### 3.1. Memory Model (Mô hình bộ nhớ)
 
-  * **NaN Boxing (64-bit):** Giá trị (`Value`) chỉ tốn 8 bytes.
-      * `Double`: IEEE 754 chuẩn.
-      * `Int/Bool/Null`: Dùng các bit NaN để đánh dấu (Tagging).
-      * `Pointer`: Con trỏ 48-bit được nhúng vào payload của NaN.
-  * **Heap & Allocator:**
-      * Sử dụng **Arena Allocator** để cấp phát nhanh (bump pointer).
-      * **String Interning:** Chuỗi giống nhau chỉ lưu 1 bản sao (tiết kiệm RAM, so sánh nhanh).
+* **NaN Boxing (64-bit):** Giá trị (`Value`) chỉ tốn 8 bytes.
+    * `Double`: IEEE 754 chuẩn.
+    * `Int/Bool/Null`: Dùng các bit NaN để đánh dấu (Tagging).
+    * `Pointer`: Con trỏ 48-bit được nhúng vào payload của NaN.
+* **Heap & Allocator:**
+    * Sử dụng **Arena Allocator** để cấp phát nhanh (bump pointer).
+    * **String Interning:** Chuỗi giống nhau chỉ lưu 1 bản sao (tiết kiệm RAM, so sánh nhanh).
 
 ### 3.2. Garbage Collector (GC)
 
-  * **Chiến lược:** **Generational GC** (Thế hệ).
-      * **Young Gen:** Chứa object mới sinh. Thu gom thường xuyên (Minor GC).
-      * **Old Gen:** Chứa object sống lâu. Thu gom ít hơn (Major GC).
-      * **Remembered Set & Write Barrier:** Theo dõi các tham chiếu từ Old -\> Young để tránh quét toàn bộ Heap.
+* **Chiến lược:** **Generational GC** (Thế hệ).
+    * **Young Gen:** Chứa object mới sinh. Thu gom thường xuyên (Minor GC).
+    * **Old Gen:** Chứa object sống lâu. Thu gom ít hơn (Major GC).
+    * **Remembered Set & Write Barrier:** Theo dõi các tham chiếu từ Old -> Young để tránh quét toàn bộ Heap.
 
 ### 3.3. Execution Engine (Bộ máy thực thi)
 
-  * **Stack:** VM dùng một mảng `Value` lớn làm Stack (`ExecutionContext::stack_`).
-  * **Call Frame:** Mỗi hàm gọi tạo ra một `CallFrame` trỏ vào vùng Stack của nó.
-  * **Interpreter Loop:**
-      * **Argument Threading:** Truyền trực tiếp `regs`, `constants` vào hàm handler để tối ưu thanh ghi CPU.
-      * **Computed Goto:** Dùng `dispatch_table` và `[[clang::musttail]]` để nhảy tới lệnh tiếp theo mà không cần `return` hay `break`.
+* **Stack:** VM dùng một mảng `Value` lớn làm Stack (`ExecutionContext::stack_`).
+* **Call Frame:** Mỗi hàm gọi tạo ra một `CallFrame` trỏ vào vùng Stack của nó.
+* **Interpreter Loop:**
+    * **Argument Threading:** Truyền trực tiếp `regs`, `constants` vào hàm handler để tối ưu thanh ghi CPU.
+    * **Computed Goto:** Dùng `dispatch_table` và `[[clang::musttail]]` để nhảy tới lệnh tiếp theo mà không cần `return` hay `break`.
 
 ### 3.4. JIT Compiler (x64)
 
-  * **Type:** **Template JIT** (Copy đoạn mã máy có sẵn ghép lại).
-  * **Register Mapping:** 5 thanh ghi ảo đầu tiên của VM (`R0`-`R4`) được map cứng vào thanh ghi vật lý (`RBX`, `R12`-`R15`) để tốc độ truy cập cực nhanh.
-  * **Optimizations:**
-      * **Instruction Fusion:** Gộp lệnh so sánh (`CMP`) và nhảy (`JCC`) thành một khối.
-      * **Loop Peeling/Rotation:** Tối ưu hóa vòng lặp bằng cách xoay cấu trúc nhảy.
-      * **Fast Path:** Sinh mã máy chuyên biệt cho trường hợp `Int32` (cộng trừ nhân chia nhanh hơn Double).
+* **Type:** **Template JIT** (Copy đoạn mã máy có sẵn ghép lại).
+* **Register Mapping:** 5 thanh ghi ảo đầu tiên của VM (`R0`-`R4`) được map cứng vào thanh ghi vật lý (`RBX`, `R12`-`R15`) để tốc độ truy cập cực nhanh.
+* **Optimizations:**
+    * **Instruction Fusion:** Gộp lệnh so sánh (`CMP`) và nhảy (`JCC`) thành một khối.
+    * **Loop Peeling/Rotation:** Tối ưu hóa vòng lặp bằng cách xoay cấu trúc nhảy.
+    * **Fast Path:** Sinh mã máy chuyên biệt cho trường hợp `Int32` (cộng trừ nhân chia nhanh hơn Double).
 
 ### 3.5. Object System (OOP)
 
-  * **Hidden Classes (Shapes):** Thay vì dùng Hash Map cho mọi object, VM dùng `Shape` để map tên thuộc tính sang offset mảng.
-  * **Inline Caching (IC):** Tại các điểm truy cập thuộc tính (`GET_PROP`), VM cache lại `Shape` và `Offset`.
-      * *Lần đầu:* Tra cứu chậm -\> Lưu kết quả vào Cache tại chỗ (trong bytecode).
-      * *Lần sau:* Kiểm tra nhanh `Shape` -\> Nếu khớp -\> Lấy giá trị ngay lập tức (O(1)).
+* **Hidden Classes (Shapes):** Thay vì dùng Hash Map cho mọi object, VM dùng `Shape` để map tên thuộc tính sang offset mảng.
+* **Inline Caching (IC):** Tại các điểm truy cập thuộc tính (`GET_PROP`), VM cache lại `Shape` và `Offset`.
+    * *Lần đầu:* Tra cứu chậm -> Lưu kết quả vào Cache tại chỗ (trong bytecode).
+    * *Lần sau:* Kiểm tra nhanh `Shape` -> Nếu khớp -> Lấy giá trị ngay lập tức (O(1)).
 
 ### 3.6. Native Extension & FFI
 MeowVM hỗ trợ mở rộng không giới hạn thông qua C++.
@@ -163,33 +171,33 @@ Mô hình xử lý lỗi dựa trên Stack Unwinding:
 * **Table-based Try-Catch:** Opcode `SETUP_TRY` ghi lại trạng thái Stack và Instruction Pointer (IP) vào bảng handler.
 * **Unwinding:** Khi `THROW`, VM tìm handler gần nhất, đóng các `Open Upvalue` (để tránh memory leak), lùi Stack Frame và nhảy tới `catch_ip`.
 
------
+---
 
-## 4\. 🔄 Luồng dữ liệu (Data Flow Pipeline)
+## 4. 🔄 Luồng dữ liệu (Data Flow Pipeline)
 
 1.  **Source Code (`.meow`)**
-      * Code người dùng viết.
+    * Code người dùng viết.
 2.  **Assembler (`masm`)**
-      * Lexer -\> Tokenizer -\> Parser -\> Code Gen.
-      * Output: Binary file `.meowc` (chứa Header, Constant Pool, Bytecode).
+    * Lexer -> Tokenizer -> Parser -> Code Gen.
+    * Output: Binary file `.meowc` (chứa Header, Constant Pool, Bytecode).
 3.  **VM Loader**
-      * Đọc `.meowc`.
-      * **Static Linking:** Vá các lệnh `GET_GLOBAL` để trỏ trực tiếp vào index bộ nhớ (bỏ qua bước tra cứu tên chuỗi lúc runtime).
+    * Đọc `.meowc`.
+    * **Static Linking:** Vá các lệnh `GET_GLOBAL` để trỏ trực tiếp vào index bộ nhớ (bỏ qua bước tra cứu tên chuỗi lúc runtime).
 4.  **Runtime Execution**
-      * Khởi tạo `Machine`, `GC`, `Context`.
-      * Load `native` modules (print, io...).
-      * Chạy `Interpreter` hoặc `JIT` tùy cấu hình.
+    * Khởi tạo `Machine`, `GC`, `Context`.
+    * Load `native` modules (print, io...).
+    * Chạy `Interpreter` hoặc `JIT` tùy cấu hình.
 
------
+---
 
-## 5\. 🛠️ Quy tắc phát triển (Development Guidelines)
+## 5. 🛠️ Quy tắc phát triển (Development Guidelines)
 
 ### Code Style
 
-  * Sử dụng **Google C++ Style Guide**.
-  * Indent: 4 spaces.
-  * Column Limit: 200 ký tự (cho thoải mái).
-  * Luôn dùng `clang-format` trước khi commit.
+* Sử dụng **Google C++ Style Guide**.
+* Indent: 4 spaces.
+* Column Limit: 200 ký tự (cho thoải mái).
+* Luôn dùng `clang-format` trước khi commit.
 
 ### Performance Rules
 
@@ -198,6 +206,6 @@ Mô hình xử lý lỗi dựa trên Stack Unwinding:
 3.  **Memory:** Tránh cấp phát (`new`/`malloc`) trong vòng lặp chính của VM.
 4.  **Inline:** Sử dụng `[[gnu::always_inline]]` cho các hàm handler nhỏ.
 
------
+---
 
-*Tài liệu này được cập nhật tự động dựa trên source code phiên bản `0.1.0`.*
+*Tài liệu này được cập nhật tự động dựa trên source code phiên bản `0.0.1`.*

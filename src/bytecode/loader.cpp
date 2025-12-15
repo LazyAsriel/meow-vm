@@ -1,12 +1,12 @@
-#include "compiler/loader.h"
+#include "bytecode/loader.h"
 #include <meow/memory/memory_manager.h>
 #include <meow/memory/gc_disable_guard.h>
 #include <meow/core/string.h>
 #include <meow/core/function.h>
 #include <meow/core/module.h>
 #include <meow/value.h>
-#include <meow/compiler/chunk.h>
-#include <meow/compiler/op_codes.h>
+#include <meow/bytecode/chunk.h>
+#include <meow/bytecode/op_codes.h>
 #include <unordered_set>
 #include <cstring> // memcpy
 #include <bit>     // bit_cast

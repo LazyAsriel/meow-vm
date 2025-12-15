@@ -2,6 +2,7 @@
 #include "vm/stdlib/stdlib.h"
 #include <meow/machine.h>
 #include <meow/memory/memory_manager.h>
+#include <meow/memory/gc_disable_guard.h>
 #include <meow/core/module.h>
 #include <meow/core/hash_table.h>
 #include <meow/core/array.h> // Cần để tạo mảng kết quả
@@ -13,7 +14,8 @@ namespace meow::natives::obj {
         vm->error("Object method expects 'this' to be a Hash Table."); \
         return Value(null_t{}); \
     } \
-    hash_table_t self = argv[0].as_hash_table();
+    hash_table_t self = argv[0].as_hash_table(); \
+    meow::GCDisableGuard guard(vm->get_heap());
 
 static Value keys(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();

@@ -15,7 +15,7 @@
 #include <meow/definitions.h>
 #include <meow/core/objects.h>
 #include <meow/value.h>
-#include "meow/compiler/disassemble.h"
+#include "meow/bytecode/disassemble.h"
 
 namespace meow {
 

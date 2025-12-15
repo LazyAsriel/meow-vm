@@ -7,7 +7,7 @@
 #include <meow/memory/gc_disable_guard.h>
 #include <meow/memory/gc_visitor.h>
 #include "module/module_utils.h"
-#include "compiler/loader.h"
+#include "bytecode/loader.h"
 
 namespace meow {
 

@@ -4,9 +4,9 @@
 #include <meow/definitions.h>
 #include "runtime/execution_context.h"
 #include "runtime/call_frame.h"
-#include <meow/compiler/chunk.h>
+#include <meow/bytecode/chunk.h>
 #include <meow/core/function.h>
-#include <meow/compiler/disassemble.h>
+#include <meow/bytecode/disassemble.h>
 
 namespace meow {
 struct ExecutionContext;

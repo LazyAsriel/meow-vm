@@ -1,5 +1,5 @@
 #include <meow/masm/lexer.h>
-#include <meow/compiler/op_codes.h>
+#include <meow/bytecode/op_codes.h>
 #include <cctype>
 #include <string_view>
 #include <utility>

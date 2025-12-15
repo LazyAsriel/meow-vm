@@ -1,6 +1,6 @@
 // File: src/runtime/operator_dispatcher.h
 #pragma once
-#include <meow/compiler/op_codes.h>
+#include <meow/bytecode/op_codes.h>
 #include <meow/value.h>
 #include <meow/definitions.h>
 

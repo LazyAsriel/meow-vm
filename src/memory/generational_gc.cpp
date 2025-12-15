@@ -68,10 +68,13 @@ size_t GenerationalGC::collect() noexcept {
     context_->trace(*this);
     module_manager_->trace(*this);
     
-    if (old_count_ <= old_gen_threshold_) {
-        for (auto* old_obj : remembered_set_) {
-             old_obj->trace(*this);
+    ObjectMeta* perm = perm_head_;
+    while (perm) {
+        MeowObject* obj = static_cast<MeowObject*>(heap::get_data(perm));
+        if (obj->get_type() != ObjectType::STRING) {
+            mark_object(obj);
         }
+        perm = perm->next_gc;
     }
 
     if (old_count_ > old_gen_threshold_) {

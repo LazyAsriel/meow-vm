@@ -2,6 +2,7 @@
 #include "vm/stdlib/stdlib.h"
 #include <meow/machine.h>
 #include <meow/memory/memory_manager.h>
+#include <meow/memory/gc_disable_guard.h>
 #include <meow/core/module.h>
 #include <meow/core/array.h> // Cho split
 #include <meow/cast.h>       // [FIX] Cần thiết cho to_string()
@@ -16,7 +17,8 @@ namespace meow::natives::str {
         return Value(null_t{}); \
     } \
     string_t self_obj = argv[0].as_string(); \
-    std::string_view self(self_obj->c_str(), self_obj->size());
+    std::string_view self(self_obj->c_str(), self_obj->size()); \
+    meow::GCDisableGuard guard(vm->get_heap());
 
 static Value len(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();

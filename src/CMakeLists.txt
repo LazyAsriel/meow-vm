@@ -1,7 +1,7 @@
 # Gom source code
 file(GLOB_RECURSE CORE_SOURCES 
     "vm/*.cpp"          "vm/*.h"
-    "compiler/*.cpp"    "compiler/*.h"
+    "bytecode/*.cpp"    "bytecode/*.h"
     "memory/*.cpp"      "core/*.cpp"
     "runtime/*.cpp"     "runtime/*.h"
     "jit/*.h"           "module/*.cpp"      

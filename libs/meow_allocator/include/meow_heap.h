@@ -20,7 +20,7 @@ struct alignas(std::max_align_t) ObjectMeta {
 
 class heap {
 private:
-    static constexpr size_t MIN_ALIGN_SHIFT = 3;
+    static constexpr size_t MIN_ALIGN_SHIFT = 4;
     static constexpr size_t MIN_ALIGN = 1 << MIN_ALIGN_SHIFT;
     static constexpr size_t MAX_SMALL_OBJ_SIZE = 256;
     static constexpr size_t META_SIZE = sizeof(ObjectMeta);

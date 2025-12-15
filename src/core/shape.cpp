@@ -28,6 +28,8 @@ Shape* Shape::add_transition(string_t name, MemoryManager* heap) {
 
     transitions_[name] = new_shape;
     
+    heap->write_barrier(this, Value(reinterpret_cast<object_t>(new_shape))); 
+    
     return new_shape;
 }
 

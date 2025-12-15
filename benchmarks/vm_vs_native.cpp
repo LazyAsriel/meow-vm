@@ -14,8 +14,8 @@
 #pragma clang diagnostic pop
 
 #include <meow/memory/memory_manager.h>
-#include <meow/compiler/chunk.h>
-#include <meow/compiler/op_codes.h>
+#include <meow/bytecode/chunk.h>
+#include <meow/bytecode/op_codes.h>
 #include "jit/jit_compiler.h"
 #include "make_chunk.h"
 #include <meow/config.h>
