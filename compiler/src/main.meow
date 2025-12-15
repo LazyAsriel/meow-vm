@@ -6,7 +6,7 @@ import { CacheManager } from "backend/cacheManager.meow";
 
 let argv = System.argv();
 if (argv.size() <= 2) {
-    print("Usage: meow-alpha.exe <launcher-script> <entry.meow> [flags] [-- runtime-args]");
+    print("Usage: meow-vm (meow-alpha or anything else) <launcher-script> <entry.meow> [flags] [-- runtime-args]");
     print("Flags: --nocache --out <path> --force --run --vm <vm-path>");
     System.exit(42);
 }
