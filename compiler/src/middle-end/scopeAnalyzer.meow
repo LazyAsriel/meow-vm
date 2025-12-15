@@ -174,7 +174,6 @@ export class ScopeAnalyzer {
 
     fn visit(node) {
         if (node == null) return;
-        print("Scope Analyzer is visiting node:", node.type);
         let visitorFnName = "visit" + node.type; 
         let visitorFn = this[visitorFnName];
         
@@ -189,7 +188,6 @@ export class ScopeAnalyzer {
                 for (item in child) this.visit(item);
             }
         }
-        print("After visit node: " + node.type + ", node.resolution = " + str(node.resolution));
     }
 
     fn visitProgram(node) {

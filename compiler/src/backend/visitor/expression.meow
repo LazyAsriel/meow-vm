@@ -3,9 +3,7 @@ import { OpCodes } from "backend/opCodes.meow";
 import { TokenType, tokenTypeToString, stringToTokenType } from "frontend/token.meow";
 
 export fn visitIdentifier(cg, node) {
-    if (!node.resolution) {
-        assert(node.resolution, "Lỗi: visitIdentifier không tìm thấy 'resolution' cho '" + node.name + "'! Với node: " + str(node));
-    }
+    assert(node.resolution, "Lỗi: visitIdentifier không tìm thấy 'resolution' cho '" + node.name + "'!");
     let resolution = node.resolution;
     
     let destReg = cg.currentState.allocator.ralloc();
