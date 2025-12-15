@@ -252,12 +252,15 @@ static const uint8_t* impl_SET_PROP(const uint8_t* ip, Value* regs, Value* const
             if (next_shape == nullptr) {
                 next_shape = current_shape->add_transition(name, &state->heap);
             }
+            
             inst->set_shape(next_shape);
+            
+            state->heap.write_barrier(inst, Value(reinterpret_cast<object_t>(next_shape))); 
+
             inst->get_fields_raw().push_back(val);
             state->heap.write_barrier(inst, val);
         }
     }
-    // 2. [FIX] Hash Table (Dictionary / Object Literal)
     else if (obj.is_hash_table()) {
         obj.as_hash_table()->set(name, val);
         state->heap.write_barrier(obj.as_object(), val);
@@ -289,6 +292,7 @@ static const uint8_t* impl_SET_METHOD(const uint8_t* ip, Value* regs, Value* con
         return impl_PANIC(ip, regs, constants, state);
     }
     class_val.as_class()->set_method(name, method_val);
+    state->heap.write_barrier(class_val.as_class(), method_val);
     return ip;
 }
 

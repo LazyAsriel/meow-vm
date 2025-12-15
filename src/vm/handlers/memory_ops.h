@@ -16,10 +16,15 @@ namespace meow::handlers {
 [[gnu::always_inline]] static const uint8_t* impl_SET_GLOBAL(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t global_idx = read_u16(ip);
     uint16_t src = read_u16(ip);
+    Value val = regs[src];
         
-    state->current_module->set_global_by_index(global_idx, regs[src]);
+    state->current_module->set_global_by_index(global_idx, val);
+    
+    state->heap.write_barrier(state->current_module, val);
+    
     return ip;
 }
+
 [[gnu::always_inline]] static const uint8_t* impl_GET_UPVALUE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t uv_idx = read_u16(ip);
@@ -37,13 +42,14 @@ namespace meow::handlers {
 [[gnu::always_inline]] static const uint8_t* impl_SET_UPVALUE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
     uint16_t uv_idx = read_u16(ip);
     uint16_t src = read_u16(ip);
-    (void)constants;
+    Value val = regs[src];
 
     upvalue_t uv = state->ctx.frame_ptr_->function_->get_upvalue(uv_idx);
     if (uv->is_closed()) {
-        uv->close(regs[src]);
+        uv->close(val);
+        state->heap.write_barrier(uv, val);
     } else {
-        state->ctx.stack_[uv->get_index()] = regs[src];
+        state->ctx.stack_[uv->get_index()] = val;
     }
     return ip;
 }

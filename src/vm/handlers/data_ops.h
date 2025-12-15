@@ -247,19 +247,21 @@ namespace meow::handlers {
         string_t name = key.as_string();
         instance_t inst = src.as_instance();
         
-        // Logic tương tự SET_PROP nhưng không dùng Inline Cache
         int offset = inst->get_shape()->get_offset(name);
         if (offset != -1) {
             inst->set_field_at(offset, val);
             state->heap.write_barrier(inst, val);
         } else {
-            // Transition sang Shape mới
             Shape* current_shape = inst->get_shape();
             Shape* next_shape = current_shape->get_transition(name);
             if (next_shape == nullptr) {
                 next_shape = current_shape->add_transition(name, &state->heap);
             }
+            
             inst->set_shape(next_shape);
+            
+            state->heap.write_barrier(inst, Value(reinterpret_cast<object_t>(next_shape)));
+
             inst->get_fields_raw().push_back(val);
             state->heap.write_barrier(inst, val);
         }
