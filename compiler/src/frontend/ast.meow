@@ -1,0 +1,394 @@
+export fn Program(body, token) {
+    return {
+        type: "Program",
+        body: body,
+        token: token
+    };
+}
+
+export fn LetStatement(name, value, isConstant, token) {
+    return {
+        type: "LetStatement",
+        name: name,
+        value: value,
+        isConstant: isConstant,
+        token: token
+    };
+}
+
+export fn FunctionStatement(name, func, token) {
+    return {
+        type: "FunctionStatement",
+        name: name,
+        func: func,
+        token: token
+    };
+}
+
+export fn FunctionLiteral(parameters, body, restParam, token) {
+    return {
+        type: "FunctionLiteral",
+        parameters: parameters,
+        body: body,
+        restParam: restParam,
+        // returnType: returnType,
+        token: token
+    };
+}
+
+export fn ClassStatement(name, superclass, methods, static_fields, token) {
+    return {
+        type: "ClassStatement",
+        name: name,
+        superclass: superclass,
+        methods: methods,
+        static_fields: static_fields,
+        token: token
+    };
+}
+
+export fn IfStatement(condition, thenBranch, elseBranch, token) {
+    return {
+        type: "IfStatement",
+        condition: condition,
+        thenBranch: thenBranch,
+        elseBranch: elseBranch,
+        token: token
+    };
+}
+
+export fn WhileStatement(condition, body, token) {
+    return {
+        type: "WhileStatement",
+        condition: condition,
+        body: body,
+        token: token
+    };
+}
+
+export fn ForStatement(init, condition, update, body, token) {
+    return {
+        type: "ForStatement",
+        init: init,
+        condition: condition,
+        update: update,
+        body: body,
+        token: token
+    };
+}
+
+export fn ReturnStatement(value, token) {
+    return {
+        type: "ReturnStatement",
+        value: value,
+        token: token
+    };
+}
+
+export fn BreakStatement(token) {
+    return {
+        type: "BreakStatement",
+        token: token
+    };
+}
+
+export fn ContinueStatement(token) {
+    return {
+        type: "ContinueStatement",
+        token: token
+    };
+}
+
+export fn BlockStatement(statements, token) {
+    return {
+        type: "BlockStatement",
+        statements: statements,
+        token: token
+    };
+}
+
+export fn ThrowStatement(argument, token) {
+    return {
+        type: "ThrowStatement",
+        argument: argument,
+        token: token
+    };
+}
+
+export fn TryStatement(tryBlock, catchVariable, catchBlock, token) {
+    return {
+        type: "TryStatement",
+        tryBlock: tryBlock,
+        catchVariable: catchVariable,
+        catchBlock: catchBlock,
+        token: token
+    };
+}
+
+export fn ImportStatement(path, namedImports, namespaceImport, importAll, token) {
+    return {
+        type: "ImportStatement",
+        path: path,
+        namedImports: namedImports,
+        namespaceImport: namespaceImport,
+        importAll: importAll,
+        token: token
+    };
+}
+
+export fn ExportStatement(declaration, specifiers, token) {
+    return {
+        type: "ExportStatement",
+        declaration: declaration,
+        specifiers: specifiers,
+        token: token
+    };
+}
+
+export fn LogStatement(expression, token) {
+    return {
+        type: "LogStatement",
+        expression: expression,
+        token: token
+    };
+}
+
+export fn DoWhileStatement(body, condition, token) {
+    return {
+        type: "DoWhileStatement",
+        body: body,
+        condition: condition,
+        token: token
+    };
+}
+
+export fn SwitchStatement(value, cases, token) {
+    return {
+        type: "SwitchStatement",
+        value: value,
+        cases: cases,
+        token: token
+    };
+}
+
+export fn ForInStatement(variable, collection, body, token) {
+    return {
+        type: "ForInStatement",
+        variable: variable,
+        collection: collection,
+        body: body,
+        token: token
+    };
+}
+
+export fn ExpressionStatement(expression, token) {
+    return {
+        type: "ExpressionStatement",
+        expression: expression,
+        token: token
+    };
+}
+
+export fn IntegerLiteral(value, token) {
+    return {
+        type: "IntegerLiteral",
+        value: value,
+        token: token
+    };
+}
+
+export fn RealLiteral(value, token) {
+    return {
+        type: "RealLiteral",
+        value: value,
+        token: token
+    };
+}
+
+export fn StringLiteral(value, token) {
+    return {
+        type: "StringLiteral",
+        value: value,
+        token: token
+    };
+}
+
+export fn BooleanLiteral(value, token) {
+    return {
+        type: "BooleanLiteral",
+        value: value,
+        token: token
+    };
+}
+
+export fn NullLiteral(token) {
+    return {
+        type: "NullLiteral",
+        value: null,
+        token: token
+    };
+}
+
+export fn CharLiteral(value, token) {
+    return {
+        type: "CharLiteral",
+        value: value,
+        token: token
+    };
+}
+
+export fn ArrayLiteral(elements, token) {
+    return {
+        type: "ArrayLiteral",
+        elements: elements,
+        token: token
+    };
+}
+
+export fn ObjectLiteral(properties, token) {
+    return {
+        type: "ObjectLiteral",
+        properties: properties,
+        token: token
+    };
+}
+
+export fn TemplateLiteral(parts, token) {
+    return {
+        type: "TemplateLiteral",
+        parts: parts,
+        token: token
+    };
+}
+
+export fn Identifier(name, token) {
+    return {
+        type: "Identifier",
+        name: name,
+        token: token
+    };
+}
+
+export fn BinaryExpression(left, op, right, token) {
+    return {
+        type: "BinaryExpression",
+        left: left,
+        op: op,
+        right: right,
+        token: token
+    };
+}
+
+export fn UnaryExpression(op, operand, token) {
+    return {
+        type: "UnaryExpression",
+        op: op,
+        operand: operand,
+        token: token
+    };
+}
+
+export fn CallExpression(callee, args, token) {
+    return {
+        type: "CallExpression",
+        callee: callee,
+        args: args,
+        token: token
+    };
+}
+
+export fn IndexExpression(object, index, token) {
+    return {
+        type: "IndexExpression",
+        object: object,
+        index: index,
+        token: token
+    };
+}
+
+export fn AssignmentExpression(target, value, token) {
+    return {
+        type: "AssignmentExpression",
+        target: target,
+        value: value,
+        token: token
+    };
+}
+
+export fn TernaryExpression(condition, thenBranch, elseBranch, token) {
+    return {
+        type: "TernaryExpression",
+        condition: condition,
+        thenBranch: thenBranch,
+        elseBranch: elseBranch,
+        token: token
+    };
+}
+
+export fn PropertyAccess(object, property, token) {
+    return {
+        type: "PropertyAccess",
+        object: object,
+        property: property,
+        token: token
+    };
+}
+
+export fn ThisExpression(token) {
+    return {
+        type: "ThisExpression",
+        token: token
+    };
+}
+
+export fn NewExpression(expression, token) {
+    return {
+        type: "NewExpression",
+        expression: expression,
+        token: token
+    };
+}
+
+export fn SuperExpression(isCallable, method, token) {
+    return {
+        type: "SuperExpression",
+        isCallable: isCallable,
+        method: method,
+        token: token
+    };
+}
+
+export fn PrefixUpdateExpression(op, operand, token) {
+    return {
+        type: "PrefixUpdateExpression",
+        op: op,
+        operand: operand,
+        token: token
+    };
+}
+
+export fn PostfixUpdateExpression(op, operand, token) {
+    return {
+        type: "PostfixUpdateExpression",
+        op: op,
+        operand: operand,
+        token: token
+    };
+}
+
+export fn SpreadExpression(expression, token) {
+    return {
+        type: "SpreadExpression",
+        expression: expression,
+        token: token
+    };
+}
+
+export fn SwitchCase(value, statements, token) {
+    return {
+        type: "SwitchCase",
+        value: value,
+        statements: statements,
+        token: token
+    };
+}
