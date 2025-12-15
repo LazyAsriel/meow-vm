@@ -4,6 +4,8 @@
 #include <meow/definitions.h>
 #include <meow/memory/garbage_collector.h>
 #include <meow/memory/gc_visitor.h>
+#include <vector> 
+#include "meow_heap.h"
 
 namespace meow {
 struct ExecutionContext;
@@ -29,16 +31,21 @@ private:
     ExecutionContext* context_ = nullptr;
     ModuleManager* module_manager_ = nullptr;
 
-    std::vector<MeowObject*> young_gen_;
-    std::vector<MeowObject*> old_gen_;
-    std::vector<MeowObject*> permanent_gen_;
+    ObjectMeta* young_head_ = nullptr;
+    ObjectMeta* old_head_   = nullptr;
+    ObjectMeta* perm_head_  = nullptr;
     
     std::vector<MeowObject*> remembered_set_;
 
+    size_t young_count_ = 0;
+    size_t old_count_ = 0;
     size_t old_gen_threshold_ = 100;
 
-    void mark_root(MeowObject* object);
-    void sweep_young();
+    void mark_object(MeowObject* object);
+    
+    void sweep_young(); 
     void sweep_full();
+    
+    void destroy_object(ObjectMeta* meta);
 };
 }

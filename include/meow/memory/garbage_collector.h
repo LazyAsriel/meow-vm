@@ -2,10 +2,18 @@
 
 #include <cstddef>
 #include <meow/value.h>
+#include "meow_heap.h"
 
 namespace meow {
 struct MeowObject;
 class heap;
+
+namespace gc_flags {
+    static constexpr uint32_t GEN_YOUNG = 0;       // Bit 0 = 0
+    static constexpr uint32_t GEN_OLD   = 1 << 0;  // Bit 0 = 1
+    static constexpr uint32_t MARKED    = 1 << 1;  // Bit 1 = 1
+    static constexpr uint32_t PERMANENT = 1 << 2;  // Bit 2 = 1
+}
 
 class GarbageCollector {
 protected:

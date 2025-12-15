@@ -8,37 +8,58 @@
 
 namespace meow {
 
+using namespace gc_flags;
+
+static void clear_list(heap* h, ObjectMeta* head) {
+    while (head) {
+        ObjectMeta* next = head->next_gc;
+        MeowObject* obj = static_cast<MeowObject*>(heap::get_data(head));
+        std::destroy_at(obj);
+        h->deallocate_raw(head, sizeof(ObjectMeta) + head->size);
+        head = next;
+    }
+}
+
 GenerationalGC::~GenerationalGC() noexcept {
     if (heap_) {
-        for (auto obj : young_gen_) heap_->destroy_dynamic(obj, obj->obj_size());
-        for (auto obj : old_gen_) heap_->destroy_dynamic(obj, obj->obj_size());
-        for (auto obj : permanent_gen_) {
-            if (obj && obj->type != ObjectType::STRING) {
-                heap_->destroy_dynamic(obj, obj->obj_size());
-            }
-        }
+        clear_list(heap_, young_head_);
+        clear_list(heap_, old_head_);
+        clear_list(heap_, perm_head_);
     }
 }
 
 void GenerationalGC::register_object(const MeowObject* object) {
-    auto* obj = const_cast<MeowObject*>(object);
-    obj->gc_state = GCState::UNMARKED;
-    young_gen_.push_back(obj);
+    auto* meta = heap::get_meta(const_cast<MeowObject*>(object));
+    
+    meta->next_gc = young_head_;
+    young_head_ = meta;
+    
+    meta->flags = GEN_YOUNG;
+    
+    young_count_++;
 }
 
 void GenerationalGC::register_permanent(const MeowObject* object) {
-    auto* obj = const_cast<MeowObject*>(object);
-    obj->gc_state = GCState::OLD; 
-    permanent_gen_.push_back(obj);
+    auto* meta = heap::get_meta(const_cast<MeowObject*>(object));
+    
+    meta->next_gc = perm_head_;
+    perm_head_ = meta;
+    
+    meta->flags = GEN_OLD | PERMANENT | MARKED;
 }
 
 void GenerationalGC::write_barrier(MeowObject* owner, Value value) noexcept {
-    if (owner->gc_state != GCState::OLD) return;
+    auto* owner_meta = heap::get_meta(owner);
+    
+    if (!(owner_meta->flags & GEN_OLD)) return;
 
     if (value.is_object()) {
         MeowObject* target = value.as_object();
-        if (target && target->gc_state != GCState::OLD) {
-            remembered_set_.push_back(owner);
+        if (target) {
+            auto* target_meta = heap::get_meta(target);
+            if (!(target_meta->flags & GEN_OLD)) {
+                remembered_set_.push_back(owner);
+            }
         }
     }
 }
@@ -46,78 +67,91 @@ void GenerationalGC::write_barrier(MeowObject* owner, Value value) noexcept {
 size_t GenerationalGC::collect() noexcept {
     context_->trace(*this);
     module_manager_->trace(*this);
-
-    if (old_gen_.size() <= old_gen_threshold_) {
+    
+    if (old_count_ <= old_gen_threshold_) {
         for (auto* old_obj : remembered_set_) {
-            if (old_obj) old_obj->trace(*this); 
+             old_obj->trace(*this);
         }
     }
 
-    if (old_gen_.size() > old_gen_threshold_) {
+    if (old_count_ > old_gen_threshold_) {
         sweep_full();
-        old_gen_threshold_ = std::max((size_t)100, old_gen_.size() * 2);
+        old_gen_threshold_ = std::max((size_t)100, old_count_ * 2);
     } else {
         sweep_young();
     }
 
     remembered_set_.clear();
-    return young_gen_.size() + old_gen_.size();
+    return young_count_ + old_count_;
+}
+
+void GenerationalGC::destroy_object(ObjectMeta* meta) {
+    MeowObject* obj = static_cast<MeowObject*>(heap::get_data(meta));
+    std::destroy_at(obj);
+    heap_->deallocate_raw(meta, sizeof(ObjectMeta) + meta->size);
 }
 
 void GenerationalGC::sweep_young() {
-    std::vector<MeowObject*> survivors;
-    survivors.reserve(young_gen_.size() / 2);
+    ObjectMeta** curr = &young_head_;
+    size_t survived = 0;
 
-    for (auto obj : young_gen_) {
-        if (obj->gc_state == GCState::MARKED) {
-            obj->gc_state = GCState::OLD;
-            old_gen_.push_back(obj);
+    while (*curr) {
+        ObjectMeta* meta = *curr;
+        
+        if (meta->flags & MARKED) {
+            *curr = meta->next_gc; 
+            meta->next_gc = old_head_;
+            old_head_ = meta;
+            meta->flags = GEN_OLD; 
+            
+            old_count_++;
+            young_count_--;
         } else {
-            if (heap_) heap_->destroy_dynamic(obj, obj->obj_size());
+            ObjectMeta* dead = meta;
+            *curr = dead->next_gc;
+            
+            destroy_object(dead);
+            young_count_--;
         }
     }
-    young_gen_.clear(); 
 }
 
 void GenerationalGC::sweep_full() {
-    std::vector<MeowObject*> old_survivors;
-    old_survivors.reserve(old_gen_.size());
-    
-    for (auto obj : old_gen_) {
-        if (obj->gc_state == GCState::MARKED) {
-            obj->gc_state = GCState::OLD; 
-            old_survivors.push_back(obj);
+    ObjectMeta** curr_old = &old_head_;
+    size_t old_survived = 0;
+    while (*curr_old) {
+        ObjectMeta* meta = *curr_old;
+        if (meta->flags & MARKED) {
+            meta->flags &= ~MARKED;
+            curr_old = &meta->next_gc;
+            old_survived++;
         } else {
-            if (heap_) heap_->destroy_dynamic(obj, obj->obj_size());
+            ObjectMeta* dead = meta;
+            *curr_old = dead->next_gc;
+            destroy_object(dead);
         }
     }
-    old_gen_ = std::move(old_survivors);
+    old_count_ = old_survived;
 
-    for (auto obj : young_gen_) {
-        if (obj->gc_state == GCState::MARKED) {
-            obj->gc_state = GCState::OLD;
-            old_gen_.push_back(obj);
-        } else {
-            if (heap_) heap_->destroy_dynamic(obj, obj->obj_size());
-        }
-    }
-    young_gen_.clear();
+    sweep_young(); 
 }
 
 void GenerationalGC::visit_value(param_t value) noexcept {
-    if (value.is_object()) mark_root(value.as_object());
+    if (value.is_object()) mark_object(value.as_object());
 }
 
 void GenerationalGC::visit_object(const MeowObject* object) noexcept {
-    mark_root(const_cast<MeowObject*>(object));
+    mark_object(const_cast<MeowObject*>(object));
 }
 
-void GenerationalGC::mark_root(MeowObject* object) {
+void GenerationalGC::mark_object(MeowObject* object) {
     if (object == nullptr) return;
     
-    if (object->gc_state == GCState::MARKED) return;
+    auto* meta = heap::get_meta(object);
     
-    object->gc_state = GCState::MARKED;
+    if (meta->flags & MARKED) return;
+    
+    meta->flags |= MARKED;
     
     object->trace(*this);
 }
