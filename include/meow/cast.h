@@ -146,9 +146,9 @@ inline void object_to_string(object_t obj, std::string& out) noexcept {
     
     switch (obj->get_type()) {
         case ObjectType::STRING:
-            out.push_back('"');
+            // out.push_back('"');
             out += reinterpret_cast<string_t>(obj)->c_str();
-            out.push_back('"');
+            // out.push_back('"');
             break;
 
         case ObjectType::ARRAY: {
