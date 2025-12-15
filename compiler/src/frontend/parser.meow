@@ -784,6 +784,7 @@ export class Parser {
                 this.synchronize();
             }
         }
+        print("Program node: " + str(program));
         return program;
     }
     

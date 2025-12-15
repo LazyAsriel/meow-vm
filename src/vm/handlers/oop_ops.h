@@ -131,6 +131,26 @@ static const uint8_t* impl_GET_PROP(const uint8_t* ip, Value* regs, Value* const
         }
     }
     // 2. [FIX] Hash Table (Dictionary / Object Literal)
+    // else if (obj.is_hash_table()) {
+    //     hash_table_t hash = obj.as_hash_table();
+        
+    //     // Ưu tiên 1: Tìm key trong map (obj.prop)
+    //     if (hash->has(name)) {
+    //         regs[dst] = hash->get(name);
+    //         return ip;
+    //     }
+        
+    //     // Ưu tiên 2: Tìm method primitive (obj.keys(), obj.has()...)
+    //     Value method = find_primitive_method(state, obj, name);
+    //     if (!method.is_null()) {
+    //         regs[dst] = method;
+    //         return ip;
+    //     }
+        
+    //     // [CRITICAL FIX] Nếu là Hash Table và không tìm thấy, trả về null (Thay vì Panic)
+    //     regs[dst] = Value(null_t{}); 
+    //     return ip;
+    // }
     else if (obj.is_hash_table()) {
         hash_table_t hash = obj.as_hash_table();
         
@@ -143,11 +163,13 @@ static const uint8_t* impl_GET_PROP(const uint8_t* ip, Value* regs, Value* const
         // Ưu tiên 2: Tìm method primitive (obj.keys(), obj.has()...)
         Value method = find_primitive_method(state, obj, name);
         if (!method.is_null()) {
-            regs[dst] = method;
+            // [FIXED] Phải tạo BoundMethod để truyền 'obj' vào làm 'this' cho hàm native
+            auto bound = state->heap.new_bound_method(obj, method); 
+            regs[dst] = Value(bound);
             return ip;
         }
         
-        // [CRITICAL FIX] Nếu là Hash Table và không tìm thấy, trả về null (Thay vì Panic)
+        // [CRITICAL FIX] Trả về null thay vì Panic
         regs[dst] = Value(null_t{}); 
         return ip;
     }
@@ -166,6 +188,14 @@ static const uint8_t* impl_GET_PROP(const uint8_t* ip, Value* regs, Value* const
             regs[dst] = k->get_method(name); 
             return ip;
         }
+    }
+    else if (obj.is_array() && std::strcmp(name->c_str(), "length") == 0) {
+        regs[dst] = Value(static_cast<int64_t>(obj.as_array()->size()));
+        return ip;
+    }
+    else if (obj.is_string() && std::strcmp(name->c_str(), "length") == 0) {
+        regs[dst] = Value(static_cast<int64_t>(obj.as_string()->size()));
+        return ip;
     }
     // 5. Primitive khác (Array, String)
     else {
