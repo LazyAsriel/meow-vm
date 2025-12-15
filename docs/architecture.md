@@ -152,6 +152,17 @@ root/
       * *Lần đầu:* Tra cứu chậm -\> Lưu kết quả vào Cache tại chỗ (trong bytecode).
       * *Lần sau:* Kiểm tra nhanh `Shape` -\> Nếu khớp -\> Lấy giá trị ngay lập tức (O(1)).
 
+### 3.6. Native Extension & FFI
+MeowVM hỗ trợ mở rộng không giới hạn thông qua C++.
+* **Dynamic Loading:** Tự động load `.dll` (Windows) hoặc `.so` (Linux/macOS) nếu tìm thấy file tương ứng trong đường dẫn import.
+* **Symbol Resolution:** VM tìm kiếm entry point `CreateMeowModule` để khởi tạo module.
+* **Bridge:** Hàm C++ (`native_t`) nhận trực tiếp mảng `Value* argv`, cho phép thao tác dữ liệu VM với chi phí chuyển đổi gần như bằng 0.
+
+### 3.7. Exception Handling
+Mô hình xử lý lỗi dựa trên Stack Unwinding:
+* **Table-based Try-Catch:** Opcode `SETUP_TRY` ghi lại trạng thái Stack và Instruction Pointer (IP) vào bảng handler.
+* **Unwinding:** Khi `THROW`, VM tìm handler gần nhất, đóng các `Open Upvalue` (để tránh memory leak), lùi Stack Frame và nhảy tới `catch_ip`.
+
 -----
 
 ## 4\. 🔄 Luồng dữ liệu (Data Flow Pipeline)
