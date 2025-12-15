@@ -302,10 +302,7 @@ namespace meow::handlers {
                 // Gọi hàm native với danh sách tham số mới (đã có this)
                 Value result = fn(&state->machine, static_cast<int>(args.size()), args.data());
                 
-                // [FIX ADD-ON] Kiểm tra lỗi ngay lập tức để tránh chạy tiếp nếu native fail
                 if (state->machine.has_error()) {
-                     state->error(std::string(state->machine.get_error_message()));
-                     state->machine.clear_error();
                      return impl_PANIC(ip, regs, constants, state);
                 }
 

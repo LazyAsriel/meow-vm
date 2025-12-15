@@ -498,7 +498,9 @@ std::string disassemble_around(const Chunk& chunk, size_t target_ip, int context
                 std::format_to(std::back_inserter(out), " -> {:04d}: {}   <--- HERE (Exact)\n", ip, str);
             } else {
                 std::format_to(std::back_inserter(out), " -> {:04d}: {}   <--- Scanner sees this\n", ip, str);
-                std::format_to(std::back_inserter(out), "    ....: (Runtime is at offset +{} inside here)\n", target_ip - ip);
+                
+                long long diff = static_cast<long long>(target_ip) - static_cast<long long>(ip);
+                std::format_to(std::back_inserter(out), "    ....: (Runtime is at offset {:+} inside here)\n", diff);
             }
         } else {
             std::format_to(std::back_inserter(out), "    {:04d}: {}\n", ip, str);
