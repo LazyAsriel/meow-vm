@@ -55,13 +55,13 @@ static bool loose_eq(param_t a, param_t b) {
     if (a.is_int() && b.is_float()) return std::abs(static_cast<double>(a.as_int()) - b.as_float()) < std::numeric_limits<double>::epsilon();
     if (a.is_float() && b.is_int()) return std::abs(a.as_float() - static_cast<double>(b.as_int())) < std::numeric_limits<double>::epsilon();
     if (a.is_bool() && b.is_bool()) return a.as_bool() == b.as_bool();
-    // if (a.is_string() && b.is_string()) return a.as_string() == b.as_string(); 
-    if (a.is_string() && b.is_string()) {
-        string_t s1 = a.as_string();
-        string_t s2 = b.as_string();
-        if (s1 == s2) return true; // Tối ưu: Cùng trỏ 1 nơi -> bằng nhau
-        return std::string_view(s1->c_str(), s1->size()) == std::string_view(s2->c_str(), s2->size());
-    }
+    if (a.is_string() && b.is_string()) return a.as_string() == b.as_string(); 
+    // if (a.is_string() && b.is_string()) {
+    //     string_t s1 = a.as_string();
+    //     string_t s2 = b.as_string();
+    //     if (s1 == s2) return true; // Tối ưu: Cùng trỏ 1 nơi -> bằng nhau
+    //     return std::string_view(s1->c_str(), s1->size()) == std::string_view(s2->c_str(), s2->size());
+    // }
     if (a.is_null() && b.is_null()) return true;
     if (a.is_bool() && b.is_int()) return bool_to_int(a.as_bool()) == b.as_int();
     if (a.is_int() && b.is_bool()) return a.as_int() == bool_to_int(b.as_bool());
