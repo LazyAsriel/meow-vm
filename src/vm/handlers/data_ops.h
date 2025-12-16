@@ -3,6 +3,7 @@
 #include "vm/handlers/flow_ops.h"
 #include <meow/cast.h>
 #include <cstring> 
+#include <meow/memory/gc_disable_guard.h> // [FIX] Cần thiết để chặn GC
 
 namespace meow::handlers {
 
@@ -63,6 +64,10 @@ namespace meow::handlers {
     uint16_t start_idx = read_u16(ip);
     uint16_t count = read_u16(ip);
     
+    // [FIX] Chặn GC để đảm bảo array không bị promote lên Old Gen trong lúc đang push phần tử
+    // (Vì push có thể trigger resize/alloc, nếu GC chạy lúc này có thể gây lỗi write barrier)
+    meow::GCDisableGuard guard(&state->heap);
+
     auto array = state->heap.new_array();
     regs[dst] = Value(object_t(array));
     array->reserve(count);
@@ -77,6 +82,10 @@ namespace meow::handlers {
     uint16_t start_idx = read_u16(ip);
     uint16_t count = read_u16(ip);
     
+    // [FIX] Chặn GC. Nếu new_string kích hoạt GC, hash có thể bị promote lên Old Gen
+    // trong khi key mới tạo là Young Gen -> Missing Write Barrier -> Crash.
+    meow::GCDisableGuard guard(&state->heap);
+
     auto hash = state->heap.new_hash();
 
     regs[dst] = Value(hash); 
@@ -193,7 +202,7 @@ namespace meow::handlers {
     }
 
     else {
-        std::println("[DEBUG] Không thể dùng toán tử index [] trên kiểu dữ liệu {} với key là {}", to_string(src), to_string(key));
+        // std::println("[DEBUG] Không thể dùng toán tử index [] trên kiểu dữ liệu {} với key là {}", to_string(src), to_string(key));
         state->error("Không thể dùng toán tử index [] trên kiểu dữ liệu này.");
         return impl_PANIC(ip, regs, constants, state);
     }

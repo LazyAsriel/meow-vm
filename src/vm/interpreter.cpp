@@ -1,4 +1,5 @@
 #include "vm/interpreter.h"
+#include <meow/memory/gc_disable_guard.h>
 #include <array>
 
 // --- Include toàn bộ các bộ handler ---
@@ -13,6 +14,7 @@
 #include "vm/handlers/exception_ops.h"
 
 namespace meow {
+
 namespace {
 
     // --- Định nghĩa Types (Argument Threading) ---
@@ -51,8 +53,8 @@ namespace {
     static void op_wrapper(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
         // 1. Thực thi logic nghiệp vụ (đã inline)
         const uint8_t* next_ip = ImplFn(ip, regs, constants, state);
-
         // 2. Dispatch tiếp theo
+        state->heap.disable_gc();
         if (next_ip) [[likely]] {
             // Compile-time check: Chỉ reload nếu opcode làm thay đổi frame
             if constexpr (IsFrameChange<Op>) {
@@ -61,7 +63,7 @@ namespace {
             }
             [[clang::musttail]] return dispatch(next_ip, regs, constants, state);
         }
-        
+        state->heap.enable_gc();
         // 3. Nếu next_ip == nullptr -> Dừng VM (HALT hoặc Error không cứu được)
     }
 

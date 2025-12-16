@@ -77,6 +77,12 @@ size_t GenerationalGC::collect() noexcept {
         perm = perm->next_gc;
     }
 
+    // [FIX] Quét Remembered Set để đánh dấu các đối tượng con (Young Gen)
+    // được tham chiếu bởi đối tượng già (Old Gen).
+    for (auto* obj : remembered_set_) {
+        mark_object(obj);
+    }
+
     if (old_count_ > old_gen_threshold_) {
         sweep_full();
         old_gen_threshold_ = std::max((size_t)100, old_count_ * 2);
