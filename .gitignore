@@ -4,6 +4,7 @@ compiler/
 libs/
 scripts/
 build/
+builds/
 build-*/
 dist/
 output/
