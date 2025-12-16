@@ -1,0 +1,31 @@
+{
+  "srcSize": 5614,
+  "importTimes": {
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/parser.meow": 1765803600218,
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/utils/pathUtils.meow": 1765099560221,
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/bytecodeStringifier.meow": 1765099560220,
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/preprocessor.meow": 1765099560196,
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/lexer.meow": 1765808327211,
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/codeGenerator.meow": 1765801823085,
+    "/home/lazycat/Projects/meow-vm/compiler/src/middle-end/scopeAnalyzer.meow": 1765799008173
+  },
+  "importSizes": {
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/parser.meow": 35896,
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/utils/pathUtils.meow": 647,
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/bytecodeStringifier.meow": 5388,
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/preprocessor.meow": 9546,
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/lexer.meow": 13306,
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/codeGenerator.meow": 3126,
+    "/home/lazycat/Projects/meow-vm/compiler/src/middle-end/scopeAnalyzer.meow": 15612
+  },
+  "imports": [
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/lexer.meow",
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/parser.meow",
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/preprocessor.meow",
+    "/home/lazycat/Projects/meow-vm/compiler/src/middle-end/scopeAnalyzer.meow",
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/bytecodeStringifier.meow",
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/codeGenerator.meow",
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/utils/pathUtils.meow"
+  ],
+  "srcTime": 1765099560219
+}

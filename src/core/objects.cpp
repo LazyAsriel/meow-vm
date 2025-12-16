@@ -10,13 +10,6 @@ void ObjArray::trace(GCVisitor& visitor) const noexcept {
     }
 }
 
-void ObjHashTable::trace(GCVisitor& visitor) const noexcept {
-    for (const auto& [key, value] : fields_) {
-        visitor.visit_object(key);
-        visitor.visit_value(value);
-    }
-}
-
 void ObjClass::trace(GCVisitor& visitor) const noexcept {
     visitor.visit_object(name_);
     visitor.visit_object(superclass_);

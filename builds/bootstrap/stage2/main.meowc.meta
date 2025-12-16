@@ -1,0 +1,16 @@
+{
+  "srcSize": 2081,
+  "importTimes": {
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/cacheManager.meow": 1762945205201,
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/compiler.meow": 1765099560219
+  },
+  "importSizes": {
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/cacheManager.meow": 4708,
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/compiler.meow": 5614
+  },
+  "imports": [
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/compiler.meow",
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/cacheManager.meow"
+  ],
+  "srcTime": 1765795890046
+}

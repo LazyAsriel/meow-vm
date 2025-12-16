@@ -1,0 +1,19 @@
+{
+  "srcSize": 655,
+  "importTimes": {
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/constantPool.meow": 1765099560197,
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/emitter.meow": 1765099560196,
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/registerAllocator.meow": 1762989366996
+  },
+  "importSizes": {
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/constantPool.meow": 1100,
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/emitter.meow": 3806,
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/registerAllocator.meow": 1870
+  },
+  "imports": [
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/emitter.meow",
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/registerAllocator.meow",
+    "/home/lazycat/Projects/meow-vm/compiler/src/backend/constantPool.meow"
+  ],
+  "srcTime": 1762951165196
+}

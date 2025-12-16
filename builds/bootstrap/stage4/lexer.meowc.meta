@@ -1,0 +1,19 @@
+{
+  "srcSize": 13306,
+  "importTimes": {
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/checkType.meow": 1760138829018,
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/token.meow": 1760138829018,
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/tokenTables.meow": 1762901317400
+  },
+  "importSizes": {
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/checkType.meow": 779,
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/token.meow": 8469,
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/tokenTables.meow": 2984
+  },
+  "imports": [
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/checkType.meow",
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/token.meow",
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/tokenTables.meow"
+  ],
+  "srcTime": 1765808327211
+}

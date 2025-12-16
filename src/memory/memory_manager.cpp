@@ -44,8 +44,9 @@ array_t MemoryManager::new_array(const std::vector<Value>& elements) {
     return new_object<ObjArray>(elements);
 }
 
-hash_table_t MemoryManager::new_hash(const std::unordered_map<string_t, Value, ObjStringHasher>& fields) {
-    return new_object<ObjHashTable>(fields);
+hash_table_t MemoryManager::new_hash(uint32_t capacity) {
+    auto alloc = heap_.get_allocator<Entry>();
+    return heap_.create<ObjHashTable>(alloc, capacity);
 }
 
 upvalue_t MemoryManager::new_upvalue(size_t index) {

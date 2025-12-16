@@ -24,7 +24,7 @@ public:
     array_t new_array(const std::vector<Value>& elements = {});
     string_t new_string(std::string_view str_view);
     string_t new_string(const char* chars, size_t length);
-    hash_table_t new_hash(const std::unordered_map<string_t, Value, ObjStringHasher>& fields = {});
+    hash_table_t new_hash(uint32_t capacity = 0);
     upvalue_t new_upvalue(size_t index);
     proto_t new_proto(size_t registers, size_t upvalues, string_t name, Chunk&& chunk);
     proto_t new_proto(size_t registers, size_t upvalues, string_t name, Chunk&& chunk, std::vector<UpvalueDesc>&& descs);

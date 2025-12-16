@@ -66,12 +66,13 @@ namespace meow::handlers {
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_NEW_HASH(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+[[gnu::always_inline]] 
+static const uint8_t* impl_NEW_HASH(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t start_idx = read_u16(ip);
     uint16_t count = read_u16(ip);
     
-    auto hash = state->heap.new_hash();
+    auto hash = state->heap.new_hash(count); 
 
     regs[dst] = Value(hash); 
 
@@ -79,7 +80,7 @@ namespace meow::handlers {
         Value& key = regs[start_idx + i * 2];
         Value& val = regs[start_idx + i * 2 + 1];
         
-        if (key.is_string()) {
+        if (key.is_string()) [[likely]] {
             hash->set(key.as_string(), val);
         } else {
             std::string s = to_string(key);
@@ -90,7 +91,6 @@ namespace meow::handlers {
     
     return ip;
 }
-
 [[gnu::always_inline]] static const uint8_t* impl_GET_INDEX(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t src_reg = read_u16(ip);
