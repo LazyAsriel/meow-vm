@@ -7,7 +7,7 @@ MemoryManager::MemoryManager(std::unique_ptr<GarbageCollector> gc) noexcept
     : arena_(64 * 1024), 
       heap_(arena_),
       gc_(std::move(gc)), 
-      gc_threshold_(1024 * 1024), 
+      gc_threshold_(1e7), 
       object_allocated_(0) 
 { 
     if (gc_) {

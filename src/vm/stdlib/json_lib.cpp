@@ -1,8 +1,3 @@
-/**
- * @file json_lib.cpp
- * @brief Implementation of JSON Standard Library for MeowVM
- */
-
 #include "pch.h"
 #include "vm/stdlib/stdlib.h"
 #include <meow/machine.h>
@@ -15,15 +10,7 @@
 #include <meow/core/module.h>
 #include <meow/cast.h>
 
-#include <sstream>
-#include <iomanip>
-#include <charconv>
-
 namespace meow::natives::json {
-
-// ============================================================================
-// 🛠️ JSON PARSER
-// ============================================================================
 
 class JsonParser {
 private:
@@ -32,7 +19,6 @@ private:
     Machine* vm_;
     bool has_error_ = false;
 
-    // Helper: Báo lỗi nhẹ nhàng (trả về Null)
     Value report_error() {
         has_error_ = true;
         return Value(null_t{});
@@ -52,7 +38,6 @@ private:
         }
     }
 
-    // Forward declarations
     Value parse_value();
     Value parse_object();
     Value parse_array();
@@ -79,7 +64,6 @@ public:
 
         skip_whitespace();
         if (pos_ < json_.length()) {
-            // Còn dư dữ liệu rác sau khi parse xong object chính
             return report_error();
         }
         return result;
@@ -107,9 +91,8 @@ Value JsonParser::parse_value() {
 }
 
 Value JsonParser::parse_object() {
-    advance(); // Skip '{'
+    advance();
     
-    // [MEOW] Tạo Hash Table mới từ Heap
     auto hash = vm_->get_heap()->new_hash();
 
     skip_whitespace();
@@ -120,23 +103,20 @@ Value JsonParser::parse_object() {
 
     while (true) {
         skip_whitespace();
-        if (peek() != '"') return report_error(); // Key bắt buộc là string
+        if (peek() != '"') return report_error();
 
-        // Parse key (trả về Meow String Value)
         Value key_val = parse_string();
         if (has_error_) return key_val;
 
-        // [MEOW] Lấy raw pointer string để làm key cho Hash Table
         string_t key_str = key_val.as_string();
 
         skip_whitespace();
         if (peek() != ':') return report_error();
-        advance(); // Skip ':'
+        advance();
 
         Value val = parse_value();
         if (has_error_) return val;
 
-        // [MEOW] Set field
         hash->set(key_str, val);
 
         skip_whitespace();
@@ -146,15 +126,14 @@ Value JsonParser::parse_object() {
             break;
         }
         if (next != ',') return report_error();
-        advance(); // Skip ','
+        advance();
     }
     return Value(hash);
 }
 
 Value JsonParser::parse_array() {
-    advance(); // Skip '['
+    advance();
     
-    // [MEOW] Tạo Array mới
     auto arr = vm_->get_heap()->new_array();
 
     skip_whitespace();
@@ -176,19 +155,19 @@ Value JsonParser::parse_array() {
             break;
         }
         if (next != ',') return report_error();
-        advance(); // Skip ','
+        advance();
     }
     return Value(arr);
 }
 
 Value JsonParser::parse_string() {
-    advance(); // Skip opening quote '"'
+    advance();
     std::string s;
-    s.reserve(32); // Optimize allocation
+    s.reserve(32);
 
     while (pos_ < json_.length() && peek() != '"') {
         if (peek() == '\\') {
-            advance(); // Skip backslash
+            advance();
             if (pos_ >= json_.length()) return report_error();
             
             char escaped = peek();
@@ -216,7 +195,6 @@ Value JsonParser::parse_string() {
                         else return report_error();
                     }
 
-                    // Encode UTF-8
                     if (codepoint <= 0x7F) {
                         s += static_cast<char>(codepoint);
                     } else if (codepoint <= 0x7FF) {
@@ -227,7 +205,7 @@ Value JsonParser::parse_string() {
                         s += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
                         s += static_cast<char>(0x80 | (codepoint & 0x3F));
                     }
-                    continue; // Loop tiếp tục, đã advance trong case 'u'
+                    continue;
                 }
                 default:
                     s += escaped; break;
@@ -241,9 +219,8 @@ Value JsonParser::parse_string() {
     if (pos_ >= json_.length() || peek() != '"') {
         return report_error();
     }
-    advance(); // Skip closing quote '"'
+    advance();
 
-    // [MEOW] Tạo string object
     return Value(vm_->get_heap()->new_string(s));
 }
 
@@ -275,7 +252,6 @@ Value JsonParser::parse_number() {
         while (pos_ < json_.length() && std::isdigit(peek())) advance();
     }
 
-    // std::from_chars (C++17) là lựa chọn tối ưu nhất, nhưng std::stod tiện hơn cho float
     std::string num_str(json_.substr(start, pos_ - start));
     
     try {
@@ -390,7 +366,6 @@ static std::string to_json_recursive(const Value& val, int indent_level, int tab
             size_t size = obj->size();
             for (auto it = obj->begin(); it != obj->end(); ++it) {
                 if (pretty) ss << inner_indent;
-                // Key trong Meow Hash Table luôn là ObjString*
                 ss << escape_string(it->first->c_str()) << sep;
                 ss << to_json_recursive(it->second, indent_level + 1, tab_size);
                 if (i + 1 < size) ss << ",";
@@ -402,23 +377,16 @@ static std::string to_json_recursive(const Value& val, int indent_level, int tab
         }
     } 
     else {
-        // Fallback cho các kiểu không hỗ trợ trong chuẩn JSON (Function, Class...)
         ss << "\"<unsupported_type>\"";
     }
     
     return ss.str();
 }
 
-// ============================================================================
-// 📦 MODULE EXPORTS
-// ============================================================================
-
 static Value json_parse(Machine* vm, int argc, Value* argv) {
     if (argc < 1 || !argv[0].is_string()) {
         return Value(null_t{});
     }
-    
-    meow::GCDisableGuard guard(vm->get_heap()); 
 
     std::string_view json_str = argv[0].as_string()->c_str();
     JsonParser parser(vm);
@@ -428,7 +396,7 @@ static Value json_parse(Machine* vm, int argc, Value* argv) {
 static Value json_stringify(Machine* vm, int argc, Value* argv) {
     if (argc < 1) return Value(null_t{});
     
-    int tab_size = 2; // Mặc định indent 2 spaces
+    int tab_size = 2;
     if (argc > 1 && argv[1].is_int()) {
         tab_size = static_cast<int>(argv[1].as_int());
         if (tab_size < 0) tab_size = 0;

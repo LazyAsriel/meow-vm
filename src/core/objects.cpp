@@ -30,11 +30,6 @@ void ObjClass::trace(GCVisitor& visitor) const noexcept {
     }
 }
 
-// void ObjBoundMethod::trace(GCVisitor& visitor) const noexcept {
-//     visitor.visit_object(instance_);
-//     visitor.visit_object(function_);
-// }
-
 void ObjUpvalue::trace(GCVisitor& visitor) const noexcept {
     visitor.visit_value(closed_);
 }

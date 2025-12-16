@@ -5,7 +5,7 @@
 
 namespace meow::handlers {
 
-[[gnu::always_inline]] static const uint8_t* impl_GET_GLOBAL(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_GET_GLOBAL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t global_idx = read_u16(ip);
         
@@ -14,7 +14,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_SET_GLOBAL(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_SET_GLOBAL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t global_idx = read_u16(ip);
     uint16_t src = read_u16(ip);
     Value val = regs[src];
@@ -26,7 +26,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_GET_UPVALUE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_GET_UPVALUE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t uv_idx = read_u16(ip);
     (void)constants;
@@ -40,7 +40,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_SET_UPVALUE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_SET_UPVALUE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t uv_idx = read_u16(ip);
     uint16_t src = read_u16(ip);
     Value val = regs[src];
@@ -55,7 +55,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_CLOSURE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_CLOSURE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t proto_idx = read_u16(ip);
     
@@ -66,12 +66,6 @@ namespace meow::handlers {
         return impl_PANIC(ip, regs, constants, state);
     }
     proto_t proto = val.as_proto();
-
-    // [FIX] Cấm GC trong quá trình tạo Closure và Capture Upvalues.
-    // Vì capture_upvalue() có thể cấp phát bộ nhớ (new_upvalue), 
-    // nếu GC chạy lúc này, 'closure' sẽ bị xóa vì chưa ai giữ nó cả.
-    meow::GCDisableGuard guard(&state->heap);
-
     function_t closure = state->heap.new_function(proto);
     
     size_t current_base_idx = regs - state->ctx.stack_;
@@ -79,7 +73,6 @@ namespace meow::handlers {
     for (size_t i = 0; i < proto->get_num_upvalues(); ++i) {
         const auto& desc = proto->get_desc(i);
         if (desc.is_local_) {
-            // capture_upvalue có thể trigger GC -> NGUY HIỂM nếu không có Guard
             closure->set_upvalue(i, capture_upvalue(&state->ctx, &state->heap, current_base_idx + desc.index_));
         } else {
             closure->set_upvalue(i, state->ctx.frame_ptr_->function_->get_upvalue(desc.index_));
@@ -90,7 +83,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_CLOSE_UPVALUES(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_CLOSE_UPVALUES(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t last_reg = read_u16(ip);
     (void)constants;
     

@@ -5,17 +5,16 @@
 #include <meow/memory/gc_disable_guard.h>
 #include <meow/core/module.h>
 #include <meow/core/hash_table.h>
-#include <meow/core/array.h> // Cần để tạo mảng kết quả
+#include <meow/core/array.h>
 
 namespace meow::natives::obj {
 
 #define CHECK_SELF() \
-    if (argc < 1 || !argv[0].is_hash_table()) { \
+    if (argc < 1 || !argv[0].is_hash_table()) [[unlikely]] { \
         vm->error("Object method expects 'this' to be a Hash Table."); \
         return Value(null_t{}); \
     } \
     hash_table_t self = argv[0].as_hash_table(); \
-    meow::GCDisableGuard guard(vm->get_heap());
 
 static Value keys(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
@@ -43,7 +42,6 @@ static Value entries(Machine* vm, int argc, Value* argv) {
     arr->reserve(self->size());
     
     for(auto it = self->begin(); it != self->end(); ++it) {
-        // Tạo mảng con [key, value]
         auto pair = vm->get_heap()->new_array();
         pair->push(Value(it->first));
         pair->push(it->second);
@@ -63,18 +61,14 @@ static Value len(Machine* vm, int argc, Value* argv) {
     return Value((int64_t)self->size());
 }
 
-static Value merge(Machine* vm, int argc, Value* argv) {
-    // Merge tạo ra object mới, không sửa 'this' (hoặc tham số đầu)
-    // obj.merge(obj1, obj2, ...) -> return new object
-    
+static Value merge(Machine* vm, int argc, Value* argv) {    
     auto result = vm->get_heap()->new_hash();
     
-    // Duyệt qua tất cả các tham số truyền vào
     for (int i = 0; i < argc; ++i) {
         if (argv[i].is_hash_table()) {
             hash_table_t src = argv[i].as_hash_table();
             for (auto it = src->begin(); it != src->end(); ++it) {
-                result->set(it->first, it->second); // Ghi đè nếu trùng key
+                result->set(it->first, it->second);
             }
         }
     }

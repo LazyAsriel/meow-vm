@@ -8,11 +8,9 @@
 #include <meow/cast.h>
 #include <format> 
 #include <algorithm>
-#include <meow/memory/gc_disable_guard.h> // [NEW] Thêm cái này
 
 namespace meow::natives::array {
 
-// Định nghĩa giới hạn cứng (64 triệu phần tử) để tránh crash
 constexpr size_t MAX_ARRAY_CAPACITY = 64 * 1024 * 1024; 
 
 #define CHECK_SELF() \
@@ -24,13 +22,10 @@ constexpr size_t MAX_ARRAY_CAPACITY = 64 * 1024 * 1024;
 
 static Value push(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
-    if (self->size() + (argc - 1) >= MAX_ARRAY_CAPACITY) {
+    if (self->size() + (argc - 1) >= MAX_ARRAY_CAPACITY) [[unlikely]] {
         vm->error("Array size exceeded limit during push.");
         return Value(null_t{});
     }
-
-    // Push có thể trigger resize (allocate), nên cứ guard cho chắc
-    meow::GCDisableGuard guard(vm->get_heap()); 
 
     for (int i = 1; i < argc; ++i) {
         self->push(argv[i]);
@@ -63,8 +58,6 @@ static Value reserve(Machine* vm, int argc, Value* argv) {
     if (argc < 2 || !argv[1].is_int()) return Value(null_t{});
     int64_t cap = argv[1].as_int();
     
-    meow::GCDisableGuard guard(vm->get_heap()); // Reserve cấp phát bộ nhớ
-
     if (cap > 0 && static_cast<size_t>(cap) < MAX_ARRAY_CAPACITY) {
         self->reserve(static_cast<size_t>(cap));
     }
@@ -91,14 +84,11 @@ static Value resize(Machine* vm, int argc, Value* argv) {
         return Value(null_t{});
     }
 
-    meow::GCDisableGuard guard(vm->get_heap()); // Resize cấp phát bộ nhớ
-
     try {
         size_t old_size = self->size();
         size_t new_size = static_cast<size_t>(input_size);
         self->resize(new_size);
         
-        // Fill giá trị mới nếu resize lớn hơn
         if (new_size > old_size && !fill_val.is_null()) {
             for(size_t i = old_size; i < new_size; ++i) {
                 self->set(i, fill_val);
@@ -132,8 +122,6 @@ static Value slice(Machine* vm, int argc, Value* argv) {
         if (end > len) end = len;
     }
 
-    meow::GCDisableGuard guard(vm->get_heap()); // Tạo array mới
-
     if (start >= end) {
         return Value(vm->get_heap()->new_array());
     }
@@ -148,8 +136,6 @@ static Value slice(Machine* vm, int argc, Value* argv) {
     return Value(new_arr);
 }
 
-// --- High Order Functions (Khu vực nguy hiểm nhất) ---
-
 static Value reverse(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     std::reverse(self->begin(), self->end());
@@ -160,9 +146,6 @@ static Value forEach(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2) return Value(null_t{});
     Value callback = argv[1];
-
-    // [BLOCK GC] Chặn GC trong lúc loop
-    meow::GCDisableGuard guard(vm->get_heap()); 
 
     for (size_t i = 0; i < self->size(); ++i) {
         std::vector<Value> args = { self->get(i), Value((int64_t)i) };
@@ -177,16 +160,11 @@ static Value map(Machine* vm, int argc, Value* argv) {
     if (argc < 2) return Value(null_t{});
     Value callback = argv[1];
 
-    // [BLOCK GC] Chặn GC để result_arr không bị xóa oan
-    meow::GCDisableGuard guard(vm->get_heap());
-
     auto result_arr = vm->get_heap()->new_array();
     result_arr->reserve(self->size());
 
     for (size_t i = 0; i < self->size(); ++i) {
         std::vector<Value> args = { self->get(i), Value((int64_t)i) };
-        
-        // Nguy hiểm: call_callable tạo nhiều rác nhưng GC bị cấm
         Value res = vm->call_callable(callback, args);
         
         if (vm->has_error()) return Value(null_t{});
@@ -199,9 +177,6 @@ static Value filter(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2) return Value(null_t{});
     Value callback = argv[1];
-
-    // [BLOCK GC]
-    meow::GCDisableGuard guard(vm->get_heap());
 
     auto result_arr = vm->get_heap()->new_array();
 
@@ -235,9 +210,6 @@ static Value reduce(Machine* vm, int argc, Value* argv) {
         start_index = 1;
     }
 
-    // [BLOCK GC]
-    meow::GCDisableGuard guard(vm->get_heap());
-
     for (size_t i = start_index; i < self->size(); ++i) {
         std::vector<Value> args = { accumulator, self->get(i), Value((int64_t)i) };
         accumulator = vm->call_callable(callback, args);
@@ -250,9 +222,6 @@ static Value find(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2) return Value(null_t{});
     Value callback = argv[1];
-
-    // [BLOCK GC]
-    meow::GCDisableGuard guard(vm->get_heap());
 
     for (size_t i = 0; i < self->size(); ++i) {
         Value val = self->get(i);
@@ -269,9 +238,6 @@ static Value findIndex(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2) return Value((int64_t)-1);
     Value callback = argv[1];
-
-    // [BLOCK GC]
-    meow::GCDisableGuard guard(vm->get_heap());
 
     for (size_t i = 0; i < self->size(); ++i) {
         Value val = self->get(i);
@@ -292,9 +258,6 @@ static Value sort(Machine* vm, int argc, Value* argv) {
 
     bool has_comparator = (argc > 1);
     Value comparator = has_comparator ? argv[1] : Value(null_t{});
-
-    // [BLOCK GC]
-    meow::GCDisableGuard guard(vm->get_heap());
 
     for (size_t i = 0; i < n - 1; i++) {
         for (size_t j = 0; j < n - i - 1; j++) {

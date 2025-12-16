@@ -63,7 +63,7 @@ static inline Value find_primitive_method(VMState* state, const Value& obj, stri
 // --- HANDLERS ---
 
 [[gnu::always_inline]] 
-static const uint8_t* impl_NEW_CLASS(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+static const uint8_t* impl_NEW_CLASS(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t name_idx = read_u16(ip);
     string_t name = constants[name_idx].as_string();
@@ -72,7 +72,7 @@ static const uint8_t* impl_NEW_CLASS(const uint8_t* ip, Value* regs, Value* cons
 }
 
 [[gnu::always_inline]] 
-static const uint8_t* impl_NEW_INSTANCE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+static const uint8_t* impl_NEW_INSTANCE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t class_reg = read_u16(ip);
     Value& class_val = regs[class_reg];
@@ -85,7 +85,7 @@ static const uint8_t* impl_NEW_INSTANCE(const uint8_t* ip, Value* regs, Value* c
 }
 
 [[gnu::always_inline]] 
-static const uint8_t* impl_GET_PROP(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+static const uint8_t* impl_GET_PROP(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     const uint8_t* start_ip = ip - 1;
 
     uint16_t dst = read_u16(ip);
@@ -215,7 +215,7 @@ static const uint8_t* impl_GET_PROP(const uint8_t* ip, Value* regs, Value* const
 }
 
 [[gnu::always_inline]] 
-static const uint8_t* impl_SET_PROP(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+static const uint8_t* impl_SET_PROP(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     const uint8_t* start_ip = ip - 1;
 
     uint16_t obj_reg = read_u16(ip);
@@ -227,7 +227,6 @@ static const uint8_t* impl_SET_PROP(const uint8_t* ip, Value* regs, Value* const
     Value& val = regs[val_reg];
     string_t name = constants[name_idx].as_string();
     
-    // 1. Instance
     if (obj.is_instance()) [[likely]] {
         instance_t inst = obj.as_instance();
         Shape* current_shape = inst->get_shape();
@@ -257,7 +256,7 @@ static const uint8_t* impl_SET_PROP(const uint8_t* ip, Value* regs, Value* const
             
             state->heap.write_barrier(inst, Value(reinterpret_cast<object_t>(next_shape))); 
 
-            inst->get_fields_raw().push_back(val);
+            inst->add_field(val);
             state->heap.write_barrier(inst, val);
         }
     }
@@ -274,7 +273,7 @@ static const uint8_t* impl_SET_PROP(const uint8_t* ip, Value* regs, Value* const
 }
 
 [[gnu::always_inline]] 
-static const uint8_t* impl_SET_METHOD(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+static const uint8_t* impl_SET_METHOD(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t class_reg = read_u16(ip);
     uint16_t name_idx = read_u16(ip);
     uint16_t method_reg = read_u16(ip);
@@ -297,7 +296,7 @@ static const uint8_t* impl_SET_METHOD(const uint8_t* ip, Value* regs, Value* con
 }
 
 [[gnu::always_inline]] 
-static const uint8_t* impl_INHERIT(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+static const uint8_t* impl_INHERIT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t sub_reg = read_u16(ip);
     uint16_t super_reg = read_u16(ip);
     (void)constants;
@@ -315,7 +314,7 @@ static const uint8_t* impl_INHERIT(const uint8_t* ip, Value* regs, Value* consta
 }
 
 [[gnu::always_inline]] 
-static const uint8_t* impl_GET_SUPER(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+static const uint8_t* impl_GET_SUPER(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     const uint8_t* start_ip = ip - 1;
 
     uint16_t dst = read_u16(ip);

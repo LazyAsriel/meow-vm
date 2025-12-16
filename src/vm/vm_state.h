@@ -22,19 +22,13 @@ struct VMState {
     MemoryManager& heap;
     ModuleManager& modules;
 
-    // --- CACHED POINTERS ---
     Value* registers;       
-    Value* constants;       
+    const Value* constants;       
     const uint8_t* instruction_base;
     module_t current_module = nullptr;
 
     std::string error_msg;
     bool has_error_ = false;
-
-    // void error(std::string_view msg) noexcept {
-    //     error_msg = msg;
-    //     has_error_ = true;
-    // }
 
     void error(std::string_view msg) noexcept {
         std::cerr << "Runtime Error: " << msg << "\n";
@@ -50,7 +44,6 @@ struct VMState {
     void clear_error() noexcept { has_error_ = false; error_msg.clear(); }
     std::string_view get_error_message() const noexcept { return error_msg; }
 
-    // --- Fast Accessors ---
     [[gnu::always_inline]]
     inline void update_pointers() noexcept {
         registers = ctx.current_regs_;

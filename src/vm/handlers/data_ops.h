@@ -2,74 +2,62 @@
 #include "vm/handlers/utils.h"
 #include "vm/handlers/flow_ops.h"
 #include <meow/cast.h>
-#include <cstring> 
-#include <meow/memory/gc_disable_guard.h> // [FIX] Cần thiết để chặn GC
 
 namespace meow::handlers {
 
-// --- Load / Move ---
 
-[[gnu::always_inline]] static const uint8_t* impl_LOAD_CONST(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_LOAD_CONST(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t idx = read_u16(ip);
     regs[dst] = constants[idx];
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_LOAD_NULL(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_LOAD_NULL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
-    regs[dst] = Value(null_t{});
+    regs[dst] = null_t{};
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_LOAD_TRUE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_LOAD_TRUE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
-    regs[dst] = Value(true);
+    regs[dst] = true;
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_LOAD_FALSE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_LOAD_FALSE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
-    regs[dst] = Value(false);
+    regs[dst] = false;
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_LOAD_INT(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_LOAD_INT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
-    int64_t val;
-    std::memcpy(&val, ip, 8); ip += 8;
-    regs[dst] = Value(val);
+    regs[dst] = *reinterpret_cast<const int64_t*>(ip);
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_LOAD_FLOAT(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_LOAD_FLOAT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
-    double val;
-    std::memcpy(&val, ip, 8); ip += 8;
-    regs[dst] = Value(val);
+    regs[dst] = *reinterpret_cast<const double*>(ip);
+    ip += 8;
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_MOVE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_MOVE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t src = read_u16(ip);
     regs[dst] = regs[src];
     return ip;
 }
 
-// --- Data Structures ---
-
-[[gnu::always_inline]] static const uint8_t* impl_NEW_ARRAY(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_NEW_ARRAY(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t start_idx = read_u16(ip);
     uint16_t count = read_u16(ip);
-    
-    // [FIX] Chặn GC để đảm bảo array không bị promote lên Old Gen trong lúc đang push phần tử
-    // (Vì push có thể trigger resize/alloc, nếu GC chạy lúc này có thể gây lỗi write barrier)
-    meow::GCDisableGuard guard(&state->heap);
 
     auto array = state->heap.new_array();
-    regs[dst] = Value(object_t(array));
+    regs[dst] = object_t(array);
     array->reserve(count);
     for (size_t i = 0; i < count; ++i) {
         array->push(regs[start_idx + i]);
@@ -77,15 +65,11 @@ namespace meow::handlers {
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_NEW_HASH(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_NEW_HASH(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t start_idx = read_u16(ip);
     uint16_t count = read_u16(ip);
     
-    // [FIX] Chặn GC. Nếu new_string kích hoạt GC, hash có thể bị promote lên Old Gen
-    // trong khi key mới tạo là Young Gen -> Missing Write Barrier -> Crash.
-    meow::GCDisableGuard guard(&state->heap);
-
     auto hash = state->heap.new_hash();
 
     regs[dst] = Value(hash); 
@@ -106,7 +90,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_GET_INDEX(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_GET_INDEX(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t src_reg = read_u16(ip);
     uint16_t key_reg = read_u16(ip);
@@ -168,15 +152,13 @@ namespace meow::handlers {
         string_t name = key.as_string();
         instance_t inst = src.as_instance();
         
-        // 1. Tìm trong Fields (thuộc tính)
         int offset = inst->get_shape()->get_offset(name);
         if (offset != -1) {
             regs[dst] = inst->get_field_at(offset);
         } 
         else {
-            // 2. Tìm trong Methods (phương thức)
             class_t k = inst->get_class();
-            Value method = Value(null_t{});
+            Value method = null_t{};
             
             while (k) {
                 if (k->has_method(name)) {
@@ -187,7 +169,6 @@ namespace meow::handlers {
             }
             
             if (!method.is_null()) {
-                // Nếu là hàm thì Bind nó vào Instance (để dùng được 'this')
                 if (method.is_function() || method.is_native()) {
                     auto bound = state->heap.new_bound_method(src, method);
                     regs[dst] = Value(bound);
@@ -195,21 +176,19 @@ namespace meow::handlers {
                     regs[dst] = method;
                 }
             } else {
-                // Không tìm thấy -> Trả về NULL (giống behavior của Hash Table)
                 regs[dst] = Value(null_t{});
             }
         }
     }
 
     else {
-        // std::println("[DEBUG] Không thể dùng toán tử index [] trên kiểu dữ liệu {} với key là {}", to_string(src), to_string(key));
         state->error("Không thể dùng toán tử index [] trên kiểu dữ liệu này.");
         return impl_PANIC(ip, regs, constants, state);
     }
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_SET_INDEX(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_SET_INDEX(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t src_reg = read_u16(ip);
     uint16_t key_reg = read_u16(ip);
     uint16_t val_reg = read_u16(ip);
@@ -275,7 +254,7 @@ namespace meow::handlers {
             
             state->heap.write_barrier(inst, Value(reinterpret_cast<object_t>(next_shape)));
 
-            inst->get_fields_raw().push_back(val);
+            inst->add_field(val);
             state->heap.write_barrier(inst, val);
         }
     }
@@ -285,7 +264,7 @@ namespace meow::handlers {
     }
     return ip;
 }
-[[gnu::always_inline]] static const uint8_t* impl_GET_KEYS(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_GET_KEYS(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t src_reg = read_u16(ip);
     Value& src = regs[src_reg];
@@ -312,7 +291,7 @@ namespace meow::handlers {
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_GET_VALUES(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_GET_VALUES(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t src_reg = read_u16(ip);
     Value& src = regs[src_reg];

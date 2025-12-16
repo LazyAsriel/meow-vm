@@ -4,7 +4,6 @@
 #include <meow/memory/memory_manager.h>
 #include "module/module_manager.h"
 #include "runtime/execution_context.h"
-#include "debug/print.h"
 
 using namespace meow;
 
@@ -62,7 +61,7 @@ bool Machine::prepare() noexcept {
         if (native_mod) [[likely]] {
             main_module->import_all_global(native_mod);
         } else {
-            printl("Warning: Could not inject 'native' module.");
+            std::println("Warning: Could not inject 'native' module.");
         }
 
         proto_t main_proto = main_module->get_main_proto();

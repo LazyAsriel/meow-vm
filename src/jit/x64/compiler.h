@@ -5,15 +5,13 @@
 #include <vector>
 #include <unordered_map>
 
-// Forward declaration
 namespace meow { struct VMState; }
 
 namespace meow::jit::x64 {
 
 class Compiler {
 public:
-    // SỬA: Thêm Value* consts và VMState* state vào chữ ký hàm
-    using JitFunc = void (*)(Value* regs, Value* consts, VMState* state);
+    using JitFunc = void (*)(Value* regs, const Value* consts, VMState* state);
 
     Compiler();
     ~Compiler();

@@ -1,9 +1,3 @@
-/**
- * @file module.h
- * @author LazyPaws
- * @brief Core definition of Module in TrangMeo
- */
-
 #pragma once
 
 #include <cstdint>

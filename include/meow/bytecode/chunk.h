@@ -73,8 +73,8 @@ public:
     inline value_t& get_constant_ref(size_t index) noexcept {
         return constant_pool_[index];
     }
-    inline Value* get_constants_raw() const noexcept {
-        return const_cast<Value*>(constant_pool_.data());
+    inline const Value* get_constants_raw() const noexcept {
+        return constant_pool_.data();
     }
 
     inline bool patch_u16(size_t offset, uint16_t value) noexcept {

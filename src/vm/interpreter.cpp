@@ -1,10 +1,4 @@
 #include "vm/interpreter.h"
-#include <meow/memory/gc_disable_guard.h>
-#include <array>
-
-// --- Include toàn bộ các bộ handler ---
-// Lưu ý: Các file header này CẦN được cập nhật chữ ký hàm 
-// thành (const uint8_t*, Value*, Value*, VMState*) để khớp.
 #include "vm/handlers/data_ops.h"
 #include "vm/handlers/math_ops.h"
 #include "vm/handlers/flow_ops.h"
@@ -16,30 +10,20 @@
 namespace meow {
 
 namespace {
+    using OpHandler = void (*)(const uint8_t*, Value*, const Value*, VMState*);
+    using OpImpl    = const uint8_t* (*)(const uint8_t*, Value*, const Value*, VMState*);
 
-    // --- Định nghĩa Types (Argument Threading) ---
-    // Truyền trực tiếp regs và constants để tối ưu hóa Register Allocation
-    using OpHandler = void (*)(const uint8_t*, Value*, Value*, VMState*);
-    using OpImpl    = const uint8_t* (*)(const uint8_t*, Value*, Value*, VMState*);
-
-    // Bảng dispatch toàn cục
     static OpHandler dispatch_table[256];
 
-    // --- Dispatcher Core ---
-    // [[gnu::always_inline]] đảm bảo logic này được nhúng thẳng vào đuôi của handler trước đó
     [[gnu::always_inline, gnu::hot]]
-    static void dispatch(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+    static void dispatch(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
         uint8_t opcode = *ip++;
-        // Tail Call: Nhảy mà không tăng stack depth, giữ nguyên thanh ghi cho regs/constants
         [[clang::musttail]] return dispatch_table[opcode](ip, regs, constants, state);
     }
 
-    // --- Cấu hình Reload (Optimization) ---
-    // Mặc định: Không reload regs/constants (giữ nguyên trong thanh ghi CPU)
     template <OpCode Op>
     constexpr bool IsFrameChange = false;
 
-    // Các Opcode thay đổi CallFrame bắt buộc phải reload con trỏ
     template <> constexpr bool IsFrameChange<OpCode::CALL>          = true;
     template <> constexpr bool IsFrameChange<OpCode::CALL_VOID>     = true;
     template <> constexpr bool IsFrameChange<OpCode::TAIL_CALL>     = true;
@@ -47,41 +31,26 @@ namespace {
     template <> constexpr bool IsFrameChange<OpCode::IMPORT_MODULE> = true;
     template <> constexpr bool IsFrameChange<OpCode::THROW>         = true; 
     
-    // --- Template Wrapper ---
-    // Tự động sinh logic reload chỉ cho những opcode cần thiết
     template <OpCode Op, OpImpl ImplFn>
-    static void op_wrapper(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
-        // 1. Thực thi logic nghiệp vụ (đã inline)
+    static void op_wrapper(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
         const uint8_t* next_ip = ImplFn(ip, regs, constants, state);
-        // 2. Dispatch tiếp theo
         state->heap.disable_gc();
         if (next_ip) [[likely]] {
-            // Compile-time check: Chỉ reload nếu opcode làm thay đổi frame
             if constexpr (IsFrameChange<Op>) {
                 regs = state->registers;
                 constants = state->constants;
             }
             [[clang::musttail]] return dispatch(next_ip, regs, constants, state);
         }
-        state->heap.enable_gc();
-        // 3. Nếu next_ip == nullptr -> Dừng VM (HALT hoặc Error không cứu được)
     }
 
-    // --- Khởi tạo bảng Dispatch ---
     struct TableInitializer {
         TableInitializer() {
-            // 1. Mặc định gán UNIMPL
             for (int i = 0; i < 256; ++i) {
                 dispatch_table[i] = op_wrapper<OpCode::HALT, handlers::impl_UNIMPL>;
             }
 
-            // auto reg = [](OpCode op, OpHandler handler) {
-            //     dispatch_table[static_cast<size_t>(op)] = handler;
-            // };
-
             #define reg(NAME) dispatch_table[static_cast<size_t>(OpCode::NAME)] = op_wrapper<OpCode::NAME, handlers::impl_##NAME>
-
-            // 2. Đăng ký OpCode
             
             // Load / Move
             reg(LOAD_CONST); reg(LOAD_NULL); reg(LOAD_TRUE); reg(LOAD_FALSE);
@@ -140,19 +109,15 @@ namespace {
 
 } // namespace anonymous
 
-// --- Public API ---
 void Interpreter::run(VMState state) {
     if (!state.ctx.current_frame_) return;
     
-    // 1. Cập nhật cache pointers lần đầu tiên
     state.update_pointers();
     
-    // 2. Load hot data vào biến cục bộ (để Compiler đưa vào Registers)
     Value* regs = state.registers;
-    Value* constants = state.constants;
+    const Value* constants = state.constants;
     const uint8_t* ip = state.ctx.current_frame_->ip_;
     
-    // 3. Bắt đầu chuỗi dispatch
     dispatch(ip, regs, constants, &state);
 }
 

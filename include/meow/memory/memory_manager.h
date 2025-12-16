@@ -80,7 +80,6 @@ private:
     size_t gc_threshold_;
     size_t object_allocated_;
     size_t gc_pause_count_ = 0;
-    // bool gc_enabled_ = true;
 
     template <typename T, typename... Args>
     T* new_object(Args&&... args) {

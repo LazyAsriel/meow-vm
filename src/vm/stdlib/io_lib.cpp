@@ -10,28 +10,21 @@ namespace meow::natives::io {
 
 namespace fs = std::filesystem;
 
-// Macro check args tối ưu (Branch prediction hint)
 #define CHECK_ARGS(n) \
     if (argc < n) [[unlikely]] { \
         vm->error("IO Error: Expected at least " #n " arguments."); \
         return Value(null_t{}); \
     }
 
-// Macro check Argument type is String (for paths)
-// Nếu pass, tạo biến path_str_idx (ví dụ: path_str_0) là con trỏ const char*
 #define CHECK_PATH_ARG(idx) \
     if (argc <= idx || !argv[idx].is_string()) [[unlikely]] { \
-        /* Báo lỗi chính xác kiểu dữ liệu nhận được để dễ debug */ \
         vm->error(std::format("IO Error: Argument {} (Path) expects a String, but received {}.", idx, to_string(argv[idx]))); \
         return Value(null_t{}); \
     } \
     const char* path_str_##idx = argv[idx].as_string()->c_str();
 
 
-// --- Basic IO ---
-
 static Value input(Machine* vm, int argc, Value* argv) {
-    // Prompt argument is optional and can be any value (will be converted to string)
     if (argc > 0) {
         std::print("{}", to_string(argv[0]));
         std::cout.flush();
@@ -73,9 +66,8 @@ static Value read_file(Machine* vm, int argc, Value* argv) {
 
 static Value write_file(Machine* vm, int argc, Value* argv) {
     CHECK_ARGS(2);
-    CHECK_PATH_ARG(0); // Đảm bảo argv[0] là String và tạo path_str_0
+    CHECK_PATH_ARG(0);
     
-    // argv[1] (data) được chuyển đổi an toàn bằng to_string
     std::string data = to_string(argv[1]);
     bool append = (argc > 2) ? to_bool(argv[2]) : false;
 
@@ -84,8 +76,6 @@ static Value write_file(Machine* vm, int argc, Value* argv) {
     
     return Value(file && (file << data));
 }
-
-// --- Filesystem Operations (No Exceptions, ErrorCode only) ---
 
 static Value file_exists(Machine* vm, int argc, Value* argv) {
     CHECK_ARGS(1);
@@ -144,8 +134,8 @@ static Value rename_file(Machine* vm, int argc, Value* argv) {
 
 static Value copy_file(Machine* vm, int argc, Value* argv) {
     CHECK_ARGS(2);
-    CHECK_PATH_ARG(0); // Source
-    CHECK_PATH_ARG(1); // Destination
+    CHECK_PATH_ARG(0);
+    CHECK_PATH_ARG(1);
     std::error_code ec;
     fs::copy(path_str_0, path_str_1, 
              fs::copy_options::overwrite_existing | fs::copy_options::recursive, ec);
@@ -168,7 +158,6 @@ static Value get_file_timestamp(Machine* vm, int argc, Value* argv) {
     auto ftime = fs::last_write_time(path_str_0, ec);
     if (ec) return Value(static_cast<int64_t>(-1));
 
-    // C++20 Clock casting magic to get ms since epoch
     auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
         ftime - fs::file_time_type::clock::now() + std::chrono::system_clock::now()
     );
@@ -176,8 +165,6 @@ static Value get_file_timestamp(Machine* vm, int argc, Value* argv) {
         std::chrono::duration_cast<std::chrono::milliseconds>(sctp.time_since_epoch()).count()
     ));
 }
-
-// --- Path Helpers ---
 
 static Value get_file_name(Machine* vm, int argc, Value* argv) {
     CHECK_ARGS(1);
@@ -207,7 +194,6 @@ static Value get_abs_path(Machine* vm, int argc, Value* argv) {
     CHECK_PATH_ARG(0);
     std::error_code ec;
     
-    // Dòng này đã an toàn vì path_str_0 đảm bảo là con trỏ hợp lệ từ String Object
     fs::path p = fs::absolute(path_str_0, ec);
     
     if (ec) {

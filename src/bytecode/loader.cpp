@@ -7,10 +7,6 @@
 #include <meow/value.h>
 #include <meow/bytecode/chunk.h>
 #include <meow/bytecode/op_codes.h>
-#include <unordered_set>
-#include <cstring> // memcpy
-#include <bit>     // bit_cast
-#include <format>  // std::format (C++20/23)
 
 namespace meow {
 
@@ -197,55 +193,42 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
     size_t size = chunk.get_code_size();
     size_t ip = 0;
 
-    // 1. Đệ quy xuống các proto con
     for (size_t i = 0; i < chunk.get_pool_size(); ++i) {
         if (chunk.get_constant(i).is_proto()) {
             patch_chunk_globals_recursive(mod, chunk.get_constant(i).as_proto(), visited);
         }
     }
 
-    // 2. Quét bytecode và patch GET_GLOBAL / SET_GLOBAL
     while (ip < size) {
         OpCode op = static_cast<OpCode>(code[ip]);
         
-        // --- PATCHING ---
         if (op == OpCode::GET_GLOBAL || op == OpCode::SET_GLOBAL) {
-            // [FIX] Tính toán offset chính xác cho từng loại lệnh
-            // GET_GLOBAL: [Op:1] [Dst:2] [NameIdx:2] -> NameIdx ở offset +3
-            // SET_GLOBAL: [Op:1] [NameIdx:2] [Src:2] -> NameIdx ở offset +1
             size_t operand_offset = (op == OpCode::GET_GLOBAL) ? (ip + 3) : (ip + 1);
             
             if (operand_offset + 2 <= size) {
-                // Đọc Name Index (u16)
                 uint16_t name_idx = static_cast<uint16_t>(code[operand_offset]) | 
                                     (static_cast<uint16_t>(code[operand_offset + 1]) << 8);
                 
                 if (name_idx < chunk.get_pool_size()) {
                     Value name_val = chunk.get_constant(name_idx);
                     if (name_val.is_string()) {
-                        // Tìm/Tạo index cho global này trong module
                         uint32_t global_idx = mod->intern_global(name_val.as_string());
                         
                         if (global_idx > 0xFFFF) {
                             throw LoaderError("Module has too many globals (> 65535).");
                         }
 
-                        // Ghi đè trực tiếp vào bytecode (Thay thế String Index bằng Global Slot Index)
                         chunk.patch_u16(operand_offset, static_cast<uint16_t>(global_idx));
                     }
                 }
             }
         }
 
-        // --- SKIP INSTRUCTION ---
-        // Cần nhảy qua các byte tham số để đến OpCode tiếp theo.
         ip += 1; // Op
         switch (op) {
-            // 1 byte args (none)
             case OpCode::HALT: case OpCode::POP_TRY: 
                 break;
 
-            // 1 u16 arg (Total 2 bytes + 1 op = 3)
             case OpCode::INC: case OpCode::DEC:
             case OpCode::CLOSE_UPVALUES: case OpCode::IMPORT_ALL: case OpCode::THROW: 
             case OpCode::RETURN: 
@@ -254,7 +237,6 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
             case OpCode::LOAD_NULL: case OpCode::LOAD_TRUE: case OpCode::LOAD_FALSE:
                 ip += 2; break;
             
-            // 2 u16 args (Total 4 bytes + 1 op = 5)
             case OpCode::LOAD_CONST: case OpCode::MOVE: 
             case OpCode::NEG: case OpCode::NOT: case OpCode::BIT_NOT: 
             case OpCode::GET_UPVALUE: case OpCode::SET_UPVALUE: 
@@ -263,11 +245,9 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
             case OpCode::IMPORT_MODULE: case OpCode::EXPORT: 
             case OpCode::GET_KEYS: case OpCode::GET_VALUES:
             case OpCode::GET_SUPER: 
-            case OpCode::GET_GLOBAL: case OpCode::SET_GLOBAL: // Target
-            // case OpCode::LOAD_NULL: case OpCode::LOAD_TRUE: case OpCode::LOAD_FALSE:
+            case OpCode::GET_GLOBAL: case OpCode::SET_GLOBAL:
                 ip += 4; break;
 
-            // 3 u16 args (Total 6 bytes + 1 op = 7)
             case OpCode::GET_EXPORT: 
             case OpCode::ADD: case OpCode::SUB: case OpCode::MUL: case OpCode::DIV:
             case OpCode::MOD: case OpCode::POW: case OpCode::EQ: case OpCode::NEQ:
@@ -281,10 +261,9 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
             case OpCode::INHERIT:
                 ip += 6; break;
             
-            // 4 u16 args (Total 8 bytes + 1 op = 9)
             case OpCode::CALL: 
-                ip += 8;  // 4 args * 2 bytes
-                ip += 16; // Skip Inline Cache (16 bytes)
+                ip += 8;
+                ip += 16;
                 break;
             
             case OpCode::TAIL_CALL:
@@ -293,20 +272,17 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
                 break;
                 
             case OpCode::CALL_VOID:
-                ip += 6;  // 3 args * 2
-                ip += 16; // Skip Inline Cache (16 bytes)
+                ip += 6;
+                ip += 16;
                 break;
 
-            // 1 u16 + 1 u64 arg (Total 10 bytes + 1 op = 11)
             case OpCode::LOAD_INT: case OpCode::LOAD_FLOAT:
                 ip += 10; break;
 
-            // Jumps (u16 offset / reg+offset)
-            case OpCode::JUMP: ip += 2; break; // Target
-            case OpCode::SETUP_TRY: ip += 4; break; // Target + Reg
-            case OpCode::JUMP_IF_FALSE: case OpCode::JUMP_IF_TRUE: ip += 4; break; // Reg + Target
+            case OpCode::JUMP: ip += 2; break;
+            case OpCode::SETUP_TRY: ip += 4; break;
+            case OpCode::JUMP_IF_FALSE: case OpCode::JUMP_IF_TRUE: ip += 4; break;
 
-            // Bytecode versions (Optimized)
             case OpCode::ADD_B: case OpCode::SUB_B: case OpCode::MUL_B: 
             case OpCode::DIV_B: case OpCode::MOD_B: case OpCode::LT_B:
             case OpCode::JUMP_IF_TRUE_B: case OpCode::JUMP_IF_FALSE_B:
@@ -315,9 +291,6 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
             default: break;
         }
         
-        // Fix đặc biệt cho GET_PROP/SET_PROP dùng Inline Cache (48 bytes)
-        // Assembler emit: [Op] [Arg1] [Arg2] [Arg3] + [Cache: 48 bytes]
-        // Ở switch trên đã cộng 6 bytes cho 3 args, giờ cộng thêm 48 bytes cache.
         if (op == OpCode::GET_PROP || op == OpCode::SET_PROP) {
              ip += 48; 
         }
@@ -327,7 +300,6 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
 void Loader::link_module(module_t module) {
     if (!module || !module->is_has_main()) return;
     std::unordered_set<proto_t> visited;
-    // Bắt đầu đệ quy từ main_proto của module
     patch_chunk_globals_recursive(module, module->get_main_proto(), visited);
 }
 

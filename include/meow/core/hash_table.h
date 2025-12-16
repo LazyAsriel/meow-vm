@@ -23,14 +23,13 @@
 
 namespace meow {
 class ObjHashTable : public ObjBase<ObjectType::HASH_TABLE> {
-   private:
+private:
     using key_t = string_t;
     using map_t = std::unordered_map<key_t, value_t, ObjStringHasher>;
     using visitor_t = GCVisitor;
 
     map_t fields_;
-
-   public:
+public:
     // --- Constructors & destructor---
     ObjHashTable() = default;
     explicit ObjHashTable(const map_t& fields) : fields_(fields) {}

@@ -1,8 +1,3 @@
-/**
- * @file builtins.cpp
- * @brief Implementation of built-in native functions for MeowVM
- */
-
 #include "pch.h"
 #include <meow/machine.h>
 #include <meow/core/objects.h>
@@ -11,13 +6,11 @@
 #include "module/module_manager.h"
 #include <meow/cast.h>
 #include "vm/stdlib/stdlib.h"
-#include "debug/print.h"
 
 namespace meow {
 
-// --- Helper Macros ---
 #define CHECK_ARGS(n) \
-    if (argc < n) vm->error("Native function expects at least " #n " arguments.");
+    if (argc < n) [[unlikely]] vm->error("Native function expects at least " #n " arguments.");
 
 namespace natives {
 
@@ -195,7 +188,6 @@ void Machine::load_builtins() {
     mod_manager_->add_cache(heap_->new_string("string"), stdlib::create_string_module(this, heap_.get()));
     mod_manager_->add_cache(heap_->new_string("object"), stdlib::create_object_module(this, heap_.get()));
     mod_manager_->add_cache(heap_->new_string("json"), stdlib::create_json_module(this, heap_.get()));
-    // printl("Loaded built-in 'native' module");
 }
 
 } // namespace meow

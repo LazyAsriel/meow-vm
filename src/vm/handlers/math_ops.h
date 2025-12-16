@@ -5,14 +5,13 @@
 
 namespace meow::handlers {
 
-// --- Cấu trúc giải mã ---
 struct BinaryArgs { uint16_t dst; uint16_t r1; uint16_t r2; } __attribute__((packed));
 struct BinaryArgsB { uint8_t dst; uint8_t r1; uint8_t r2; } __attribute__((packed));
 struct UnaryArgs { uint16_t dst; uint16_t src; };
 
 // --- MACROS ---
 #define BINARY_OP_IMPL(NAME, OP_ENUM) \
-    HOT_HANDLER impl_##NAME(const uint8_t* ip, Value* regs, Value* constants, VMState* state) { \
+    HOT_HANDLER impl_##NAME(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
         const auto& args = *reinterpret_cast<const BinaryArgs*>(ip); \
         Value& left  = regs[args.r1]; \
         Value& right = regs[args.r2]; \
@@ -21,7 +20,7 @@ struct UnaryArgs { uint16_t dst; uint16_t src; };
     }
 
 #define BINARY_OP_B_IMPL(NAME, OP_ENUM) \
-    HOT_HANDLER impl_##NAME##_B(const uint8_t* ip, Value* regs, Value* constants, VMState* state) { \
+    HOT_HANDLER impl_##NAME##_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
         const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip); \
         Value& left  = regs[args.r1]; \
         Value& right = regs[args.r2]; \
@@ -29,11 +28,7 @@ struct UnaryArgs { uint16_t dst; uint16_t src; };
         return ip + sizeof(BinaryArgsB); \
     }
 
-// ============================================================================
-// 1. ARITHMETIC (ADD, SUB, MUL, DIV...) - Fast Path Int/Float
-// ============================================================================
-
-HOT_HANDLER impl_ADD(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+HOT_HANDLER impl_ADD(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     const auto& args = *reinterpret_cast<const BinaryArgs*>(ip);
     Value& left = regs[args.r1];
     Value& right = regs[args.r2];
@@ -49,7 +44,7 @@ HOT_HANDLER impl_ADD(const uint8_t* ip, Value* regs, Value* constants, VMState* 
     return ip + sizeof(BinaryArgs);
 }
 
-HOT_HANDLER impl_ADD_B(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+HOT_HANDLER impl_ADD_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip);
     Value& left = regs[args.r1];
     Value& right = regs[args.r2];
@@ -76,13 +71,8 @@ BINARY_OP_B_IMPL(MUL, MUL)
 BINARY_OP_B_IMPL(DIV, DIV)
 BINARY_OP_B_IMPL(MOD, MOD)
 
-// ============================================================================
-// 2. COMPARISON (EQ, NEQ, GT, GE, LT, LE) - Fast Path Int
-// ============================================================================
-
-// --- Helper Macro cho Comparison ---
 #define CMP_FAST_IMPL(OP_NAME, OP_ENUM, OPERATOR) \
-    HOT_HANDLER impl_##OP_NAME(const uint8_t* ip, Value* regs, Value* constants, VMState* state) { \
+    HOT_HANDLER impl_##OP_NAME(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
         const auto& args = *reinterpret_cast<const BinaryArgs*>(ip); \
         Value& left = regs[args.r1]; \
         Value& right = regs[args.r2]; \
@@ -93,7 +83,7 @@ BINARY_OP_B_IMPL(MOD, MOD)
         } \
         return ip + sizeof(BinaryArgs); \
     } \
-    HOT_HANDLER impl_##OP_NAME##_B(const uint8_t* ip, Value* regs, Value* constants, VMState* state) { \
+    HOT_HANDLER impl_##OP_NAME##_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
         const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip); \
         Value& left = regs[args.r1]; \
         Value& right = regs[args.r2]; \
@@ -111,41 +101,35 @@ CMP_FAST_IMPL(GT, GT, >)
 CMP_FAST_IMPL(GE, GE, >=)
 CMP_FAST_IMPL(LT, LT, <)
 CMP_FAST_IMPL(LE, LE, <=)
-
-// ============================================================================
-// 3. BITWISE & UNARY
-// ============================================================================
-
 BINARY_OP_IMPL(BIT_AND, BIT_AND)
 BINARY_OP_IMPL(BIT_OR, BIT_OR)
 BINARY_OP_IMPL(BIT_XOR, BIT_XOR)
 BINARY_OP_IMPL(LSHIFT, LSHIFT)
 BINARY_OP_IMPL(RSHIFT, RSHIFT)
 
-HOT_HANDLER impl_NEG(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+HOT_HANDLER impl_NEG(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
     Value& val = regs[args.src];
-    // Fast path NEG cho Int/Float
-    if (val.is_int()) regs[args.dst] = Value(-val.as_int());
+    if (val.is_int()) [[likely]] regs[args.dst] = Value(-val.as_int());
     else if (val.is_float()) regs[args.dst] = Value(-val.as_float());
-    else regs[args.dst] = OperatorDispatcher::find(OpCode::NEG, val)(&state->heap, val);
+    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::NEG, val)(&state->heap, val);
     return ip + sizeof(UnaryArgs);
 }
 
-HOT_HANDLER impl_BIT_NOT(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+HOT_HANDLER impl_BIT_NOT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
     Value& val = regs[args.src];
     regs[args.dst] = OperatorDispatcher::find(OpCode::BIT_NOT, val)(&state->heap, val);
     return ip + sizeof(UnaryArgs);
 }
 
-HOT_HANDLER impl_NOT(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+HOT_HANDLER impl_NOT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
     regs[args.dst] = Value(!to_bool(regs[args.src]));
     return ip + sizeof(UnaryArgs);
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_INC(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_INC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t reg_idx = read_u16(ip);
     Value& val = regs[reg_idx];
 
@@ -162,7 +146,7 @@ HOT_HANDLER impl_NOT(const uint8_t* ip, Value* regs, Value* constants, VMState* 
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_DEC(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+[[gnu::always_inline]] static const uint8_t* impl_DEC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t reg_idx = read_u16(ip);
     Value& val = regs[reg_idx];
 

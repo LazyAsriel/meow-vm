@@ -4,21 +4,18 @@
 #include <meow/memory/memory_manager.h>
 #include <meow/memory/gc_disable_guard.h>
 #include <meow/core/module.h>
-#include <meow/core/array.h> // Cho split
-#include <meow/cast.h>       // [FIX] Cần thiết cho to_string()
-#include <algorithm> 
-#include <sstream>
+#include <meow/core/array.h>
+#include <meow/cast.h>
 
 namespace meow::natives::str {
 
 #define CHECK_SELF() \
-    if (argc < 1 || !argv[0].is_string()) { \
+    if (argc < 1 || !argv[0].is_string()) [[unlikely]] { \
         vm->error("String method expects 'this' to be a String."); \
         return Value(null_t{}); \
     } \
     string_t self_obj = argv[0].as_string(); \
     std::string_view self(self_obj->c_str(), self_obj->size()); \
-    meow::GCDisableGuard guard(vm->get_heap());
 
 static Value len(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
@@ -71,8 +68,7 @@ static Value endsWith(Machine* vm, int argc, Value* argv) {
 }
 
 static Value join(Machine* vm, int argc, Value* argv) {
-    // "sep".join(array)
-    CHECK_SELF(); // self là separator
+    CHECK_SELF();
     if (argc < 2 || !argv[1].is_array()) return Value(vm->get_heap()->new_string(""));
 
     array_t arr = argv[1].as_array();
@@ -81,7 +77,7 @@ static Value join(Machine* vm, int argc, Value* argv) {
         if (i > 0) ss << self;
         Value item = arr->get(i);
         if (item.is_string()) ss << item.as_string()->c_str();
-        else ss << to_string(item); // Bây giờ đã có meow::to_string từ meow/cast.h
+        else ss << to_string(item);
     }
     return Value(vm->get_heap()->new_string(ss.str()));
 }
@@ -97,7 +93,6 @@ static Value split(Machine* vm, int argc, Value* argv) {
     auto arr = vm->get_heap()->new_array();
     
     if (delim.empty()) {
-        // Split từng ký tự
         for (char c : self) {
             arr->push(Value(vm->get_heap()->new_string(&c, 1)));
         }
@@ -135,7 +130,6 @@ static Value replace(Machine* vm, int argc, Value* argv) {
     return Value(vm->get_heap()->new_string(s));
 }
 
-// [FIX] Value(-1) -> Value((int64_t)-1)
 static Value indexOf(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2 || !argv[1].is_string()) return Value((int64_t)-1);
@@ -152,7 +146,6 @@ static Value indexOf(Machine* vm, int argc, Value* argv) {
     return Value((int64_t)pos);
 }
 
-// [FIX] Value(-1) -> Value((int64_t)-1)
 static Value lastIndexOf(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2 || !argv[1].is_string()) return Value((int64_t)-1);
@@ -214,7 +207,6 @@ static Value repeat(Machine* vm, int argc, Value* argv) {
     return Value(vm->get_heap()->new_string(res));
 }
 
-// [FIX] Xóa biến unused 'needed' và sửa warning sign comparison
 static Value padLeft(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2 || !argv[1].is_int()) return argv[0];
@@ -239,7 +231,6 @@ static Value padLeft(Machine* vm, int argc, Value* argv) {
     return Value(vm->get_heap()->new_string(res));
 }
 
-// [FIX] Sửa warning sign comparison
 static Value padRight(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2 || !argv[1].is_int()) return argv[0];
@@ -256,7 +247,6 @@ static Value padRight(Machine* vm, int argc, Value* argv) {
     }
 
     std::string res(self);
-    size_t needed_len = target_len - self.size();
     while (res.size() < target_len) res.append(pad_char);
     res.resize(target_len);
     
@@ -273,7 +263,6 @@ static Value equalsIgnoreCase(Machine* vm, int argc, Value* argv) {
         [](char a, char b) { return tolower(a) == tolower(b); }));
 }
 
-// [FIX] Value(-1) -> Value((int64_t)-1)
 static Value charAt(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2 || !argv[1].is_int()) return Value(vm->get_heap()->new_string(""));
@@ -284,7 +273,6 @@ static Value charAt(Machine* vm, int argc, Value* argv) {
     return Value(vm->get_heap()->new_string(&c, 1));
 }
 
-// [FIX] Value(-1) -> Value((int64_t)-1)
 static Value charCodeAt(Machine* vm, int argc, Value* argv) {
     CHECK_SELF();
     if (argc < 2 || !argv[1].is_int()) return Value((int64_t)-1);

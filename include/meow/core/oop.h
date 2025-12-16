@@ -20,11 +20,11 @@
 #include <meow/value.h>
 #include <meow/memory/gc_visitor.h>
 #include <meow/core/shape.h>
-#include <meow_flat_map.h> // [NEW]
+#include <meow_flat_map.h>
 
 namespace meow {
 class ObjClass : public ObjBase<ObjectType::CLASS> {
-   private:
+private:
     using string_t = string_t;
     using class_t = class_t;
     using method_map = meow::flat_map<string_t, value_t>;
@@ -34,9 +34,8 @@ class ObjClass : public ObjBase<ObjectType::CLASS> {
     class_t superclass_;
     method_map methods_;
 
-   public:
-    explicit ObjClass(string_t name = nullptr) noexcept : name_(name) {
-    }
+public:
+    explicit ObjClass(string_t name = nullptr) noexcept : name_(name) {}
 
     // --- Metadata ---
     inline string_t get_name() const noexcept {
@@ -74,7 +73,7 @@ class ObjClass : public ObjBase<ObjectType::CLASS> {
 };
 
 class ObjInstance : public ObjBase<ObjectType::INSTANCE> {
-   private:
+private:
     using string_t = string_t;
     using class_t = class_t;
     using visitor_t = GCVisitor;
@@ -82,8 +81,7 @@ class ObjInstance : public ObjBase<ObjectType::INSTANCE> {
     class_t klass_;
     Shape* shape_;              
     std::vector<Value> fields_; 
-
-   public:
+public:
     explicit ObjInstance(class_t k, Shape* empty_shape) noexcept 
         : klass_(k), shape_(empty_shape) {
     }
@@ -95,7 +93,6 @@ class ObjInstance : public ObjBase<ObjectType::INSTANCE> {
     inline Shape* get_shape() const noexcept { return shape_; }
     inline void set_shape(Shape* s) noexcept { shape_ = s; }
 
-    // --- Fast Field Access (By Index) ---
     inline Value get_field_at(int offset) const noexcept {
         return fields_[offset];
     }
@@ -104,10 +101,10 @@ class ObjInstance : public ObjBase<ObjectType::INSTANCE> {
         fields_[offset] = value;
     }
     
-    // --- Raw Field Access (Cho Transition) ---
-    inline std::vector<Value>& get_fields_raw() { return fields_; }
+    inline void add_field(param_t value) noexcept {
+        fields_.push_back(value);
+    }
 
-    // --- Slow API ---
     inline bool has_field(string_t name) const {
         return shape_->get_offset(name) != -1;
     }
@@ -130,13 +127,12 @@ class ObjInstance : public ObjBase<ObjectType::INSTANCE> {
 };
 
 class ObjBoundMethod : public ObjBase<ObjectType::BOUND_METHOD> {
-   private:
+private:
     Value receiver_; 
     Value method_;   
 
     using visitor_t = GCVisitor;
-
-   public:
+public:
     explicit ObjBoundMethod(Value receiver, Value method) noexcept 
         : receiver_(receiver), method_(method) {}
 

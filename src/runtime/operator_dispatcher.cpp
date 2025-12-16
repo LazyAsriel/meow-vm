@@ -7,7 +7,6 @@
 
 namespace meow {
 
-// --- Trap Handlers ---
 static return_t trap_binary(MemoryManager*, param_t, param_t) {
     return Value(null_t{});
 }
@@ -16,7 +15,6 @@ static return_t trap_unary(MemoryManager*, param_t) {
     return Value(null_t{});
 }
 
-// --- Helpers ---
 static constexpr int64_t bool_to_int(bool b) { return b ? 1 : 0; }
 static constexpr double bool_to_double(bool b) { return b ? 1.0 : 0.0; }
 
@@ -49,19 +47,13 @@ static Value pow_op(double a, double b) {
     return Value(std::pow(a, b));
 }
 
-static bool loose_eq(param_t a, param_t b) {
+static bool loose_eq(param_t a, param_t b) noexcept {
     if (a.is_int() && b.is_int()) return a.as_int() == b.as_int();
     if (a.is_float() && b.is_float()) return std::abs(a.as_float() - b.as_float()) < std::numeric_limits<double>::epsilon();
     if (a.is_int() && b.is_float()) return std::abs(static_cast<double>(a.as_int()) - b.as_float()) < std::numeric_limits<double>::epsilon();
     if (a.is_float() && b.is_int()) return std::abs(a.as_float() - static_cast<double>(b.as_int())) < std::numeric_limits<double>::epsilon();
     if (a.is_bool() && b.is_bool()) return a.as_bool() == b.as_bool();
     if (a.is_string() && b.is_string()) return a.as_string() == b.as_string(); 
-    // if (a.is_string() && b.is_string()) {
-    //     string_t s1 = a.as_string();
-    //     string_t s2 = b.as_string();
-    //     if (s1 == s2) return true; // Tối ưu: Cùng trỏ 1 nơi -> bằng nhau
-    //     return std::string_view(s1->c_str(), s1->size()) == std::string_view(s2->c_str(), s2->size());
-    // }
     if (a.is_null() && b.is_null()) return true;
     if (a.is_bool() && b.is_int()) return bool_to_int(a.as_bool()) == b.as_int();
     if (a.is_int() && b.is_bool()) return a.as_int() == bool_to_int(b.as_bool());
@@ -83,7 +75,6 @@ consteval size_t calc_un_idx(OpCode op, ValueType rhs) {
     return (op_idx << TYPE_BITS) | std::to_underlying(rhs);
 }
 
-// --- Table Generation ---
 consteval auto make_binary_table() {
     std::array<binary_function_t, BINARY_TABLE_SIZE> table;
     table.fill(trap_binary);
@@ -204,7 +195,6 @@ consteval auto make_binary_table() {
     reg(LT, Int, Int,       [](MemoryManager*, param_t a, param_t b) { return Value(a.as_int() < b.as_int()); });
     reg(GT, Int, Int,       [](MemoryManager*, param_t a, param_t b) { return Value(a.as_int() > b.as_int()); });
     
-    // Comparison wrappers for mixed types
     auto reg_cmp = [&](ValueType t1, ValueType t2) {
         reg(LT, t1, t2, [](MemoryManager*, param_t a, param_t b) { return Value(to_float(a) < to_float(b)); });
         reg(GT, t1, t2, [](MemoryManager*, param_t a, param_t b) { return Value(to_float(a) > to_float(b)); });

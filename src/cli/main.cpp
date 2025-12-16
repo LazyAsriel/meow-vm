@@ -50,7 +50,6 @@ int main(int argc, char* argv[]) {
     Mode mode = Mode::Bytecode;
     std::string input_file;
 
-    // Argument Parsing đơn giản
     if (args[0] == "-c" || args[0] == "--compile") {
         mode = Mode::SourceAsm;
         if (args.size() < 2) {
@@ -66,7 +65,6 @@ int main(int argc, char* argv[]) {
         }
         input_file = args[1];
     } else {
-        // Auto-detect extension
         input_file = args[0];
         if (input_file.ends_with(".meowb") || input_file.ends_with(".asm")) {
             mode = Mode::SourceAsm;
@@ -78,11 +76,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // --- COMPILE PHASE ---
     if (mode == Mode::SourceAsm) {
-        // std::println("Compiling '{}'...", input_file);
-        
-        // 1. Read file source
         std::ifstream f(input_file, std::ios::ate);
         std::streamsize size = f.tellg();
         f.seekg(0, std::ios::beg);
@@ -93,19 +87,11 @@ int main(int argc, char* argv[]) {
         }
 
         try {
-            // 2. Init MASM
             masm::init_op_map();
-
-            // 3. Assemble in-memory
             masm::Lexer lexer(source);
-            
-            // Lưu tokens ra biến để đảm bảo lifetime
             auto tokens = lexer.tokenize(); 
-            
             masm::Assembler assembler(tokens);
             std::vector<uint8_t> bytecode = assembler.assemble();
-
-            // 4. Temporary: Write to .meowb để Machine load
             fs::path src_path(input_file);
             fs::path bin_path = src_path;
             bin_path.replace_extension(".meowc");
@@ -114,7 +100,6 @@ int main(int argc, char* argv[]) {
             out.write(reinterpret_cast<const char*>(bytecode.data()), bytecode.size());
             out.close();
             
-            // Switch target file sang file bytecode vừa tạo
             input_file = bin_path.string();
             
         } catch (const std::exception& e) {
@@ -123,16 +108,12 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // --- EXECUTE PHASE ---
     try {
-        // [FIX] Tạo danh sách arguments "sạch" cho VM (loại bỏ cờ -b, -c)
-        // Điều này giúp index của script (System.argv) không bị lệch
         std::vector<char*> clean_argv;
-        clean_argv.push_back(argv[0]); // Giữ lại tên chương trình (argv[0])
+        clean_argv.push_back(argv[0]);
 
         for (int i = 1; i < argc; ++i) {
             std::string arg = argv[i];
-            // Bỏ qua các cờ điều khiển của VM
             if (arg == "-b" || arg == "--bytecode" || arg == "-c" || arg == "--compile") {
                 continue; 
             }
@@ -143,7 +124,6 @@ int main(int argc, char* argv[]) {
         std::string root_dir = abs_path.parent_path().string();
         std::string entry_file = abs_path.filename().string();
         
-        // Truyền clean_argv vào Machine thay vì argv gốc
         Machine vm(root_dir, entry_file, static_cast<int>(clean_argv.size()), clean_argv.data()); 
         vm.interpret();
         

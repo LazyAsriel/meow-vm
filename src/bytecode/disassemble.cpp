@@ -5,17 +5,10 @@
 #include <meow/value.h>
 #include <meow/bytecode/chunk.h>
 
-#include <format> // C++20/23: Nhanh hơn rất nhiều so với iostream
-#include <vector>
-#include <bit>
-#include <cstring>
-
 namespace meow {
 
-// --- Constants ---
-static constexpr size_t CALL_IC_SIZE = 16; // 2 pointers (tag + dest)
+static constexpr size_t CALL_IC_SIZE = 16;
 
-// --- Opcode Name Map (Compile-time) ---
 constexpr std::string_view get_opcode_name(OpCode op) {
     switch (op) {
 #define OP(name) case OpCode::name: return #name;
@@ -51,9 +44,6 @@ constexpr std::string_view get_opcode_name(OpCode op) {
     }
 }
 
-// --- High Performance Readers ---
-// Dùng memcpy để compiler tối ưu thành lệnh MOV đơn lẻ, an toàn bộ nhớ.
-
 template <typename T>
 [[gnu::always_inline]] 
 static inline T read_as(const uint8_t* code, size_t& ip) {
@@ -68,8 +58,6 @@ static inline uint16_t read_u16(const uint8_t* code, size_t& ip) { return read_a
 static inline uint64_t read_u64(const uint8_t* code, size_t& ip) { return read_as<uint64_t>(code, ip); }
 static inline double read_f64(const uint8_t* code, size_t& ip) { return read_as<double>(code, ip); }
 
-// --- Formatters ---
-
 static std::string value_to_string(const Value& value) {
     if (value.is_null()) return "null";
     if (value.is_bool()) return value.as_bool() ? "true" : "false";
@@ -83,8 +71,6 @@ static std::string value_to_string(const Value& value) {
     return "<obj>";
 }
 
-// --- Main Logic ---
-
 std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_t offset) noexcept {
     const uint8_t* code = chunk.get_code();
     size_t code_size = chunk.get_code_size();
@@ -95,11 +81,9 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
     uint8_t raw_op = read_u8(code, ip);
     OpCode op = static_cast<OpCode>(raw_op);
     
-    // Sử dụng std::string buffer để tránh allocation liên tục nếu có thể
     std::string line;
     line.reserve(64); 
 
-    // 1. In tên OpCode (Căn lề trái 16 ký tự)
     std::format_to(std::back_inserter(line), "{:<16}", get_opcode_name(op));
 
     try {
@@ -421,7 +405,6 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
 
 std::string disassemble_chunk(const Chunk& chunk, const char* name) noexcept {
     std::string out;
-    // Dự đoán kích thước buffer để giảm reallocation: 64 bytes/line
     out.reserve(chunk.get_code_size() * 16); 
 
     std::format_to(std::back_inserter(out), "== {} ==\n", name ? name : "Chunk");
@@ -439,12 +422,10 @@ std::string disassemble_around(const Chunk& chunk, size_t target_ip, int context
     std::vector<size_t> lines;
     lines.reserve(chunk.get_code_size() / 2); 
 
-    // 1. Quét toàn bộ Chunk để map ranh giới Instruction
     size_t scan_ip = 0;
     while (scan_ip < chunk.get_code_size()) {
         lines.push_back(scan_ip);
         
-        // Safety break để tránh loop vô tận nếu disassemble lỗi
         auto [_, next] = disassemble_instruction(chunk, scan_ip);
         if (next <= scan_ip) scan_ip++; 
         else scan_ip = next;
@@ -453,19 +434,15 @@ std::string disassemble_around(const Chunk& chunk, size_t target_ip, int context
     std::string out;
     out.reserve(1024);
 
-    // 2. Tìm instruction chứa target_ip (Fuzzy Search)
-    // Tìm vị trí đầu tiên mà ip > target_ip
     auto it = std::upper_bound(lines.begin(), lines.end(), target_ip);
     
     size_t found_idx = 0;
     bool is_aligned = false;
 
     if (it == lines.begin()) {
-        // Target IP nhỏ hơn instruction đầu tiên?? (Impossible trừ khi target_ip rất lớn wrap around)
         std::format_to(std::back_inserter(out), "CRITICAL ERROR: Target IP {} is before start of chunk!\n", target_ip);
         found_idx = 0;
     } else {
-        // Lùi lại 1 bước để lấy instruction bắt đầu trước hoặc tại target_ip
         --it;
         size_t start_ip = *it;
         found_idx = std::distance(lines.begin(), it);
@@ -483,16 +460,13 @@ std::string disassemble_around(const Chunk& chunk, size_t target_ip, int context
         }
     }
 
-    // 3. Tính toán vùng in (Context)
     size_t start_idx = (found_idx > (size_t)context_lines) ? found_idx - context_lines : 0;
     size_t end_idx = std::min(lines.size(), found_idx + context_lines + 1);
 
-    // 4. In ra
     for (size_t i = start_idx; i < end_idx; ++i) {
         size_t ip = lines[i];
         auto [str, next_ip] = disassemble_instruction(chunk, ip);
         
-        // Highlight logic
         if (ip == lines[found_idx]) {
             if (is_aligned) {
                 std::format_to(std::back_inserter(out), " -> {:04d}: {}   <--- HERE (Exact)\n", ip, str);

@@ -6,7 +6,7 @@
 namespace meow::handlers {
 
 [[gnu::always_inline]] 
-static const uint8_t* impl_EXPORT(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+static const uint8_t* impl_EXPORT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t name_idx = read_u16(ip);
     uint16_t src_reg = read_u16(ip);
     Value val = regs[src_reg];
@@ -20,7 +20,7 @@ static const uint8_t* impl_EXPORT(const uint8_t* ip, Value* regs, Value* constan
 }
 
 [[gnu::always_inline]] 
-static const uint8_t* impl_GET_EXPORT(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+static const uint8_t* impl_GET_EXPORT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t mod_reg = read_u16(ip);
     uint16_t name_idx = read_u16(ip);
@@ -44,7 +44,7 @@ static const uint8_t* impl_GET_EXPORT(const uint8_t* ip, Value* regs, Value* con
 }
 
 [[gnu::always_inline]] 
-static const uint8_t* impl_IMPORT_ALL(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+static const uint8_t* impl_IMPORT_ALL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t src_idx = read_u16(ip);
     (void)constants;
     
@@ -60,7 +60,7 @@ static const uint8_t* impl_IMPORT_ALL(const uint8_t* ip, Value* regs, Value* con
 }
 
 [[gnu::always_inline]] 
-static const uint8_t* impl_IMPORT_MODULE(const uint8_t* ip, Value* regs, Value* constants, VMState* state) {
+static const uint8_t* impl_IMPORT_MODULE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t path_idx = read_u16(ip);
     

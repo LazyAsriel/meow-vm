@@ -10,10 +10,8 @@ namespace meow::natives::sys {
 
 // system.argv()
 static Value get_argv(Machine* vm, int, Value*) {
-    // [Cite: 1] Accessing VM arguments
     const auto& cmd_args = vm->get_args().command_line_arguments_; 
     auto arr = vm->get_heap()->new_array();
-    // Pre-allocate to avoid reallocations
     arr->reserve(cmd_args.size());
     
     for (const auto& arg : cmd_args) {
@@ -40,8 +38,6 @@ static Value exec_cmd(Machine* vm, int argc, Value* argv) {
 
 // system.time() -> ms
 static Value time_now(Machine*, int, Value*) {
-    // Use steady_clock for measuring duration, system_clock for wall time.
-    // Usually 'time()' implies wall clock.
     auto now = std::chrono::system_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
     return Value(static_cast<int64_t>(ms));

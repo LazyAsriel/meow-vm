@@ -84,7 +84,6 @@ Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
 
     emit_prologue(); 
     
-    // [OPTIMIZATION] Align start of user code (potentially loop head) to 16 bytes
     emit_.align(16);
 
     size_t ip = 0;
@@ -99,7 +98,6 @@ Compiler::JitFunc Compiler::compile(const uint8_t* bytecode, size_t len) {
             uint16_t v; std::memcpy(&v, bytecode + ip, 2); ip += 2; return v; 
         };
 
-        // Helper: Emit Compare Logic
         auto emit_cmp_logic = [&](OpCode op_cmp, uint16_t r1, uint16_t r2) -> Condition {
              Reg r1_reg = map_vm_reg(r1);
              if (r1_reg == INVALID_REG) { load_vm_reg(RAX_REG, r1); r1_reg = RAX_REG; }
