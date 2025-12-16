@@ -2,6 +2,7 @@
 .meowconfig/
 compiler/
 libs/
+scripts/
 build/
 build-*/
 dist/
