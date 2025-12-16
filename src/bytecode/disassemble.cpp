@@ -217,10 +217,15 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
             }
 
             // --- JUMPS ---
-            case OpCode::JUMP: 
-            case OpCode::SETUP_TRY: {
+            case OpCode::JUMP: {
                 uint16_t offset = read_u16(code, ip);
                 std::format_to(std::back_inserter(line), "-> {:04d}", offset);
+                break;
+            }
+            case OpCode::SETUP_TRY: {
+                uint16_t offset = read_u16(code, ip);
+                uint16_t err_reg = read_u16(code, ip);
+                std::format_to(std::back_inserter(line), "try -> {:04d}, catch=r{}", offset, err_reg);
                 break;
             }
             case OpCode::JUMP_IF_FALSE:
@@ -238,7 +243,7 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
                 break;
             }
 
-            // --- CALLS (CRITICAL FIX: INLINE CACHE) ---
+            // --- CALLS  ---
             case OpCode::CALL: {
                 uint16_t dst = read_u16(code, ip);
                 uint16_t fn = read_u16(code, ip);
@@ -247,7 +252,6 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
                 
                 std::format_to(std::back_inserter(line), "r{} = r{}(argc={}, args=r{})", dst, fn, argc, arg);
                 
-                // SKIP INLINE CACHE (16 bytes)
                 ip += CALL_IC_SIZE; 
                 break;
             }
@@ -258,7 +262,6 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
 
                 std::format_to(std::back_inserter(line), "void r{}(argc={}, args=r{})", fn, argc, arg);
                 
-                // SKIP INLINE CACHE (16 bytes)
                 ip += CALL_IC_SIZE;
                 break;
             }
@@ -270,7 +273,6 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
 
                 std::format_to(std::back_inserter(line), "tail r{}(argc={}, args=r{})", fn, argc, arg);
                 
-                // SKIP INLINE CACHE (16 bytes)
                 ip += CALL_IC_SIZE;
                 break;
             }

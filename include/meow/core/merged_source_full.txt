@@ -1,0 +1,821 @@
+================================================================================
+ FILE PATH: include/meow/core/array.h
+================================================================================
+     1	/**
+     2	 * @file array.h
+     3	 * @author LazyPaws
+     4	 * @brief Core definition of Array in TrangMeo
+     5	 */
+     6	
+     7	#pragma once
+     8	
+     9	#include <cstdint>
+    10	#include <vector>
+    11	#include <meow/core/meow_object.h>
+    12	#include <meow/value.h>
+    13	#include <meow/memory/gc_visitor.h>
+    14	
+    15	namespace meow {
+    16	class ObjArray : public ObjBase<ObjectType::ARRAY> {
+    17	public:
+    18	    using container_t = std::vector<value_t>;
+    19	    
+    20	private:
+    21	    using visitor_t = GCVisitor;
+    22	    container_t elements_;
+    23	
+    24	public:
+    25	    explicit ObjArray() = default;
+    26	
+    27	    ObjArray(const std::vector<value_t>& elements) 
+    28	        : elements_(elements) {}
+    29	
+    30	    ObjArray(container_t&& elements) noexcept 
+    31	        : elements_(std::move(elements)) {}
+    32	
+    33	    // --- Rule of 5 ---
+    34	    ObjArray(const ObjArray&) = delete;
+    35	    ObjArray(ObjArray&&) = default;
+    36	    ObjArray& operator=(const ObjArray&) = delete;
+    37	    ObjArray& operator=(ObjArray&&) = delete;
+    38	    ~ObjArray() override = default;
+    39	
+    40	    // --- Size Override ---
+    41	    size_t obj_size() const noexcept override { return sizeof(ObjArray); }
+    42	
+    43	    // --- Iterator types ---
+    44	    using iterator = container_t::iterator;
+    45	    using const_iterator = container_t::const_iterator;
+    46	    using reverse_iterator = container_t::reverse_iterator;
+    47	    using const_reverse_iterator = container_t::const_reverse_iterator;
+    48	
+    49	    // --- Accessors & Modifiers ---
+    50	    
+    51	    template <typename Self>
+    52	    inline decltype(auto) get(this Self&& self, size_t index) noexcept {
+    53	        return std::forward<Self>(self).elements_[index]; 
+    54	    }
+    55	
+    56	    template <typename Self>
+    57	    inline decltype(auto) at(this Self&& self, size_t index) {
+    58	        return std::forward<Self>(self).elements_.at(index);
+    59	    }
+    60	
+    61	    template <typename Self>
+    62	    inline decltype(auto) operator[](this Self&& self, size_t index) noexcept {
+    63	        return std::forward<Self>(self).elements_[index];
+    64	    }
+    65	
+    66	    template <typename Self>
+    67	    inline decltype(auto) front(this Self&& self) noexcept {
+    68	        return std::forward<Self>(self).elements_.front();
+    69	    }
+    70	
+    71	    template <typename Self>
+    72	    inline decltype(auto) back(this Self&& self) noexcept {
+    73	        return std::forward<Self>(self).elements_.back();
+    74	    }
+    75	
+    76	    template <typename T>
+    77	    inline void set(size_t index, T&& value) noexcept {
+    78	        elements_[index] = std::forward<T>(value);
+    79	    }
+    80	
+    81	    inline size_t size() const noexcept { return elements_.size(); }
+    82	    inline bool empty() const noexcept { return elements_.empty(); }
+    83	    inline size_t capacity() const noexcept { return elements_.capacity(); }
+    84	
+    85	    template <typename T>
+    86	    inline void push(T&& value) { elements_.emplace_back(std::forward<T>(value)); }
+    87	    inline void pop() noexcept { elements_.pop_back(); }
+    88	    
+    89	    template <typename... Args>
+    90	    inline void emplace(Args&&... args) { elements_.emplace_back(std::forward<Args>(args)...); }
+    91	    
+    92	    inline void resize(size_t size) { elements_.resize(size); }
+    93	    inline void reserve(size_t capacity) { elements_.reserve(capacity); }
+    94	    inline void shrink() { elements_.shrink_to_fit(); }
+    95	    inline void clear() { elements_.clear(); }
+    96	
+    97	    template <typename Self>
+    98	    inline auto begin(this Self&& self) noexcept { return std::forward<Self>(self).elements_.begin(); }
+    99	    
+   100	    template <typename Self>
+   101	    inline auto end(this Self&& self) noexcept { return std::forward<Self>(self).elements_.end(); }
+   102	
+   103	    template <typename Self>
+   104	    inline auto rbegin(this Self&& self) noexcept { return std::forward<Self>(self).elements_.rbegin(); }
+   105	
+   106	    template <typename Self>
+   107	    inline auto rend(this Self&& self) noexcept { return std::forward<Self>(self).elements_.rend(); }
+   108	
+   109	    void trace(visitor_t& visitor) const noexcept override;
+   110	};
+   111	}
+
+
+================================================================================
+ FILE PATH: include/meow/core/function.h
+================================================================================
+     1	/**
+     2	 * @file function.h
+     3	 * @author LazyPaws
+     4	 * @brief Core definition of Upvalue, Proto, Function in TrangMeo
+     5	 * @copyright Copyright (c) 2025 LazyPaws
+     6	 * @license All rights reserved. Unauthorized copying of this file, in any form
+     7	 * or medium, is strictly prohibited
+     8	 */
+     9	
+    10	#pragma once
+    11	
+    12	#include <cstdint>
+    13	#include <vector>
+    14	#include <string>
+    15	#include <memory>
+    16	#include <meow/definitions.h>
+    17	#include <meow/core/meow_object.h>
+    18	#include <meow/definitions.h>
+    19	#include <meow/value.h>
+    20	#include <meow/memory/gc_visitor.h>
+    21	#include "meow/bytecode/chunk.h"
+    22	
+    23	namespace meow {
+    24	struct UpvalueDesc {
+    25	    bool is_local_;
+    26	    size_t index_;
+    27	    UpvalueDesc(bool is_local = false, size_t index = 0) noexcept : is_local_(is_local), index_(index) {
+    28	    }
+    29	};
+    30	
+    31	class ObjUpvalue : public ObjBase<ObjectType::UPVALUE> {
+    32	   private:
+    33	    using visitor_t = GCVisitor;
+    34	
+    35	    enum class State { OPEN, CLOSED };
+    36	    State state_ = State::OPEN;
+    37	    size_t index_ = 0;
+    38	    Value closed_ = null_t{};
+    39	
+    40	   public:
+    41	    explicit ObjUpvalue(size_t index = 0) noexcept : index_(index) {
+    42	    }
+    43	    inline void close(param_t value) noexcept {
+    44	        closed_ = value;
+    45	        state_ = State::CLOSED;
+    46	    }
+    47	    inline bool is_closed() const noexcept {
+    48	        return state_ == State::CLOSED;
+    49	    }
+    50	    inline return_t get_value() const noexcept {
+    51	        return closed_;
+    52	    }
+    53	    inline size_t get_index() const noexcept {
+    54	        return index_;
+    55	    }
+    56	
+    57	    size_t obj_size() const noexcept override { return sizeof(ObjUpvalue); }
+    58	
+    59	    void trace(visitor_t& visitor) const noexcept override;
+    60	};
+    61	
+    62	class ObjFunctionProto : public ObjBase<ObjectType::PROTO> {
+    63	private:
+    64	    using chunk_t = Chunk;
+    65	    using string_t = string_t;
+    66	    using visitor_t = GCVisitor;
+    67	
+    68	    size_t num_registers_;
+    69	    size_t num_upvalues_;
+    70	    string_t name_;
+    71	    chunk_t chunk_;
+    72	    module_t module_ = nullptr;
+    73	    std::vector<UpvalueDesc> upvalue_descs_;
+    74	
+    75	public:
+    76	    explicit ObjFunctionProto(size_t registers, size_t upvalues, string_t name, chunk_t&& chunk) noexcept : num_registers_(registers), num_upvalues_(upvalues), name_(name), chunk_(std::move(chunk)) {
+    77	    }
+    78	    explicit ObjFunctionProto(size_t registers, size_t upvalues, string_t name, chunk_t&& chunk, std::vector<UpvalueDesc>&& descs) noexcept
+    79	        : num_registers_(registers), num_upvalues_(upvalues), name_(name), chunk_(std::move(chunk)), upvalue_descs_(std::move(descs)) {
+    80	    }
+    81	
+    82	    inline void set_module(module_t mod) noexcept { module_ = mod; }
+    83	    inline module_t get_module() const noexcept { return module_; }
+    84	
+    85	    /// @brief Unchecked upvalue desc access. For performance-critical code
+    86	    inline const UpvalueDesc& get_desc(size_t index) const noexcept {
+    87	        return upvalue_descs_[index];
+    88	    }
+    89	    /// @brief Checked upvalue desc access. For performence-critical code
+    90	    inline const UpvalueDesc& at_desc(size_t index) const {
+    91	        return upvalue_descs_.at(index);
+    92	    }
+    93	    inline size_t get_num_registers() const noexcept {
+    94	        return num_registers_;
+    95	    }
+    96	    inline size_t get_num_upvalues() const noexcept {
+    97	        return num_upvalues_;
+    98	    }
+    99	    inline string_t get_name() const noexcept {
+   100	        return name_;
+   101	    }
+   102	    inline const chunk_t& get_chunk() const noexcept {
+   103	        return chunk_;
+   104	    }
+   105	    inline size_t desc_size() const noexcept {
+   106	        return upvalue_descs_.size();
+   107	    }
+   108	
+   109	    size_t obj_size() const noexcept override { return sizeof(ObjFunctionProto); }
+   110	
+   111	    void trace(visitor_t& visitor) const noexcept override;
+   112	};
+   113	
+   114	class ObjClosure : public ObjBase<ObjectType::FUNCTION> {
+   115	   private:
+   116	    using proto_t = proto_t;
+   117	    using upvalue_t = upvalue_t;
+   118	    using visitor_t = GCVisitor;
+   119	
+   120	    proto_t proto_;
+   121	    std::vector<upvalue_t> upvalues_;
+   122	
+   123	   public:
+   124	    explicit ObjClosure(proto_t proto = nullptr) : proto_(proto), upvalues_(proto ? proto->get_num_upvalues() : 0) {}
+   125	
+   126	    inline proto_t get_proto() const noexcept {
+   127	        return proto_;
+   128	    }
+   129	    /// @brief Unchecked upvalue access. For performance-critical code
+   130	    inline upvalue_t get_upvalue(size_t index) const noexcept {
+   131	        return upvalues_[index];
+   132	    }
+   133	    /// @brief Unchecked upvalue modification. For performance-critical code
+   134	    inline void set_upvalue(size_t index, upvalue_t upvalue) noexcept {
+   135	        upvalues_[index] = upvalue;
+   136	    }
+   137	    /// @brief Checked upvalue access. Throws if index is OOB
+   138	    inline upvalue_t at_upvalue(size_t index) const {
+   139	        return upvalues_.at(index);
+   140	    }
+   141	
+   142	    size_t obj_size() const noexcept override { return sizeof(ObjClosure); }
+   143	
+   144	    void trace(visitor_t& visitor) const noexcept override;
+   145	};
+   146	}
+
+
+================================================================================
+ FILE PATH: include/meow/core/hash_table.h
+================================================================================
+     1	/**
+     2	 * @file hash_table.h
+     3	 * @author LazyPaws
+     4	 * @brief Core definition of Hash Table in TrangMeo
+     5	 * @copyright Copyright (c) 2025 LazyPaws
+     6	 * @license All rights reserved. Unauthorized copying of this file, in any form
+     7	 * or medium, is strictly prohibited
+     8	 */
+     9	
+    10	#pragma once
+    11	
+    12	#include <cstdint>
+    13	#include <vector>
+    14	#include <string>
+    15	#include <memory>
+    16	#include <meow/definitions.h>
+    17	#include <meow/core/meow_object.h>
+    18	#include <meow/definitions.h>
+    19	#include <meow/value.h>
+    20	#include <meow/memory/gc_visitor.h>
+    21	#include <meow/core/string.h>
+    22	
+    23	namespace meow {
+    24	class ObjHashTable : public ObjBase<ObjectType::HASH_TABLE> {
+    25	private:
+    26	    using key_t = string_t;
+    27	    using map_t = std::unordered_map<key_t, value_t, ObjStringHasher>;
+    28	    using visitor_t = GCVisitor;
+    29	
+    30	    map_t fields_;
+    31	public:
+    32	    // --- Constructors & destructor---
+    33	    ObjHashTable() = default;
+    34	    explicit ObjHashTable(const map_t& fields) : fields_(fields) {}
+    35	    explicit ObjHashTable(map_t&& fields) noexcept : fields_(std::move(fields)) {}
+    36	
+    37	    // --- Rule of 5 ---
+    38	    ObjHashTable(const ObjHashTable&) = delete;
+    39	    ObjHashTable(ObjHashTable&&) = delete;
+    40	    ObjHashTable& operator=(const ObjHashTable&) = delete;
+    41	    ObjHashTable& operator=(ObjHashTable&&) = delete;
+    42	    ~ObjHashTable() override = default;
+    43	
+    44	    // --- Iterator types ---
+    45	    using iterator = map_t::iterator;
+    46	    using const_iterator = map_t::const_iterator;
+    47	
+    48	    // --- Lookup ---
+    49	
+    50	    // Unchecked lookup. For performance-critical code
+    51	    inline return_t get(key_t key) noexcept {
+    52	        return fields_[key];
+    53	    }
+    54	    // Unchecked lookup/update. For performance-critical code
+    55	    template <typename T>
+    56	    inline void set(key_t key, T&& value) noexcept {
+    57	        fields_[key] = std::forward<T>(value);
+    58	    }
+    59	    // Checked lookup. Throws if key is not found
+    60	    inline return_t at(key_t key) const {
+    61	        return fields_.at(key);
+    62	    }
+    63	    inline bool has(key_t key) const {
+    64	        return fields_.contains(key);
+    65	    }
+    66	
+    67	    // --- Capacity ---
+    68	    inline size_t size() const noexcept {
+    69	        return fields_.size();
+    70	    }
+    71	    inline bool empty() const noexcept {
+    72	        return fields_.empty();
+    73	    }
+    74	
+    75	    // --- Iterators ---
+    76	    template <typename Self>
+    77	    auto begin(this Self&& self) noexcept { return std::forward<Self>(self).fields_.begin(); }
+    78	
+    79	    template <typename Self>
+    80	    auto end(this Self&& self) noexcept { return std::forward<Self>(self).fields_.end(); }
+    81	
+    82	    size_t obj_size() const noexcept override { return sizeof(ObjHashTable); }
+    83	
+    84	    void trace(visitor_t& visitor) const noexcept override;
+    85	};
+    86	}
+
+
+================================================================================
+ FILE PATH: include/meow/core/meow_object.h
+================================================================================
+     1	#pragma once
+     2	#include <cstdint>
+     3	
+     4	namespace meow {
+     5	struct GCVisitor;
+     6	
+     7	enum class GCState : uint8_t {
+     8	    UNMARKED = 0, MARKED = 1, OLD = 2
+     9	};
+    10	
+    11	enum class ObjectType : uint8_t {
+    12	    ARRAY = 6, STRING, HASH_TABLE, INSTANCE, CLASS,
+    13	    BOUND_METHOD, UPVALUE, PROTO, FUNCTION, MODULE, SHAPE
+    14	};
+    15	
+    16	struct MeowObject {
+    17	    const ObjectType type;
+    18	    GCState gc_state = GCState::UNMARKED;
+    19	
+    20	    explicit MeowObject(ObjectType type_tag) noexcept : type(type_tag) {}
+    21	    virtual ~MeowObject() = default;
+    22	    
+    23	    virtual void trace(GCVisitor& visitor) const noexcept = 0;
+    24	    
+    25	    virtual size_t obj_size() const noexcept = 0;
+    26	
+    27	    inline ObjectType get_type() const noexcept { return type; }
+    28	    inline bool is_marked() const noexcept { return gc_state != GCState::UNMARKED; }
+    29	    inline void mark() noexcept { if (gc_state == GCState::UNMARKED) gc_state = GCState::MARKED; }
+    30	    inline void unmark() noexcept { if (gc_state != GCState::OLD) gc_state = GCState::UNMARKED; }
+    31	};
+    32	
+    33	template <ObjectType type_tag>
+    34	struct ObjBase : public MeowObject {
+    35	    ObjBase() noexcept : MeowObject(type_tag) {}
+    36	};
+    37	}
+
+
+================================================================================
+ FILE PATH: include/meow/core/module.h
+================================================================================
+     1	#pragma once
+     2	
+     3	#include <cstdint>
+     4	#include <vector>
+     5	#include <string>
+     6	#include <memory>
+     7	#include <meow/definitions.h>
+     8	#include <meow/core/meow_object.h>
+     9	#include <meow/definitions.h>
+    10	#include <meow/value.h>
+    11	#include <meow/memory/gc_visitor.h>
+    12	#include <meow_flat_map.h>
+    13	
+    14	namespace meow {
+    15	class ObjModule : public ObjBase<ObjectType::MODULE> {
+    16	private:
+    17	    using string_t = string_t;
+    18	    using proto_t = proto_t;
+    19	    using visitor_t = GCVisitor;
+    20	
+    21	    enum class State { INITIAL, EXECUTING, EXECUTED };
+    22	
+    23	    std::vector<Value> globals_store_;
+    24	    
+    25	    using GlobalNameMap = meow::flat_map<string_t, uint32_t>;
+    26	    using ExportMap = meow::flat_map<string_t, value_t>;
+    27	
+    28	    GlobalNameMap global_names_;
+    29	    ExportMap exports_;
+    30	    
+    31	    string_t file_name_;
+    32	    string_t file_path_;
+    33	    proto_t main_proto_;
+    34	
+    35	    State state;
+    36	
+    37	public:
+    38	    explicit ObjModule(string_t file_name, string_t file_path, proto_t main_proto = nullptr) noexcept 
+    39	        : file_name_(file_name), file_path_(file_path), main_proto_(main_proto), state(State::INITIAL) {}
+    40	
+    41	    // --- Globals ---
+    42	    
+    43	    [[gnu::always_inline]]
+    44	    inline return_t get_global_by_index(uint32_t index) const noexcept {
+    45	        return globals_store_[index];
+    46	    }
+    47	
+    48	    [[gnu::always_inline]]
+    49	    inline void set_global_by_index(uint32_t index, param_t value) noexcept {
+    50	        globals_store_[index] = value;
+    51	    }
+    52	
+    53	    uint32_t intern_global(string_t name) {
+    54	        auto idx = global_names_.index_of(name);
+    55	        if (idx != GlobalNameMap::npos) {
+    56	            return global_names_.unsafe_get(idx);
+    57	        }
+    58	        
+    59	        uint32_t index = static_cast<uint32_t>(globals_store_.size());
+    60	        globals_store_.push_back(Value(null_t{}));
+    61	        
+    62	        global_names_[name] = index;
+    63	        return index;
+    64	    }
+    65	
+    66	    inline bool has_global(string_t name) {
+    67	        return global_names_.contains(name);
+    68	    }
+    69	
+    70	    inline return_t get_global(string_t name) noexcept {
+    71	        auto idx = global_names_.index_of(name);
+    72	        if (idx != GlobalNameMap::npos) {
+    73	            return globals_store_[global_names_.unsafe_get(idx)];
+    74	        }
+    75	        return Value(null_t{});
+    76	    }
+    77	
+    78	    inline void set_global(string_t name, param_t value) noexcept {
+    79	        uint32_t idx = intern_global(name);
+    80	        globals_store_[idx] = value;
+    81	    }
+    82	
+    83	    inline void import_all_global(const module_t other) noexcept {
+    84	        const auto& other_keys = other->global_names_.keys();
+    85	        const auto& other_vals = other->global_names_.values();
+    86	        
+    87	        for (size_t i = 0; i < other_keys.size(); ++i) {
+    88	            set_global(other_keys[i], other->globals_store_[other_vals[i]]);
+    89	        }
+    90	    }
+    91	
+    92	    // --- Exports ---
+    93	    inline return_t get_export(string_t name) noexcept {
+    94	        auto idx = exports_.index_of(name);
+    95	        if (idx != ExportMap::npos) return exports_.unsafe_get(idx);
+    96	        return Value(null_t{});
+    97	    }
+    98	    
+    99	    inline void set_export(string_t name, param_t value) noexcept {
+   100	        exports_[name] = value;
+   101	    }
+   102	    
+   103	    inline bool has_export(string_t name) {
+   104	        return exports_.contains(name);
+   105	    }
+   106	    
+   107	    inline void import_all_export(const module_t other) noexcept {
+   108	        const auto& other_keys = other->exports_.keys();
+   109	        const auto& other_vals = other->exports_.values();
+   110	        
+   111	        for (size_t i = 0; i < other_keys.size(); ++i) {
+   112	            exports_[other_keys[i]] = other_vals[i];
+   113	        }
+   114	    }
+   115	
+   116	    // --- Accessors ---
+   117	    inline string_t get_file_name() const noexcept { return file_name_; }
+   118	    inline string_t get_file_path() const noexcept { return file_path_; }
+   119	    inline proto_t get_main_proto() const noexcept { return main_proto_; }
+   120	    inline void set_main_proto(proto_t proto) noexcept { main_proto_ = proto; }
+   121	    inline bool is_has_main() const noexcept { return main_proto_ != nullptr; }
+   122	
+   123	    inline void set_execution() noexcept { state = State::EXECUTING; }
+   124	    inline void set_executed() noexcept { state = State::EXECUTED; }
+   125	    inline bool is_executing() const noexcept { return state == State::EXECUTING; }
+   126	    inline bool is_executed() const noexcept { return state == State::EXECUTED; }
+   127	
+   128	    friend void obj_module_trace(const ObjModule* mod, visitor_t& visitor);
+   129	    void trace(visitor_t& visitor) const noexcept override;
+   130	    
+   131	    const auto& get_global_names_raw() const { return global_names_; }
+   132	    const auto& get_exports_raw() const { return exports_; }
+   133	
+   134	    size_t obj_size() const noexcept override { return sizeof(ObjModule); }
+   135	};
+   136	}
+
+
+================================================================================
+ FILE PATH: include/meow/core/objects.h
+================================================================================
+     1	#pragma once
+     2	
+     3	#include <meow/core/array.h>
+     4	#include <meow/core/function.h>
+     5	#include <meow/core/hash_table.h>
+     6	#include <meow/core/module.h>
+     7	#include <meow/core/oop.h>
+     8	#include <meow/core/string.h>
+     9	#include <meow/core/shape.h>
+    10	#include <meow/memory/gc_visitor.h>
+
+
+================================================================================
+ FILE PATH: include/meow/core/oop.h
+================================================================================
+     1	/**
+     2	 * @file oop.h
+     3	 * @author LazyPaws
+     4	 * @brief Core definition of Class, Instance, BoundMethod in TrangMeo
+     5	 * @copyright Copyright (c) 2025 LazyPaws
+     6	 * @license All rights reserved. Unauthorized copying of this file, in any form
+     7	 * or medium, is strictly prohibited
+     8	 */
+     9	
+    10	#pragma once
+    11	
+    12	#include <cstdint>
+    13	#include <vector>
+    14	#include <string>
+    15	#include <memory>
+    16	#include <meow/definitions.h>
+    17	#include <meow/core/meow_object.h>
+    18	#include <meow/definitions.h>
+    19	#include <meow/value.h>
+    20	#include <meow/memory/gc_visitor.h>
+    21	#include <meow/core/shape.h>
+    22	#include <meow_flat_map.h>
+    23	
+    24	namespace meow {
+    25	class ObjClass : public ObjBase<ObjectType::CLASS> {
+    26	private:
+    27	    using string_t = string_t;
+    28	    using class_t = class_t;
+    29	    using method_map = meow::flat_map<string_t, value_t>;
+    30	    using visitor_t = GCVisitor;
+    31	
+    32	    string_t name_;
+    33	    class_t superclass_;
+    34	    method_map methods_;
+    35	
+    36	public:
+    37	    explicit ObjClass(string_t name = nullptr) noexcept : name_(name) {}
+    38	
+    39	    // --- Metadata ---
+    40	    inline string_t get_name() const noexcept {
+    41	        return name_;
+    42	    }
+    43	    inline class_t get_super() const noexcept {
+    44	        return superclass_;
+    45	    }
+    46	    inline void set_super(class_t super) noexcept {
+    47	        superclass_ = super;
+    48	    }
+    49	
+    50	    // --- Methods ---
+    51	    inline bool has_method(string_t name) const noexcept {
+    52	        return methods_.contains(name);
+    53	    }
+    54	    
+    55	    inline return_t get_method(string_t name) noexcept {
+    56	        auto idx = methods_.index_of(name);
+    57	        if (idx != method_map::npos) {
+    58	            return methods_.unsafe_get(idx);
+    59	        }
+    60	        return Value(null_t{});
+    61	    }
+    62	    
+    63	    inline void set_method(string_t name, return_t value) noexcept {
+    64	        methods_[name] = value;
+    65	    }
+    66	
+    67	    inline const method_map& get_methods_raw() const { return methods_; }
+    68	
+    69	    size_t obj_size() const noexcept override { return sizeof(ObjClass); }
+    70	
+    71	    void trace(visitor_t& visitor) const noexcept override;
+    72	};
+    73	
+    74	class ObjInstance : public ObjBase<ObjectType::INSTANCE> {
+    75	private:
+    76	    using string_t = string_t;
+    77	    using class_t = class_t;
+    78	    using visitor_t = GCVisitor;
+    79	
+    80	    class_t klass_;
+    81	    Shape* shape_;              
+    82	    std::vector<Value> fields_; 
+    83	public:
+    84	    explicit ObjInstance(class_t k, Shape* empty_shape) noexcept 
+    85	        : klass_(k), shape_(empty_shape) {
+    86	    }
+    87	
+    88	    // --- Metadata ---
+    89	    inline class_t get_class() const noexcept { return klass_; }
+    90	    inline void set_class(class_t klass) noexcept { klass_ = klass; }
+    91	
+    92	    inline Shape* get_shape() const noexcept { return shape_; }
+    93	    inline void set_shape(Shape* s) noexcept { shape_ = s; }
+    94	
+    95	    inline Value get_field_at(int offset) const noexcept {
+    96	        return fields_[offset];
+    97	    }
+    98	    
+    99	    inline void set_field_at(int offset, Value value) noexcept {
+   100	        fields_[offset] = value;
+   101	    }
+   102	    
+   103	    inline void add_field(param_t value) noexcept {
+   104	        fields_.push_back(value);
+   105	    }
+   106	
+   107	    inline bool has_field(string_t name) const {
+   108	        return shape_->get_offset(name) != -1;
+   109	    }
+   110	    
+   111	    inline Value get_field(string_t name) const {
+   112	        int offset = shape_->get_offset(name);
+   113	        if (offset != -1) return fields_[offset];
+   114	        return Value(null_t{});
+   115	    }
+   116	
+   117	    size_t obj_size() const noexcept override { return sizeof(ObjInstance); }
+   118	
+   119	    void trace(visitor_t& visitor) const noexcept override {
+   120	        visitor.visit_object(klass_);
+   121	        visitor.visit_object(shape_);
+   122	        for (const auto& val : fields_) {
+   123	            visitor.visit_value(val);
+   124	        }
+   125	    }
+   126	};
+   127	
+   128	class ObjBoundMethod : public ObjBase<ObjectType::BOUND_METHOD> {
+   129	private:
+   130	    Value receiver_; 
+   131	    Value method_;   
+   132	
+   133	    using visitor_t = GCVisitor;
+   134	public:
+   135	    explicit ObjBoundMethod(Value receiver, Value method) noexcept 
+   136	        : receiver_(receiver), method_(method) {}
+   137	
+   138	    inline Value get_receiver() const noexcept { return receiver_; }
+   139	    inline Value get_method() const noexcept { return method_; }
+   140	
+   141	    size_t obj_size() const noexcept override { return sizeof(ObjBoundMethod); }
+   142	
+   143	    void trace(visitor_t& visitor) const noexcept override {
+   144	        visitor.visit_value(receiver_);
+   145	        visitor.visit_value(method_);
+   146	    }
+   147	};
+   148	}
+
+
+================================================================================
+ FILE PATH: include/meow/core/shape.h
+================================================================================
+     1	#pragma once
+     2	
+     3	#include <cstdint>
+     4	#include <vector>
+     5	#include <string>
+     6	#include <memory>
+     7	#include <meow/definitions.h>
+     8	#include <meow/core/meow_object.h>
+     9	#include <meow/memory/gc_visitor.h>
+    10	#include <meow/core/string.h>
+    11	#include <meow_flat_map.h>
+    12	
+    13	namespace meow {
+    14	
+    15	class MemoryManager; 
+    16	
+    17	class Shape : public ObjBase<ObjectType::SHAPE> {
+    18	public:
+    19	    using TransitionMap = meow::flat_map<string_t, Shape*>;
+    20	    using PropertyMap = meow::flat_map<string_t, uint32_t>;
+    21	
+    22	private:
+    23	    PropertyMap property_offsets_;
+    24	    TransitionMap transitions_;     
+    25	    uint32_t num_fields_ = 0;       
+    26	
+    27	public:
+    28	    explicit Shape() = default;
+    29	
+    30	    int get_offset(string_t name) const;
+    31	
+    32	    Shape* get_transition(string_t name) const;
+    33	
+    34	    Shape* add_transition(string_t name, MemoryManager* heap);
+    35	
+    36	    inline uint32_t count() const { return num_fields_; }
+    37	    
+    38	    void copy_from(const Shape* other) {
+    39	        property_offsets_ = other->property_offsets_;
+    40	        num_fields_ = other->num_fields_;
+    41	    }
+    42	    
+    43	    void add_property(string_t name) {
+    44	        property_offsets_[name] = num_fields_++;
+    45	    }
+    46	
+    47	    size_t obj_size() const noexcept override { return sizeof(Shape); }
+    48	
+    49	    void trace(GCVisitor& visitor) const noexcept override;
+    50	};
+    51	
+    52	}
+
+
+================================================================================
+ FILE PATH: include/meow/core/string.h
+================================================================================
+     1	#pragma once
+     2	#include <cstdint>
+     3	#include <cstring>
+     4	#include <string> 
+     5	#include <meow/core/meow_object.h>
+     6	
+     7	namespace meow {
+     8	
+     9	class ObjString : public ObjBase<ObjectType::STRING> {
+    10	private:
+    11	    using visitor_t = GCVisitor;
+    12	    
+    13	    size_t length_;
+    14	    size_t hash_;
+    15	    char chars_[1]; 
+    16	
+    17	    friend class MemoryManager;
+    18	    friend class heap; 
+    19	    
+    20	    ObjString(const char* chars, size_t length, size_t hash) 
+    21	        : length_(length), hash_(hash) {
+    22	        std::memcpy(chars_, chars, length);
+    23	        chars_[length] = '\0'; 
+    24	    }
+    25	
+    26	public:
+    27	    ObjString() = delete; 
+    28	    ObjString(const ObjString&) = delete;
+    29	    
+    30	    // --- Accessors ---
+    31	    inline const char* c_str() const noexcept { return chars_; }
+    32	    inline size_t size() const noexcept { return length_; }
+    33	    inline bool empty() const noexcept { return length_ == 0; }
+    34	    inline size_t hash() const noexcept { return hash_; }
+    35	
+    36	    inline char get(size_t index) const noexcept { return chars_[index]; }
+    37	
+    38	    inline void trace(visitor_t&) const noexcept override {}
+    39	    
+    40	    size_t obj_size() const noexcept override { 
+    41	        return sizeof(ObjString) + length_; 
+    42	    }
+    43	};
+    44	
+    45	struct ObjStringHasher {
+    46	    inline size_t operator()(string_t s) const noexcept {
+    47	        return s->hash();
+    48	    }
+    49	};
+    50	}
+
+

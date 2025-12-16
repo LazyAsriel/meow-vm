@@ -7,11 +7,10 @@
 
 #include "vm/handlers/math_ops.h"
 #include "vm/vm_state.h"
-#include <meow_nanbox_layout.h> 
 
 namespace meow::jit::x64 {
 
-static constexpr uint64_t NANBOX_INT_TAG = meow::NanboxLayout::make_tag(2);
+static constexpr uint64_t NANBOX_INT_TAG = meow::Value::layout_traits::make_tag(2);
 static constexpr size_t PAGE_SIZE = 4096;
 
 static constexpr Reg REG_VM_REGS  = RDI; 

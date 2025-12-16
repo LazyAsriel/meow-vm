@@ -1,0 +1,1556 @@
+================================================================================
+ FILE PATH: src/vm/handlers/data_ops.h
+================================================================================
+     1	#pragma once
+     2	#include "vm/handlers/utils.h"
+     3	#include "vm/handlers/flow_ops.h"
+     4	#include <meow/cast.h>
+     5	
+     6	namespace meow::handlers {
+     7	
+     8	
+     9	[[gnu::always_inline]] static const uint8_t* impl_LOAD_CONST(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    10	    uint16_t dst = read_u16(ip);
+    11	    uint16_t idx = read_u16(ip);
+    12	    regs[dst] = constants[idx];
+    13	    return ip;
+    14	}
+    15	
+    16	[[gnu::always_inline]] static const uint8_t* impl_LOAD_NULL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    17	    uint16_t dst = read_u16(ip);
+    18	    regs[dst] = null_t{};
+    19	    return ip;
+    20	}
+    21	
+    22	[[gnu::always_inline]] static const uint8_t* impl_LOAD_TRUE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    23	    uint16_t dst = read_u16(ip);
+    24	    regs[dst] = true;
+    25	    return ip;
+    26	}
+    27	
+    28	[[gnu::always_inline]] static const uint8_t* impl_LOAD_FALSE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    29	    uint16_t dst = read_u16(ip);
+    30	    regs[dst] = false;
+    31	    return ip;
+    32	}
+    33	
+    34	[[gnu::always_inline]] static const uint8_t* impl_LOAD_INT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    35	    uint16_t dst = read_u16(ip);
+    36	    regs[dst] = *reinterpret_cast<const int64_t*>(ip);
+    37	    ip += 8;
+    38	    return ip;
+    39	}
+    40	
+    41	[[gnu::always_inline]] static const uint8_t* impl_LOAD_FLOAT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    42	    uint16_t dst = read_u16(ip);
+    43	    regs[dst] = *reinterpret_cast<const double*>(ip);
+    44	    ip += 8;
+    45	    return ip;
+    46	}
+    47	
+    48	[[gnu::always_inline]] static const uint8_t* impl_MOVE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    49	    uint16_t dst = read_u16(ip);
+    50	    uint16_t src = read_u16(ip);
+    51	    regs[dst] = regs[src];
+    52	    return ip;
+    53	}
+    54	
+    55	[[gnu::always_inline]] static const uint8_t* impl_NEW_ARRAY(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    56	    uint16_t dst = read_u16(ip);
+    57	    uint16_t start_idx = read_u16(ip);
+    58	    uint16_t count = read_u16(ip);
+    59	
+    60	    auto array = state->heap.new_array();
+    61	    regs[dst] = object_t(array);
+    62	    array->reserve(count);
+    63	    for (size_t i = 0; i < count; ++i) {
+    64	        array->push(regs[start_idx + i]);
+    65	    }
+    66	    return ip;
+    67	}
+    68	
+    69	[[gnu::always_inline]] static const uint8_t* impl_NEW_HASH(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    70	    uint16_t dst = read_u16(ip);
+    71	    uint16_t start_idx = read_u16(ip);
+    72	    uint16_t count = read_u16(ip);
+    73	    
+    74	    auto hash = state->heap.new_hash();
+    75	
+    76	    regs[dst] = Value(hash); 
+    77	
+    78	    for (size_t i = 0; i < count; ++i) {
+    79	        Value& key = regs[start_idx + i * 2];
+    80	        Value& val = regs[start_idx + i * 2 + 1];
+    81	        
+    82	        if (key.is_string()) {
+    83	            hash->set(key.as_string(), val);
+    84	        } else {
+    85	            std::string s = to_string(key);
+    86	            string_t k = state->heap.new_string(s);
+    87	            hash->set(k, val);
+    88	        }
+    89	    }
+    90	    
+    91	    return ip;
+    92	}
+    93	
+    94	[[gnu::always_inline]] static const uint8_t* impl_GET_INDEX(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    95	    uint16_t dst = read_u16(ip);
+    96	    uint16_t src_reg = read_u16(ip);
+    97	    uint16_t key_reg = read_u16(ip);
+    98	    
+    99	    Value& src = regs[src_reg];
+   100	    Value& key = regs[key_reg];
+   101	
+   102	    if (src.is_array()) {
+   103	        if (!key.is_int()) {
+   104	            state->error("Array index phải là số nguyên.");
+   105	            return impl_PANIC(ip, regs, constants, state);
+   106	        }
+   107	        array_t arr = src.as_array();
+   108	        int64_t idx = key.as_int();
+   109	        if (idx < 0 || static_cast<size_t>(idx) >= arr->size()) {
+   110	            state->error("Array index out of bounds.");
+   111	            return impl_PANIC(ip, regs, constants, state);
+   112	        }
+   113	        regs[dst] = arr->get(idx);
+   114	    } 
+   115	    else if (src.is_hash_table()) {
+   116	        hash_table_t hash = src.as_hash_table();
+   117	        string_t k = nullptr;
+   118	        
+   119	        if (!key.is_string()) {
+   120	            std::string s = to_string(key);
+   121	            k = state->heap.new_string(s);
+   122	        } else {
+   123	            k = key.as_string();
+   124	        }
+   125	
+   126	        if (hash->has(k)) {
+   127	            regs[dst] = hash->get(k);
+   128	        } else {
+   129	            regs[dst] = Value(null_t{});
+   130	        }
+   131	    }
+   132	    else if (src.is_string()) {
+   133	        if (!key.is_int()) {
+   134	            state->error("String index phải là số nguyên.");
+   135	            return impl_PANIC(ip, regs, constants, state);
+   136	        }
+   137	        string_t str = src.as_string();
+   138	        int64_t idx = key.as_int();
+   139	        if (idx < 0 || static_cast<size_t>(idx) >= str->size()) {
+   140	            state->error("String index out of bounds.");
+   141	            return impl_PANIC(ip, regs, constants, state);
+   142	        }
+   143	        char c = str->get(idx);
+   144	        regs[dst] = Value(state->heap.new_string(&c, 1));
+   145	    }
+   146	
+   147	    else if (src.is_instance()) {
+   148	        if (!key.is_string()) {
+   149	            state->error("Instance index key phải là chuỗi (tên thuộc tính/phương thức).");
+   150	            return impl_PANIC(ip, regs, constants, state);
+   151	        }
+   152	        
+   153	        string_t name = key.as_string();
+   154	        instance_t inst = src.as_instance();
+   155	        
+   156	        int offset = inst->get_shape()->get_offset(name);
+   157	        if (offset != -1) {
+   158	            regs[dst] = inst->get_field_at(offset);
+   159	        } 
+   160	        else {
+   161	            class_t k = inst->get_class();
+   162	            Value method = null_t{};
+   163	            
+   164	            while (k) {
+   165	                if (k->has_method(name)) {
+   166	                    method = k->get_method(name);
+   167	                    break;
+   168	                }
+   169	                k = k->get_super();
+   170	            }
+   171	            
+   172	            if (!method.is_null()) {
+   173	                if (method.is_function() || method.is_native()) {
+   174	                    auto bound = state->heap.new_bound_method(src, method);
+   175	                    regs[dst] = Value(bound);
+   176	                } else {
+   177	                    regs[dst] = method;
+   178	                }
+   179	            } else {
+   180	                regs[dst] = Value(null_t{});
+   181	            }
+   182	        }
+   183	    }
+   184	
+   185	    else {
+   186	        state->error("Không thể dùng toán tử index [] trên kiểu dữ liệu này.");
+   187	        return impl_PANIC(ip, regs, constants, state);
+   188	    }
+   189	    return ip;
+   190	}
+   191	
+   192	[[gnu::always_inline]] static const uint8_t* impl_SET_INDEX(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   193	    uint16_t src_reg = read_u16(ip);
+   194	    uint16_t key_reg = read_u16(ip);
+   195	    uint16_t val_reg = read_u16(ip);
+   196	
+   197	    Value& src = regs[src_reg];
+   198	    Value& key = regs[key_reg];
+   199	    Value& val = regs[val_reg];
+   200	
+   201	    if (src.is_array()) {
+   202	        if (!key.is_int()) {
+   203	            state->error("Array index phải là số nguyên.");
+   204	            return impl_PANIC(ip, regs, constants, state);
+   205	        }
+   206	        array_t arr = src.as_array();
+   207	        int64_t idx = key.as_int();
+   208	        if (idx < 0) {
+   209	            state->error("Array index không được âm.");
+   210	            return impl_PANIC(ip, regs, constants, state);
+   211	        }
+   212	        if (static_cast<size_t>(idx) >= arr->size()) {
+   213	            arr->resize(idx + 1);
+   214	        }
+   215	        
+   216	        arr->set(idx, val);
+   217	        state->heap.write_barrier(src.as_object(), val);
+   218	    }
+   219	    else if (src.is_hash_table()) {
+   220	        hash_table_t hash = src.as_hash_table();
+   221	        string_t k = nullptr;
+   222	
+   223	        if (!key.is_string()) {
+   224	            std::string s = to_string(key);
+   225	            k = state->heap.new_string(s);
+   226	        } else {
+   227	            k = key.as_string();
+   228	        }
+   229	
+   230	        hash->set(k, val);
+   231	        
+   232	        state->heap.write_barrier(src.as_object(), val);
+   233	    } 
+   234	        else if (src.is_instance()) {
+   235	        if (!key.is_string()) {
+   236	            state->error("Instance set index key phải là chuỗi.");
+   237	            return impl_PANIC(ip, regs, constants, state);
+   238	        }
+   239	        
+   240	        string_t name = key.as_string();
+   241	        instance_t inst = src.as_instance();
+   242	        
+   243	        int offset = inst->get_shape()->get_offset(name);
+   244	        if (offset != -1) {
+   245	            inst->set_field_at(offset, val);
+   246	            state->heap.write_barrier(inst, val);
+   247	        } else {
+   248	            Shape* current_shape = inst->get_shape();
+   249	            Shape* next_shape = current_shape->get_transition(name);
+   250	            if (next_shape == nullptr) {
+   251	                next_shape = current_shape->add_transition(name, &state->heap);
+   252	            }
+   253	            
+   254	            inst->set_shape(next_shape);
+   255	            
+   256	            state->heap.write_barrier(inst, Value(reinterpret_cast<object_t>(next_shape)));
+   257	
+   258	            inst->add_field(val);
+   259	            state->heap.write_barrier(inst, val);
+   260	        }
+   261	    }
+   262	    else {
+   263	        state->error("Không thể gán index [] trên kiểu dữ liệu này.");
+   264	        return impl_PANIC(ip, regs, constants, state);
+   265	    }
+   266	    return ip;
+   267	}
+   268	[[gnu::always_inline]] static const uint8_t* impl_GET_KEYS(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   269	    uint16_t dst = read_u16(ip);
+   270	    uint16_t src_reg = read_u16(ip);
+   271	    Value& src = regs[src_reg];
+   272	    
+   273	    auto keys_array = state->heap.new_array();
+   274	    
+   275	    if (src.is_hash_table()) {
+   276	        hash_table_t hash = src.as_hash_table();
+   277	        keys_array->reserve(hash->size());
+   278	        for (auto it = hash->begin(); it != hash->end(); ++it) {
+   279	            keys_array->push(Value(it->first));
+   280	        }
+   281	    } else if (src.is_array()) {
+   282	        size_t sz = src.as_array()->size();
+   283	        keys_array->reserve(sz);
+   284	        for (size_t i = 0; i < sz; ++i) keys_array->push(Value((int64_t)i));
+   285	    } else if (src.is_string()) {
+   286	        size_t sz = src.as_string()->size();
+   287	        keys_array->reserve(sz);
+   288	        for (size_t i = 0; i < sz; ++i) keys_array->push(Value((int64_t)i));
+   289	    }
+   290	    
+   291	    regs[dst] = Value(keys_array);
+   292	    return ip;
+   293	}
+   294	
+   295	[[gnu::always_inline]] static const uint8_t* impl_GET_VALUES(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   296	    uint16_t dst = read_u16(ip);
+   297	    uint16_t src_reg = read_u16(ip);
+   298	    Value& src = regs[src_reg];
+   299	    
+   300	    auto vals_array = state->heap.new_array();
+   301	
+   302	    if (src.is_hash_table()) {
+   303	        hash_table_t hash = src.as_hash_table();
+   304	        vals_array->reserve(hash->size());
+   305	        for (auto it = hash->begin(); it != hash->end(); ++it) {
+   306	            vals_array->push(it->second);
+   307	        }
+   308	    } else if (src.is_array()) {
+   309	        array_t arr = src.as_array();
+   310	        vals_array->reserve(arr->size());
+   311	        for (size_t i = 0; i < arr->size(); ++i) vals_array->push(arr->get(i));
+   312	    } else if (src.is_string()) {
+   313	        string_t str = src.as_string();
+   314	        vals_array->reserve(str->size());
+   315	        for (size_t i = 0; i < str->size(); ++i) {
+   316	            char c = str->get(i);
+   317	            vals_array->push(Value(state->heap.new_string(&c, 1)));
+   318	        }
+   319	    }
+   320	
+   321	    regs[dst] = Value(vals_array);
+   322	    return ip;
+   323	}
+   324	
+   325	} // namespace meow::handlers
+
+
+================================================================================
+ FILE PATH: src/vm/handlers/exception_ops.h
+================================================================================
+     1	#pragma once
+     2	#include "vm/handlers/utils.h"
+     3	#include "vm/handlers/flow_ops.h"
+     4	
+     5	namespace meow::handlers {
+     6	
+     7	[[gnu::always_inline]] static const uint8_t* impl_THROW(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+     8	    uint16_t reg = read_u16(ip);
+     9	    (void)constants;
+    10	    Value& val = regs[reg];
+    11	    state->error(to_string(val));
+    12	    return impl_PANIC(ip, regs, constants, state);
+    13	}
+    14	
+    15	[[gnu::always_inline]] static const uint8_t* impl_SETUP_TRY(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    16	    uint16_t offset = read_u16(ip);
+    17	    uint16_t err_reg = read_u16(ip);
+    18	    (void)regs; (void)constants;
+    19	    
+    20	    size_t frame_depth = state->ctx.frame_ptr_ - state->ctx.call_stack_;
+    21	    size_t stack_depth = state->ctx.stack_top_ - state->ctx.stack_;
+    22	    
+    23	    size_t catch_ip_abs = offset; 
+    24	    
+    25	    state->ctx.exception_handlers_.emplace_back(catch_ip_abs, frame_depth, stack_depth, err_reg);
+    26	    return ip;
+    27	}
+    28	
+    29	[[gnu::always_inline]] static const uint8_t* impl_POP_TRY(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    30	    (void)regs; (void)constants;
+    31	    if (!state->ctx.exception_handlers_.empty()) {
+    32	        state->ctx.exception_handlers_.pop_back();
+    33	    }
+    34	    return ip;
+    35	}
+    36	
+    37	} // namespace meow::handlers
+
+
+================================================================================
+ FILE PATH: src/vm/handlers/flow_ops.h
+================================================================================
+     1	#pragma once
+     2	#include "vm/handlers/utils.h"
+     3	#include <meow/core/objects.h>
+     4	#include <meow/machine.h>
+     5	#include <cstring>
+     6	
+     7	namespace meow::handlers {
+     8	
+     9	    struct JumpCondArgs { 
+    10	        uint16_t cond; 
+    11	        uint16_t offset; 
+    12	    } __attribute__((packed));
+    13	
+    14	    struct JumpCondArgsB { 
+    15	        uint8_t cond; 
+    16	        uint16_t offset; 
+    17	    } __attribute__((packed));
+    18	
+    19	    struct CallIC {
+    20	        void* check_tag;
+    21	        void* destination;
+    22	    } __attribute__((packed)); 
+    23	
+    24	    [[gnu::always_inline]]
+    25	    inline static CallIC* get_call_ic(const uint8_t*& ip) {
+    26	        auto* ic = reinterpret_cast<CallIC*>(const_cast<uint8_t*>(ip));
+    27	        ip += sizeof(CallIC); 
+    28	        return ic;
+    29	    }
+    30	
+    31	    [[gnu::always_inline]]
+    32	    inline static const uint8_t* impl_PANIC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    33	        (void)ip; (void)regs; (void)constants;
+    34	        
+    35	        if (!state->ctx.exception_handlers_.empty()) {
+    36	            auto& handler = state->ctx.exception_handlers_.back();
+    37	            long current_depth = state->ctx.frame_ptr_ - state->ctx.call_stack_;
+    38	            
+    39	            while (current_depth > (long)handler.frame_depth_) {
+    40	                size_t reg_idx = state->ctx.frame_ptr_->regs_base_ - state->ctx.stack_;
+    41	                meow::close_upvalues(state->ctx, reg_idx);
+    42	                state->ctx.frame_ptr_--;
+    43	                current_depth--;
+    44	            }
+    45	            
+    46	            state->ctx.stack_top_ = state->ctx.stack_ + handler.stack_depth_;
+    47	            state->ctx.current_regs_ = state->ctx.frame_ptr_->regs_base_;
+    48	            state->ctx.current_frame_ = state->ctx.frame_ptr_; 
+    49	            state->update_pointers();
+    50	
+    51	            const uint8_t* catch_ip = state->instruction_base + handler.catch_ip_;
+    52	            
+    53	            if (handler.error_reg_ != static_cast<size_t>(-1)) {
+    54	                auto err_str = state->heap.new_string(state->get_error_message());
+    55	                regs[handler.error_reg_] = Value(err_str);
+    56	            }
+    57	            
+    58	            state->clear_error();
+    59	            state->ctx.exception_handlers_.pop_back();
+    60	            return catch_ip;
+    61	        } 
+    62	        
+    63	        std::println("VM Panic: {}", state->get_error_message());
+    64	        return nullptr; 
+    65	    }
+    66	
+    67	    [[gnu::always_inline]]
+    68	    inline static const uint8_t* impl_UNIMPL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    69	        state->error("Opcode chưa được hỗ trợ (UNIMPL)");
+    70	        return impl_PANIC(ip, regs, constants, state);
+    71	    }
+    72	
+    73	    [[gnu::always_inline]]
+    74	    inline static const uint8_t* impl_HALT(const uint8_t*, Value*, const Value*, VMState*) {
+    75	        return nullptr;
+    76	    }
+    77	
+    78	    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    79	        uint16_t offset = *reinterpret_cast<const uint16_t*>(ip);
+    80	        return state->instruction_base + offset;
+    81	    }
+    82	
+    83	    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_TRUE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    84	        const auto& args = *reinterpret_cast<const JumpCondArgs*>(ip);
+    85	        Value& cond = regs[args.cond];
+    86	
+    87	        bool truthy;
+    88	        if (cond.is_bool()) [[likely]] truthy = cond.as_bool();
+    89	        else if (cond.is_int()) truthy = (cond.as_int() != 0);
+    90	        else [[unlikely]] truthy = meow::to_bool(cond);
+    91	
+    92	        if (truthy) return state->instruction_base + args.offset;
+    93	        return ip + sizeof(JumpCondArgs);
+    94	    }
+    95	
+    96	    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_FALSE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    97	        const auto& args = *reinterpret_cast<const JumpCondArgs*>(ip);
+    98	        Value& cond = regs[args.cond];
+    99	
+   100	        bool truthy;
+   101	        if (cond.is_bool()) [[likely]] truthy = cond.as_bool();
+   102	        else if (cond.is_int()) truthy = (cond.as_int() != 0);
+   103	        else [[unlikely]] truthy = meow::to_bool(cond);
+   104	
+   105	        if (!truthy) return state->instruction_base + args.offset;
+   106	        return ip + sizeof(JumpCondArgs);
+   107	    }
+   108	
+   109	    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_TRUE_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   110	        const auto& args = *reinterpret_cast<const JumpCondArgsB*>(ip);
+   111	        Value& cond = regs[args.cond];
+   112	        bool truthy = cond.is_bool() ? cond.as_bool() : (cond.is_int() ? (cond.as_int() != 0) : meow::to_bool(cond));
+   113	        if (truthy) return state->instruction_base + args.offset;
+   114	        return ip + sizeof(JumpCondArgsB);
+   115	    }
+   116	
+   117	    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_FALSE_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   118	        const auto& args = *reinterpret_cast<const JumpCondArgsB*>(ip);
+   119	        Value& cond = regs[args.cond];
+   120	        bool truthy = cond.is_bool() ? cond.as_bool() : (cond.is_int() ? (cond.as_int() != 0) : meow::to_bool(cond));
+   121	        if (!truthy) return state->instruction_base + args.offset;
+   122	        return ip + sizeof(JumpCondArgsB);
+   123	    }
+   124	
+   125	    [[gnu::always_inline]]
+   126	    inline static const uint8_t* impl_RETURN(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   127	        uint16_t ret_reg_idx = read_u16(ip);
+   128	        Value result = (ret_reg_idx == 0xFFFF) ? Value(null_t{}) : regs[ret_reg_idx];
+   129	
+   130	        size_t base_idx = state->ctx.current_regs_ - state->ctx.stack_;
+   131	        meow::close_upvalues(state->ctx, base_idx);
+   132	
+   133	        if (state->ctx.frame_ptr_ == state->ctx.call_stack_) [[unlikely]] {
+   134	            return nullptr; 
+   135	        }
+   136	
+   137	        CallFrame* popped_frame = state->ctx.frame_ptr_;
+   138	        
+   139	        if (state->current_module) [[likely]] {
+   140	             if (popped_frame->function_->get_proto() == state->current_module->get_main_proto()) [[unlikely]] {
+   141	                 state->current_module->set_executed();
+   142	             }
+   143	        }
+   144	
+   145	        state->ctx.frame_ptr_--;
+   146	        CallFrame* caller = state->ctx.frame_ptr_;
+   147	        
+   148	        state->ctx.stack_top_ = popped_frame->regs_base_;
+   149	        state->ctx.current_regs_ = caller->regs_base_;
+   150	        state->ctx.current_frame_ = caller; 
+   151	        
+   152	        state->update_pointers(); 
+   153	
+   154	        if (popped_frame->ret_dest_ != nullptr) {
+   155	            *popped_frame->ret_dest_ = result;
+   156	        }
+   157	
+   158	        return popped_frame->ip_; 
+   159	    }
+   160	
+   161	    template <bool IsVoid>
+   162	    [[gnu::always_inline]] 
+   163	    static inline const uint8_t* do_call(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   164	        const uint8_t* start_ip = ip - 1; 
+   165	
+   166	        uint16_t dst = 0;
+   167	        if constexpr (!IsVoid) dst = read_u16(ip);
+   168	        uint16_t fn_reg    = read_u16(ip);
+   169	        uint16_t arg_start = read_u16(ip);
+   170	        uint16_t argc      = read_u16(ip);
+   171	
+   172	        CallIC* ic = get_call_ic(ip);
+   173	        Value& callee = regs[fn_reg];
+   174	
+   175	        if (callee.is_function()) [[likely]] {
+   176	            function_t closure = callee.as_function();
+   177	            proto_t proto = closure->get_proto();
+   178	
+   179	            if (ic->check_tag == proto) [[likely]] {
+   180	                size_t num_params = proto->get_num_registers();
+   181	                
+   182	                if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
+   183	                    state->ctx.current_frame_->ip_ = start_ip;
+   184	                    state->error("Stack Overflow!");
+   185	                    return impl_PANIC(ip, regs, constants, state);
+   186	                }
+   187	
+   188	                Value* new_base = state->ctx.stack_top_;
+   189	                
+   190	                size_t copy_count = (argc < num_params) ? argc : num_params;
+   191	                for (size_t i = 0; i < copy_count; ++i) {
+   192	                    new_base[i] = regs[arg_start + i];
+   193	                }
+   194	
+   195	                state->ctx.frame_ptr_++;
+   196	                *state->ctx.frame_ptr_ = CallFrame(
+   197	                    closure,
+   198	                    new_base,
+   199	                    IsVoid ? nullptr : &regs[dst], 
+   200	                    ip 
+   201	                );
+   202	                
+   203	                state->ctx.current_regs_ = new_base;
+   204	                state->ctx.stack_top_ += num_params;
+   205	                state->ctx.current_frame_ = state->ctx.frame_ptr_;
+   206	                state->update_pointers(); 
+   207	
+   208	                return state->instruction_base;
+   209	            }
+   210	            
+   211	            ic->check_tag = proto;
+   212	        } 
+   213	        else if (callee.is_native()) {
+   214	                native_t fn = callee.as_native();
+   215	                
+   216	                if (ic->check_tag == (void*)fn) [[likely]] {
+   217	                    Value result = fn(&state->machine, argc, &regs[arg_start]);
+   218	                    
+   219	                    if (state->machine.has_error()) [[unlikely]] {
+   220	                        state->error(std::string(state->machine.get_error_message()));
+   221	                        state->machine.clear_error();
+   222	                        return impl_PANIC(ip, regs, constants, state);
+   223	                    }
+   224	
+   225	                    if constexpr (!IsVoid) regs[dst] = result;
+   226	                    return ip; 
+   227	                }
+   228	                ic->check_tag = (void*)fn;
+   229	            }
+   230	        
+   231	        Value* ret_dest_ptr = nullptr;
+   232	        if constexpr (!IsVoid) {
+   233	            if (dst != 0xFFFF) ret_dest_ptr = &regs[dst];
+   234	        }
+   235	        if (callee.is_native()) {
+   236	            native_t fn = callee.as_native();
+   237	            Value result = fn(&state->machine, argc, &regs[arg_start]);
+   238	            
+   239	            if (state->machine.has_error()) [[unlikely]] {
+   240	                state->error(std::string(state->machine.get_error_message()));
+   241	                state->machine.clear_error();
+   242	                return impl_PANIC(ip, regs, constants, state);
+   243	            }
+   244	
+   245	            if (ret_dest_ptr) *ret_dest_ptr = result;
+   246	            return ip;
+   247	        }
+   248	
+   249	        instance_t self = nullptr;
+   250	        function_t closure = nullptr;
+   251	        bool is_init = false;
+   252	
+   253	        if (callee.is_function()) {
+   254	            closure = callee.as_function();
+   255	        } 
+   256	        else if (callee.is_bound_method()) {
+   257	            bound_method_t bound = callee.as_bound_method();
+   258	            Value receiver = bound->get_receiver();
+   259	            Value method = bound->get_method();
+   260	
+   261	            if (method.is_native()) {
+   262	                native_t fn = method.as_native();
+   263	                
+   264	                std::vector<Value> args;
+   265	                args.reserve(argc + 1);
+   266	                args.push_back(receiver);
+   267	                
+   268	                for (size_t i = 0; i < argc; ++i) {
+   269	                    args.push_back(regs[arg_start + i]);
+   270	                }
+   271	
+   272	                Value result = fn(&state->machine, static_cast<int>(args.size()), args.data());
+   273	                
+   274	                if (state->machine.has_error()) {
+   275	                     return impl_PANIC(ip, regs, constants, state);
+   276	                }
+   277	
+   278	                if constexpr (!IsVoid) regs[dst] = result;
+   279	                return ip;
+   280	            }
+   281	            
+   282	            else if (method.is_function()) {
+   283	                closure = method.as_function();
+   284	                if (receiver.is_instance()) self = receiver.as_instance();
+   285	            }
+   286	        }
+   287	        else if (callee.is_class()) {
+   288	            class_t klass = callee.as_class();
+   289	            self = state->heap.new_instance(klass, state->heap.get_empty_shape());
+   290	            if (ret_dest_ptr) *ret_dest_ptr = Value(self);
+   291	            
+   292	            Value init_method = klass->get_method(state->heap.new_string("init"));
+   293	            if (init_method.is_function()) {
+   294	                closure = init_method.as_function();
+   295	                is_init = true;
+   296	            } else {
+   297	                return ip; 
+   298	            }
+   299	        } 
+   300	        else [[unlikely]] {
+   301	            state->ctx.current_frame_->ip_ = start_ip;
+   302	            state->error(std::format("Giá trị loại '{}' không thể gọi được (Not callable).", to_string(callee)));
+   303	            return impl_PANIC(ip, regs, constants, state);
+   304	        }
+   305	
+   306	        proto_t proto = closure->get_proto();
+   307	        size_t num_params = proto->get_num_registers();
+   308	
+   309	        if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
+   310	            state->ctx.current_frame_->ip_ = start_ip;
+   311	            state->error("Stack Overflow!");
+   312	            return impl_PANIC(ip, regs, constants, state);
+   313	        }
+   314	
+   315	        Value* new_base = state->ctx.stack_top_;
+   316	        size_t arg_offset = 0;
+   317	        
+   318	        if (self != nullptr && num_params > 0) {
+   319	            new_base[0] = Value(self);
+   320	            arg_offset = 1;
+   321	        }
+   322	
+   323	        for (size_t i = 0; i < argc; ++i) {
+   324	            if (arg_offset + i < num_params) {
+   325	                new_base[arg_offset + i] = regs[arg_start + i];
+   326	            }
+   327	        }
+   328	
+   329	        state->ctx.frame_ptr_++;
+   330	        *state->ctx.frame_ptr_ = CallFrame(
+   331	            closure,
+   332	            new_base,                          
+   333	            is_init ? nullptr : ret_dest_ptr,  
+   334	            ip                                 
+   335	        );
+   336	
+   337	        state->ctx.current_regs_ = new_base;
+   338	        state->ctx.stack_top_ += num_params;
+   339	        state->ctx.current_frame_ = state->ctx.frame_ptr_;
+   340	        state->update_pointers(); 
+   341	
+   342	        return state->instruction_base;
+   343	    }
+   344	
+   345	    [[gnu::always_inline]] inline static const uint8_t* impl_CALL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   346	        return do_call<false>(ip, regs, constants, state);
+   347	    }
+   348	
+   349	    [[gnu::always_inline]] inline static const uint8_t* impl_CALL_VOID(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   350	        return do_call<true>(ip, regs, constants, state);
+   351	    }
+   352	
+   353	[[gnu::always_inline]] 
+   354	static const uint8_t* impl_TAIL_CALL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   355	    const uint8_t* start_ip = ip - 1;
+   356	
+   357	    uint16_t dst = read_u16(ip); (void)dst;
+   358	    uint16_t fn_reg = read_u16(ip);
+   359	    uint16_t arg_start = read_u16(ip);
+   360	    uint16_t argc = read_u16(ip);
+   361	    
+   362	    ip += 16;
+   363	
+   364	    Value& callee = regs[fn_reg];
+   365	    if (!callee.is_function()) [[unlikely]] {
+   366	        state->ctx.current_frame_->ip_ = start_ip;
+   367	        state->error("TAIL_CALL: Target không phải là Function.");
+   368	        return nullptr;
+   369	    }
+   370	
+   371	    function_t closure = callee.as_function();
+   372	    proto_t proto = closure->get_proto();
+   373	    size_t num_params = proto->get_num_registers();
+   374	
+   375	    size_t current_base_idx = regs - state->ctx.stack_;
+   376	    meow::close_upvalues(state->ctx, current_base_idx);
+   377	
+   378	    size_t copy_count = (argc < num_params) ? argc : num_params;
+   379	
+   380	    for (size_t i = 0; i < copy_count; ++i) {
+   381	        regs[i] = regs[arg_start + i];
+   382	    }
+   383	
+   384	    for (size_t i = copy_count; i < num_params; ++i) {
+   385	        regs[i] = Value(null_t{});
+   386	    }
+   387	
+   388	    CallFrame* current_frame = state->ctx.frame_ptr_;
+   389	    current_frame->function_ = closure;
+   390	    
+   391	    state->ctx.stack_top_ = regs + num_params;
+   392	    state->update_pointers();
+   393	
+   394	    return proto->get_chunk().get_code();
+   395	}
+   396	
+   397	} // namespace meow::handlers
+
+
+================================================================================
+ FILE PATH: src/vm/handlers/math_ops.h
+================================================================================
+     1	#pragma once
+     2	#include "vm/handlers/utils.h"
+     3	#include "meow_nanbox_layout.h"
+     4	#include "vm/handlers/flow_ops.h"
+     5	
+     6	namespace meow::handlers {
+     7	
+     8	struct BinaryArgs { uint16_t dst; uint16_t r1; uint16_t r2; } __attribute__((packed));
+     9	struct BinaryArgsB { uint8_t dst; uint8_t r1; uint8_t r2; } __attribute__((packed));
+    10	struct UnaryArgs { uint16_t dst; uint16_t src; };
+    11	
+    12	// --- MACROS ---
+    13	#define BINARY_OP_IMPL(NAME, OP_ENUM) \
+    14	    HOT_HANDLER impl_##NAME(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
+    15	        const auto& args = *reinterpret_cast<const BinaryArgs*>(ip); \
+    16	        Value& left  = regs[args.r1]; \
+    17	        Value& right = regs[args.r2]; \
+    18	        regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
+    19	        return ip + sizeof(BinaryArgs); \
+    20	    }
+    21	
+    22	#define BINARY_OP_B_IMPL(NAME, OP_ENUM) \
+    23	    HOT_HANDLER impl_##NAME##_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
+    24	        const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip); \
+    25	        Value& left  = regs[args.r1]; \
+    26	        Value& right = regs[args.r2]; \
+    27	        regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
+    28	        return ip + sizeof(BinaryArgsB); \
+    29	    }
+    30	
+    31	HOT_HANDLER impl_ADD(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    32	    const auto& args = *reinterpret_cast<const BinaryArgs*>(ip);
+    33	    Value& left = regs[args.r1];
+    34	    Value& right = regs[args.r2];
+    35	    // [OPTIMIZED] Thay thế check rời rạc bằng holds_both
+    36	    if (left.holds_both<int_t>(right)) [[likely]] regs[args.dst] = left.as_int() + right.as_int();
+    37	    else if (left.holds_both<float_t>(right)) regs[args.dst] = Value(left.as_float() + right.as_float());
+    38	    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
+    39	    return ip + sizeof(BinaryArgs);
+    40	}
+    41	
+    42	HOT_HANDLER impl_ADD_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    43	    const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip);
+    44	    Value& left = regs[args.r1];
+    45	    Value& right = regs[args.r2];
+    46	    // [OPTIMIZED] Thay thế check rời rạc bằng holds_both
+    47	    if (left.holds_both<int_t>(right)) [[likely]] regs[args.dst] = left.as_int() + right.as_int();
+    48	    else if (left.holds_both<float_t>(right)) regs[args.dst] = Value(left.as_float() + right.as_float());
+    49	    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
+    50	    return ip + sizeof(BinaryArgsB);
+    51	}
+    52	
+    53	BINARY_OP_IMPL(SUB, SUB)
+    54	BINARY_OP_IMPL(MUL, MUL)
+    55	BINARY_OP_IMPL(DIV, DIV)
+    56	BINARY_OP_IMPL(MOD, MOD)
+    57	BINARY_OP_IMPL(POW, POW)
+    58	
+    59	BINARY_OP_B_IMPL(SUB, SUB)
+    60	BINARY_OP_B_IMPL(MUL, MUL)
+    61	BINARY_OP_B_IMPL(DIV, DIV)
+    62	BINARY_OP_B_IMPL(MOD, MOD)
+    63	
+    64	#define CMP_FAST_IMPL(OP_NAME, OP_ENUM, OPERATOR) \
+    65	    HOT_HANDLER impl_##OP_NAME(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
+    66	        const auto& args = *reinterpret_cast<const BinaryArgs*>(ip); \
+    67	        Value& left = regs[args.r1]; \
+    68	        Value& right = regs[args.r2]; \
+    69	        /* [OPTIMIZED] Thay thế check rời rạc bằng holds_both */ \
+    70	        if (left.holds_both<int_t>(right)) [[likely]] { \
+    71	            regs[args.dst] = Value(left.as_int() OPERATOR right.as_int()); \
+    72	        } else [[unlikely]] { \
+    73	            regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
+    74	        } \
+    75	        return ip + sizeof(BinaryArgs); \
+    76	    } \
+    77	    HOT_HANDLER impl_##OP_NAME##_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
+    78	        const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip); \
+    79	        Value& left = regs[args.r1]; \
+    80	        Value& right = regs[args.r2]; \
+    81	        /* [OPTIMIZED] Thay thế check rời rạc bằng holds_both */ \
+    82	        if (left.holds_both<int_t>(right)) [[likely]] { \
+    83	            regs[args.dst] = Value(left.as_int() OPERATOR right.as_int()); \
+    84	        } else [[unlikely]] { \
+    85	            regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
+    86	        } \
+    87	        return ip + sizeof(BinaryArgsB); \
+    88	    }
+    89	
+    90	CMP_FAST_IMPL(EQ, EQ, ==)
+    91	CMP_FAST_IMPL(NEQ, NEQ, !=)
+    92	CMP_FAST_IMPL(GT, GT, >)
+    93	CMP_FAST_IMPL(GE, GE, >=)
+    94	CMP_FAST_IMPL(LT, LT, <)
+    95	CMP_FAST_IMPL(LE, LE, <=)
+    96	BINARY_OP_IMPL(BIT_AND, BIT_AND)
+    97	BINARY_OP_IMPL(BIT_OR, BIT_OR)
+    98	BINARY_OP_IMPL(BIT_XOR, BIT_XOR)
+    99	BINARY_OP_IMPL(LSHIFT, LSHIFT)
+   100	BINARY_OP_IMPL(RSHIFT, RSHIFT)
+   101	
+   102	HOT_HANDLER impl_NEG(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   103	    const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
+   104	    Value& val = regs[args.src];
+   105	    if (val.is_int()) [[likely]] regs[args.dst] = Value(-val.as_int());
+   106	    else if (val.is_float()) regs[args.dst] = Value(-val.as_float());
+   107	    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::NEG, val)(&state->heap, val);
+   108	    return ip + sizeof(UnaryArgs);
+   109	}
+   110	
+   111	HOT_HANDLER impl_BIT_NOT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   112	    const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
+   113	    Value& val = regs[args.src];
+   114	    regs[args.dst] = OperatorDispatcher::find(OpCode::BIT_NOT, val)(&state->heap, val);
+   115	    return ip + sizeof(UnaryArgs);
+   116	}
+   117	
+   118	HOT_HANDLER impl_NOT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   119	    const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
+   120	    regs[args.dst] = Value(!to_bool(regs[args.src]));
+   121	    return ip + sizeof(UnaryArgs);
+   122	}
+   123	
+   124	[[gnu::always_inline]] static const uint8_t* impl_INC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   125	    uint16_t reg_idx = read_u16(ip);
+   126	    Value& val = regs[reg_idx];
+   127	
+   128	    if (val.is_int()) [[likely]] {
+   129	        val = Value(val.as_int() + 1);
+   130	    } 
+   131	    else if (val.is_float()) {
+   132	        val = Value(val.as_float() + 1.0);
+   133	    }
+   134	    else [[unlikely]] {
+   135	        state->error("INC: Toán hạng phải là số (Int/Real).");
+   136	        return impl_PANIC(ip, regs, constants, state);
+   137	    }
+   138	    return ip;
+   139	}
+   140	
+   141	[[gnu::always_inline]] static const uint8_t* impl_DEC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   142	    uint16_t reg_idx = read_u16(ip);
+   143	    Value& val = regs[reg_idx];
+   144	
+   145	    if (val.is_int()) [[likely]] {
+   146	        val = Value(val.as_int() - 1);
+   147	    } 
+   148	    else if (val.is_float()) {
+   149	        val = Value(val.as_float() - 1.0);
+   150	    } 
+   151	    else [[unlikely]] {
+   152	        state->error("DEC: Toán hạng phải là số (Int/Real).");
+   153	        return impl_PANIC(ip, regs, constants, state);
+   154	    }
+   155	    return ip;
+   156	}
+   157	
+   158	#undef BINARY_OP_IMPL
+   159	#undef BINARY_OP_B_IMPL
+   160	#undef CMP_FAST_IMPL
+   161	
+   162	} // namespace meow::handlers
+
+
+================================================================================
+ FILE PATH: src/vm/handlers/memory_ops.h
+================================================================================
+     1	#pragma once
+     2	#include "vm/handlers/utils.h"
+     3	#include "vm/handlers/flow_ops.h"
+     4	#include <meow/memory/gc_disable_guard.h>
+     5	
+     6	namespace meow::handlers {
+     7	
+     8	[[gnu::always_inline]] static const uint8_t* impl_GET_GLOBAL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+     9	    uint16_t dst = read_u16(ip);
+    10	    uint16_t global_idx = read_u16(ip);
+    11	        
+    12	    regs[dst] = state->current_module->get_global_by_index(global_idx);
+    13	    
+    14	    return ip;
+    15	}
+    16	
+    17	[[gnu::always_inline]] static const uint8_t* impl_SET_GLOBAL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    18	    uint16_t global_idx = read_u16(ip);
+    19	    uint16_t src = read_u16(ip);
+    20	    Value val = regs[src];
+    21	        
+    22	    state->current_module->set_global_by_index(global_idx, val);
+    23	    
+    24	    state->heap.write_barrier(state->current_module, val);
+    25	    
+    26	    return ip;
+    27	}
+    28	
+    29	[[gnu::always_inline]] static const uint8_t* impl_GET_UPVALUE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    30	    uint16_t dst = read_u16(ip);
+    31	    uint16_t uv_idx = read_u16(ip);
+    32	    (void)constants;
+    33	    
+    34	    upvalue_t uv = state->ctx.frame_ptr_->function_->get_upvalue(uv_idx);
+    35	    if (uv->is_closed()) {
+    36	        regs[dst] = uv->get_value();
+    37	    } else {
+    38	        regs[dst] = state->ctx.stack_[uv->get_index()];
+    39	    }
+    40	    return ip;
+    41	}
+    42	
+    43	[[gnu::always_inline]] static const uint8_t* impl_SET_UPVALUE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    44	    uint16_t uv_idx = read_u16(ip);
+    45	    uint16_t src = read_u16(ip);
+    46	    Value val = regs[src];
+    47	
+    48	    upvalue_t uv = state->ctx.frame_ptr_->function_->get_upvalue(uv_idx);
+    49	    if (uv->is_closed()) {
+    50	        uv->close(val);
+    51	        state->heap.write_barrier(uv, val);
+    52	    } else {
+    53	        state->ctx.stack_[uv->get_index()] = val;
+    54	    }
+    55	    return ip;
+    56	}
+    57	
+    58	[[gnu::always_inline]] static const uint8_t* impl_CLOSURE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    59	    uint16_t dst = read_u16(ip);
+    60	    uint16_t proto_idx = read_u16(ip);
+    61	    
+    62	    Value val = constants[proto_idx];
+    63	    if (!val.is_proto()) [[unlikely]] {
+    64	        state->ctx.current_frame_->ip_ = ip - 5;
+    65	        state->error("CLOSURE: Constant index " + std::to_string(proto_idx) + " is not a Proto");
+    66	        return impl_PANIC(ip, regs, constants, state);
+    67	    }
+    68	    proto_t proto = val.as_proto();
+    69	    function_t closure = state->heap.new_function(proto);
+    70	    
+    71	    size_t current_base_idx = regs - state->ctx.stack_;
+    72	
+    73	    for (size_t i = 0; i < proto->get_num_upvalues(); ++i) {
+    74	        const auto& desc = proto->get_desc(i);
+    75	        if (desc.is_local_) {
+    76	            closure->set_upvalue(i, capture_upvalue(&state->ctx, &state->heap, current_base_idx + desc.index_));
+    77	        } else {
+    78	            closure->set_upvalue(i, state->ctx.frame_ptr_->function_->get_upvalue(desc.index_));
+    79	        }
+    80	    }
+    81	    
+    82	    regs[dst] = Value(closure);
+    83	    return ip;
+    84	}
+    85	
+    86	[[gnu::always_inline]] static const uint8_t* impl_CLOSE_UPVALUES(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    87	    uint16_t last_reg = read_u16(ip);
+    88	    (void)constants;
+    89	    
+    90	    size_t current_base_idx = regs - state->ctx.stack_;
+    91	    close_upvalues(&state->ctx, current_base_idx + last_reg);
+    92	    return ip;
+    93	}
+    94	
+    95	} // namespace meow::handlers
+
+
+================================================================================
+ FILE PATH: src/vm/handlers/module_ops.h
+================================================================================
+     1	#pragma once
+     2	#include "vm/handlers/utils.h"
+     3	#include "vm/handlers/flow_ops.h"
+     4	#include "module/module_manager.h"
+     5	
+     6	namespace meow::handlers {
+     7	
+     8	[[gnu::always_inline]] 
+     9	static const uint8_t* impl_EXPORT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    10	    uint16_t name_idx = read_u16(ip);
+    11	    uint16_t src_reg = read_u16(ip);
+    12	    Value val = regs[src_reg];
+    13	    
+    14	    string_t name = constants[name_idx].as_string();
+    15	    state->current_module->set_export(name, val);
+    16	    
+    17	    state->heap.write_barrier(state->current_module, val);
+    18	    
+    19	    return ip;
+    20	}
+    21	
+    22	[[gnu::always_inline]] 
+    23	static const uint8_t* impl_GET_EXPORT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    24	    uint16_t dst = read_u16(ip);
+    25	    uint16_t mod_reg = read_u16(ip);
+    26	    uint16_t name_idx = read_u16(ip);
+    27	    
+    28	    Value& mod_val = regs[mod_reg];
+    29	    string_t name = constants[name_idx].as_string();
+    30	    
+    31	    if (!mod_val.is_module()) [[unlikely]] {
+    32	        state->error("GET_EXPORT: Toán hạng không phải là Module.");
+    33	        return impl_PANIC(ip, regs, constants, state);
+    34	    }
+    35	    
+    36	    module_t mod = mod_val.as_module();
+    37	    if (!mod->has_export(name)) [[unlikely]] {
+    38	        state->error("Module không export '" + std::string(name->c_str()) + "'.");
+    39	        return impl_PANIC(ip, regs, constants, state);
+    40	    }
+    41	    
+    42	    regs[dst] = mod->get_export(name);
+    43	    return ip;
+    44	}
+    45	
+    46	[[gnu::always_inline]] 
+    47	static const uint8_t* impl_IMPORT_ALL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    48	    uint16_t src_idx = read_u16(ip);
+    49	    (void)constants;
+    50	    
+    51	    const Value& mod_val = regs[src_idx];
+    52	    
+    53	    if (auto src_mod = mod_val.as_if_module()) {
+    54	        state->current_module->import_all_export(src_mod);
+    55	    } else [[unlikely]] {
+    56	        state->error("IMPORT_ALL: Register không chứa Module.");
+    57	        return impl_PANIC(ip, regs, constants, state);
+    58	    }
+    59	    return ip;
+    60	}
+    61	
+    62	[[gnu::always_inline]] 
+    63	static const uint8_t* impl_IMPORT_MODULE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    64	    uint16_t dst = read_u16(ip);
+    65	    uint16_t path_idx = read_u16(ip);
+    66	    
+    67	    string_t path = constants[path_idx].as_string();
+    68	    string_t importer_path = state->current_module ? state->current_module->get_file_path() : nullptr;
+    69	    
+    70	    module_t mod = state->modules.load_module(path, importer_path);
+    71	    regs[dst] = Value(mod);
+    72	
+    73	    if (mod->is_executed() || mod->is_executing()) {
+    74	        return ip;
+    75	    }
+    76	    
+    77	    if (!mod->is_has_main()) {
+    78	        mod->set_executed();
+    79	        return ip;
+    80	    }
+    81	
+    82	    mod->set_execution();
+    83	    
+    84	    proto_t main_proto = mod->get_main_proto();
+    85	    function_t main_closure = state->heap.new_function(main_proto);
+    86	    
+    87	    size_t num_regs = main_proto->get_num_registers();
+    88	
+    89	    if (!state->ctx.check_frame_overflow()) [[unlikely]] {
+    90	        state->error("Call Stack Overflow (too many imports)!");
+    91	        return impl_PANIC(ip, regs, constants, state);
+    92	    }
+    93	    if (!state->ctx.check_overflow(num_regs)) [[unlikely]] {
+    94	        state->error("Register Stack Overflow at import!");
+    95	        return impl_PANIC(ip, regs, constants, state);
+    96	    }
+    97	    
+    98	    Value* new_base = state->ctx.stack_top_;
+    99	    state->ctx.frame_ptr_++; 
+   100	    *state->ctx.frame_ptr_ = CallFrame(
+   101	        main_closure,
+   102	        new_base,
+   103	        nullptr,
+   104	        ip
+   105	    );
+   106	    
+   107	    state->ctx.current_regs_ = new_base;
+   108	    state->ctx.stack_top_ += num_regs;
+   109	    state->ctx.current_frame_ = state->ctx.frame_ptr_;
+   110	    
+   111	    state->update_pointers();
+   112	    
+   113	    return main_proto->get_chunk().get_code(); 
+   114	}
+   115	
+   116	} // namespace meow::handlers
+
+
+================================================================================
+ FILE PATH: src/vm/handlers/oop_ops.h
+================================================================================
+     1	#pragma once
+     2	#include "vm/handlers/utils.h"
+     3	#include "vm/handlers/flow_ops.h"
+     4	#include <meow/core/shape.h>
+     5	#include <meow/core/module.h>
+     6	#include <module/module_manager.h>
+     7	#include <iostream> 
+     8	#include <format>
+     9	
+    10	namespace meow::handlers {
+    11	
+    12	static constexpr int IC_CAPACITY = 4;
+    13	
+    14	struct InlineCacheEntry {
+    15	    const Shape* shape;
+    16	    uint32_t offset;
+    17	} __attribute__((packed));
+    18	
+    19	struct InlineCache {
+    20	    InlineCacheEntry entries[IC_CAPACITY];
+    21	} __attribute__((packed));
+    22	
+    23	[[gnu::always_inline]]
+    24	inline static InlineCache* get_inline_cache(const uint8_t*& ip) {
+    25	    auto* ic = reinterpret_cast<InlineCache*>(const_cast<uint8_t*>(ip));
+    26	    ip += sizeof(InlineCache); 
+    27	    return ic;
+    28	}
+    29	
+    30	inline static void update_inline_cache(InlineCache* ic, const Shape* shape, uint32_t offset) {
+    31	    for (int i = 0; i < IC_CAPACITY; ++i) {
+    32	        if (ic->entries[i].shape == shape) {
+    33	            if (i > 0) {
+    34	                InlineCacheEntry temp = ic->entries[i];
+    35	                std::memmove(&ic->entries[1], &ic->entries[0], i * sizeof(InlineCacheEntry));
+    36	                ic->entries[0] = temp;
+    37	                ic->entries[0].offset = offset;
+    38	            }
+    39	            return;
+    40	        }
+    41	    }
+    42	    std::memmove(&ic->entries[1], &ic->entries[0], (IC_CAPACITY - 1) * sizeof(InlineCacheEntry));
+    43	    ic->entries[0].shape = shape;
+    44	    ic->entries[0].offset = offset;
+    45	}
+    46	
+    47	static inline Value find_primitive_method(VMState* state, const Value& obj, string_t name) {
+    48	    const char* mod_name = nullptr;
+    49	    
+    50	    if (obj.is_array()) mod_name = "array";
+    51	    else if (obj.is_string()) mod_name = "string";
+    52	    else if (obj.is_hash_table()) mod_name = "object";
+    53	    
+    54	    if (mod_name) {
+    55	        module_t mod = state->modules.load_module(state->heap.new_string(mod_name), nullptr);
+    56	        if (mod && mod->has_export(name)) {
+    57	            return mod->get_export(name);
+    58	        }
+    59	    }
+    60	    return Value(null_t{});
+    61	}
+    62	
+    63	// --- HANDLERS ---
+    64	
+    65	[[gnu::always_inline]] 
+    66	static const uint8_t* impl_NEW_CLASS(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    67	    uint16_t dst = read_u16(ip);
+    68	    uint16_t name_idx = read_u16(ip);
+    69	    string_t name = constants[name_idx].as_string();
+    70	    regs[dst] = Value(state->heap.new_class(name));
+    71	    return ip;
+    72	}
+    73	
+    74	[[gnu::always_inline]] 
+    75	static const uint8_t* impl_NEW_INSTANCE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    76	    uint16_t dst = read_u16(ip);
+    77	    uint16_t class_reg = read_u16(ip);
+    78	    Value& class_val = regs[class_reg];
+    79	    if (!class_val.is_class()) [[unlikely]] {
+    80	        state->error("NEW_INSTANCE: Toán hạng không phải là Class.");
+    81	        return impl_PANIC(ip, regs, constants, state);
+    82	    }
+    83	    regs[dst] = Value(state->heap.new_instance(class_val.as_class(), state->heap.get_empty_shape()));
+    84	    return ip;
+    85	}
+    86	
+    87	[[gnu::always_inline]] 
+    88	static const uint8_t* impl_GET_PROP(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    89	    const uint8_t* start_ip = ip - 1;
+    90	
+    91	    uint16_t dst = read_u16(ip);
+    92	    uint16_t obj_reg = read_u16(ip);
+    93	    uint16_t name_idx = read_u16(ip);
+    94	    
+    95	    InlineCache* ic = get_inline_cache(ip); 
+    96	    Value& obj = regs[obj_reg];
+    97	    string_t name = constants[name_idx].as_string();
+    98	
+    99	    if (obj.is_null()) [[unlikely]] {
+   100	        state->ctx.current_frame_->ip_ = start_ip;
+   101	        state->error(std::format("Runtime Error: Cannot read property '{}' of null.", name->c_str()));
+   102	        return impl_PANIC(ip, regs, constants, state);
+   103	    }
+   104	    
+   105	    // 1. Instance (Class Object)
+   106	    if (obj.is_instance()) [[likely]] {
+   107	        instance_t inst = obj.as_instance();
+   108	        Shape* current_shape = inst->get_shape();
+   109	
+   110	        for (int i = 0; i < IC_CAPACITY; ++i) {
+   111	            if (ic->entries[i].shape == current_shape) {
+   112	                regs[dst] = inst->get_field_at(ic->entries[i].offset);
+   113	                return ip;
+   114	            }
+   115	        }
+   116	
+   117	        int offset = current_shape->get_offset(name);
+   118	        if (offset != -1) {
+   119	            update_inline_cache(ic, current_shape, static_cast<uint32_t>(offset));
+   120	            regs[dst] = inst->get_field_at(offset);
+   121	            return ip;
+   122	        }
+   123	
+   124	        class_t k = inst->get_class();
+   125	        while (k) {
+   126	            if (k->has_method(name)) {
+   127	                regs[dst] = Value(state->heap.new_bound_method(inst, k->get_method(name).as_function()));
+   128	                return ip;
+   129	            }
+   130	            k = k->get_super();
+   131	        }
+   132	    }
+   133	    // 2. [FIX] Hash Table (Dictionary / Object Literal)
+   134	    // else if (obj.is_hash_table()) {
+   135	    //     hash_table_t hash = obj.as_hash_table();
+   136	        
+   137	    //     // Ưu tiên 1: Tìm key trong map (obj.prop)
+   138	    //     if (hash->has(name)) {
+   139	    //         regs[dst] = hash->get(name);
+   140	    //         return ip;
+   141	    //     }
+   142	        
+   143	    //     // Ưu tiên 2: Tìm method primitive (obj.keys(), obj.has()...)
+   144	    //     Value method = find_primitive_method(state, obj, name);
+   145	    //     if (!method.is_null()) {
+   146	    //         regs[dst] = method;
+   147	    //         return ip;
+   148	    //     }
+   149	        
+   150	    //     // [CRITICAL FIX] Nếu là Hash Table và không tìm thấy, trả về null (Thay vì Panic)
+   151	    //     regs[dst] = Value(null_t{}); 
+   152	    //     return ip;
+   153	    // }
+   154	    else if (obj.is_hash_table()) {
+   155	        hash_table_t hash = obj.as_hash_table();
+   156	        
+   157	        // Ưu tiên 1: Tìm key trong map (obj.prop)
+   158	        if (hash->has(name)) {
+   159	            regs[dst] = hash->get(name);
+   160	            return ip;
+   161	        }
+   162	        
+   163	        // Ưu tiên 2: Tìm method primitive (obj.keys(), obj.has()...)
+   164	        Value method = find_primitive_method(state, obj, name);
+   165	        if (!method.is_null()) {
+   166	            // [FIXED] Phải tạo BoundMethod để truyền 'obj' vào làm 'this' cho hàm native
+   167	            auto bound = state->heap.new_bound_method(obj, method); 
+   168	            regs[dst] = Value(bound);
+   169	            return ip;
+   170	        }
+   171	        
+   172	        // [CRITICAL FIX] Trả về null thay vì Panic
+   173	        regs[dst] = Value(null_t{}); 
+   174	        return ip;
+   175	    }
+   176	    // 3. Module
+   177	    else if (obj.is_module()) {
+   178	        module_t mod = obj.as_module();
+   179	        if (mod->has_export(name)) {
+   180	            regs[dst] = mod->get_export(name);
+   181	            return ip;
+   182	        }
+   183	    }
+   184	    // 4. Class (Static Method)
+   185	    else if (obj.is_class()) {
+   186	        class_t k = obj.as_class();
+   187	        if (k->has_method(name)) {
+   188	            regs[dst] = k->get_method(name); 
+   189	            return ip;
+   190	        }
+   191	    }
+   192	    else if (obj.is_array() && std::strcmp(name->c_str(), "length") == 0) {
+   193	        regs[dst] = Value(static_cast<int64_t>(obj.as_array()->size()));
+   194	        return ip;
+   195	    }
+   196	    else if (obj.is_string() && std::strcmp(name->c_str(), "length") == 0) {
+   197	        regs[dst] = Value(static_cast<int64_t>(obj.as_string()->size()));
+   198	        return ip;
+   199	    }
+   200	    // 5. Primitive khác (Array, String)
+   201	    else {
+   202	        Value method = find_primitive_method(state, obj, name);
+   203	        if (!method.is_null()) {
+   204	            auto bound = state->heap.new_bound_method(obj, method); 
+   205	            regs[dst] = Value(bound);
+   206	            return ip;
+   207	        }
+   208	    }
+   209	    
+   210	    // Not found
+   211	    state->ctx.current_frame_->ip_ = start_ip;
+   212	    state->error(std::format("Runtime Error: Property '{}' not found on type '{}'.", 
+   213	        name->c_str(), to_string(obj)));
+   214	    return impl_PANIC(ip, regs, constants, state);
+   215	}
+   216	
+   217	[[gnu::always_inline]] 
+   218	static const uint8_t* impl_SET_PROP(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   219	    const uint8_t* start_ip = ip - 1;
+   220	
+   221	    uint16_t obj_reg = read_u16(ip);
+   222	    uint16_t name_idx = read_u16(ip);
+   223	    uint16_t val_reg = read_u16(ip);
+   224	    
+   225	    InlineCache* ic = get_inline_cache(ip);
+   226	    Value& obj = regs[obj_reg];
+   227	    Value& val = regs[val_reg];
+   228	    string_t name = constants[name_idx].as_string();
+   229	    
+   230	    if (obj.is_instance()) [[likely]] {
+   231	        instance_t inst = obj.as_instance();
+   232	        Shape* current_shape = inst->get_shape();
+   233	
+   234	        for (int i = 0; i < IC_CAPACITY; ++i) {
+   235	            if (ic->entries[i].shape == current_shape) {
+   236	                inst->set_field_at(ic->entries[i].offset, val);
+   237	                state->heap.write_barrier(inst, val);
+   238	                return ip;
+   239	            }
+   240	        }
+   241	
+   242	        int offset = current_shape->get_offset(name);
+   243	
+   244	        if (offset != -1) {
+   245	            update_inline_cache(ic, current_shape, static_cast<uint32_t>(offset));
+   246	            inst->set_field_at(offset, val);
+   247	            state->heap.write_barrier(inst, val);
+   248	        } 
+   249	        else {
+   250	            Shape* next_shape = current_shape->get_transition(name);
+   251	            if (next_shape == nullptr) {
+   252	                next_shape = current_shape->add_transition(name, &state->heap);
+   253	            }
+   254	            
+   255	            inst->set_shape(next_shape);
+   256	            
+   257	            state->heap.write_barrier(inst, Value(reinterpret_cast<object_t>(next_shape))); 
+   258	
+   259	            inst->add_field(val);
+   260	            state->heap.write_barrier(inst, val);
+   261	        }
+   262	    }
+   263	    else if (obj.is_hash_table()) {
+   264	        obj.as_hash_table()->set(name, val);
+   265	        state->heap.write_barrier(obj.as_object(), val);
+   266	    }
+   267	    else {
+   268	        state->ctx.current_frame_->ip_ = start_ip;
+   269	        state->error(std::format("SET_PROP: Cannot set property '{}' on type '{}'.", name->c_str(), to_string(obj)));
+   270	        return impl_PANIC(ip, regs, constants, state);
+   271	    }
+   272	    return ip;
+   273	}
+   274	
+   275	[[gnu::always_inline]] 
+   276	static const uint8_t* impl_SET_METHOD(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   277	    uint16_t class_reg = read_u16(ip);
+   278	    uint16_t name_idx = read_u16(ip);
+   279	    uint16_t method_reg = read_u16(ip);
+   280	    
+   281	    Value& class_val = regs[class_reg];
+   282	    string_t name = constants[name_idx].as_string();
+   283	    Value& method_val = regs[method_reg];
+   284	    
+   285	    if (!class_val.is_class()) [[unlikely]] {
+   286	        state->error("SET_METHOD: Target must be a Class.");
+   287	        return impl_PANIC(ip, regs, constants, state);
+   288	    }
+   289	    if (!method_val.is_function() && !method_val.is_native()) [[unlikely]] {
+   290	        state->error("SET_METHOD: Value must be a Function or Native.");
+   291	        return impl_PANIC(ip, regs, constants, state);
+   292	    }
+   293	    class_val.as_class()->set_method(name, method_val);
+   294	    state->heap.write_barrier(class_val.as_class(), method_val);
+   295	    return ip;
+   296	}
+   297	
+   298	[[gnu::always_inline]] 
+   299	static const uint8_t* impl_INHERIT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   300	    uint16_t sub_reg = read_u16(ip);
+   301	    uint16_t super_reg = read_u16(ip);
+   302	    (void)constants;
+   303	    
+   304	    Value& sub_val = regs[sub_reg];
+   305	    Value& super_val = regs[super_reg];
+   306	    
+   307	    if (!sub_val.is_class() || !super_val.is_class()) [[unlikely]] {
+   308	        state->error("INHERIT: Both operands must be Classes.");
+   309	        return impl_PANIC(ip, regs, constants, state);
+   310	    }
+   311	    
+   312	    sub_val.as_class()->set_super(super_val.as_class());
+   313	    return ip;
+   314	}
+   315	
+   316	[[gnu::always_inline]] 
+   317	static const uint8_t* impl_GET_SUPER(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   318	    const uint8_t* start_ip = ip - 1;
+   319	
+   320	    uint16_t dst = read_u16(ip);
+   321	    uint16_t name_idx = read_u16(ip);
+   322	    string_t name = constants[name_idx].as_string();
+   323	    
+   324	    Value& receiver_val = regs[0]; 
+   325	    
+   326	    if (!receiver_val.is_instance()) [[unlikely]] {
+   327	        state->ctx.current_frame_->ip_ = start_ip;
+   328	        state->error("GET_SUPER: 'super' is only valid inside an instance method.");
+   329	        return impl_PANIC(ip, regs, constants, state);
+   330	    }
+   331	    
+   332	    instance_t receiver = receiver_val.as_instance();
+   333	    class_t klass = receiver->get_class();
+   334	    class_t super = klass->get_super();
+   335	    
+   336	    if (!super) {
+   337	        state->ctx.current_frame_->ip_ = start_ip;
+   338	        state->error("GET_SUPER: Class has no superclass.");
+   339	        return impl_PANIC(ip, regs, constants, state);
+   340	    }
+   341	    
+   342	    class_t k = super;
+   343	    while (k) {
+   344	        if (k->has_method(name)) {
+   345	            regs[dst] = Value(state->heap.new_bound_method(receiver, k->get_method(name).as_function()));
+   346	            return ip;
+   347	        }
+   348	        k = k->get_super();
+   349	    }
+   350	    
+   351	    state->ctx.current_frame_->ip_ = start_ip;
+   352	    state->error(std::format("GET_SUPER: Method '{}' not found in superclass.", name->c_str()));
+   353	    return impl_PANIC(ip, regs, constants, state);
+   354	}
+   355	
+   356	} // namespace meow::handlers
+
+
+================================================================================
+ FILE PATH: src/vm/handlers/utils.h
+================================================================================
+     1	#pragma once
+     2	
+     3	#include "vm/vm_state.h"
+     4	#include <meow/bytecode/op_codes.h>
+     5	#include <meow/value.h>
+     6	#include <meow/cast.h>
+     7	#include "runtime/operator_dispatcher.h"
+     8	#include "runtime/execution_context.h"
+     9	#include "runtime/call_frame.h"
+    10	#include <meow/core/function.h>
+    11	#include <meow/memory/memory_manager.h>
+    12	#include "runtime/upvalue.h"
+    13	#include <cstring>
+    14	
+    15	#define HOT_HANDLER [[gnu::always_inline, gnu::hot, gnu::aligned(32)]] static const uint8_t*
+    16	
+    17	namespace meow {
+    18	namespace handlers {
+    19	
+    20	[[gnu::always_inline]]
+    21	inline uint16_t read_u16(const uint8_t*& ip) noexcept {
+    22	    uint16_t val = *reinterpret_cast<const uint16_t*>(ip);
+    23	    ip += 2;
+    24	    return val;
+    25	}
+    26	
+    27	} // namespace handlers
+    28	} // namespace meow
+
+

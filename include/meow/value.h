@@ -22,6 +22,8 @@ private:
     }
 
 public:
+    using layout_traits = base_t::layout_traits;
+
     // --- Constructors ---
     inline Value() noexcept : data_(null_t{}) {}
     inline Value(null_t v) noexcept : data_(std::move(v)) {}
@@ -303,7 +305,6 @@ public:
     }
 
     // === Visitor ===
-    // (Cũng có thể dùng deducing this để gộp, nhưng giữ nguyên cũng tốt)
     template <typename Visitor>
     decltype(auto) visit(Visitor&& vis) {
         return data_.visit(vis);
