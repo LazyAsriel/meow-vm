@@ -12,7 +12,6 @@
 #include <cstdint>
 #include <vector>
 #include <string>
-#include <variant>
 #include <memory>
 #include <meow/definitions.h>
 #include <meow/core/meow_object.h>

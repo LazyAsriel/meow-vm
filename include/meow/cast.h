@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <vector>
 #include <string>
-#include <variant>
 #include <memory>
 #include <charconv>
 #include <system_error>
