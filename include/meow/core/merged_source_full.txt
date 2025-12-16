@@ -270,90 +270,213 @@
 ================================================================================
      1	/**
      2	 * @file hash_table.h
-     3	 * @author LazyPaws
-     4	 * @brief Core definition of Hash Table in TrangMeo
-     5	 * @copyright Copyright (c) 2025 LazyPaws
-     6	 * @license All rights reserved. Unauthorized copying of this file, in any form
-     7	 * or medium, is strictly prohibited
-     8	 */
-     9	
-    10	#pragma once
-    11	
-    12	#include <cstdint>
-    13	#include <vector>
-    14	#include <string>
-    15	#include <memory>
-    16	#include <meow/definitions.h>
-    17	#include <meow/core/meow_object.h>
-    18	#include <meow/definitions.h>
-    19	#include <meow/value.h>
-    20	#include <meow/memory/gc_visitor.h>
-    21	#include <meow/core/string.h>
-    22	
-    23	namespace meow {
-    24	class ObjHashTable : public ObjBase<ObjectType::HASH_TABLE> {
-    25	private:
-    26	    using key_t = string_t;
-    27	    using map_t = std::unordered_map<key_t, value_t, ObjStringHasher>;
-    28	    using visitor_t = GCVisitor;
+     3	 * @brief Optimized Hash Table with State-ful Allocator (meow::allocator)
+     4	 * Compatible with std::map semantics (first/second)
+     5	 */
+     6	
+     7	#pragma once
+     8	
+     9	#include <cstdint>
+    10	#include <cstring>
+    11	#include <bit> 
+    12	#include <meow/definitions.h>
+    13	#include <meow/core/meow_object.h>
+    14	#include <meow/value.h>
+    15	#include <meow/memory/gc_visitor.h>
+    16	#include <meow/core/string.h>
+    17	#include <meow_allocator.h> 
+    18	
+    19	namespace meow {
+    20	
+    21	struct Entry {
+    22	    string_t first = nullptr;
+    23	    Value second;
+    24	};
+    25	
+    26	class ObjHashTable : public ObjBase<ObjectType::HASH_TABLE> {
+    27	public:
+    28	    using Allocator = meow::allocator<Entry>;
     29	
-    30	    map_t fields_;
-    31	public:
-    32	    // --- Constructors & destructor---
-    33	    ObjHashTable() = default;
-    34	    explicit ObjHashTable(const map_t& fields) : fields_(fields) {}
-    35	    explicit ObjHashTable(map_t&& fields) noexcept : fields_(std::move(fields)) {}
-    36	
-    37	    // --- Rule of 5 ---
-    38	    ObjHashTable(const ObjHashTable&) = delete;
-    39	    ObjHashTable(ObjHashTable&&) = delete;
-    40	    ObjHashTable& operator=(const ObjHashTable&) = delete;
-    41	    ObjHashTable& operator=(ObjHashTable&&) = delete;
-    42	    ~ObjHashTable() override = default;
-    43	
-    44	    // --- Iterator types ---
-    45	    using iterator = map_t::iterator;
-    46	    using const_iterator = map_t::const_iterator;
-    47	
-    48	    // --- Lookup ---
-    49	
-    50	    // Unchecked lookup. For performance-critical code
-    51	    inline return_t get(key_t key) noexcept {
-    52	        return fields_[key];
-    53	    }
-    54	    // Unchecked lookup/update. For performance-critical code
-    55	    template <typename T>
-    56	    inline void set(key_t key, T&& value) noexcept {
-    57	        fields_[key] = std::forward<T>(value);
-    58	    }
-    59	    // Checked lookup. Throws if key is not found
-    60	    inline return_t at(key_t key) const {
-    61	        return fields_.at(key);
-    62	    }
-    63	    inline bool has(key_t key) const {
-    64	        return fields_.contains(key);
+    30	private:
+    31	    Entry* entries_ = nullptr;
+    32	    uint32_t count_ = 0;
+    33	    uint32_t capacity_ = 0;
+    34	    uint32_t mask_ = 0;
+    35	    
+    36	    [[no_unique_address]] Allocator alloc_;
+    37	
+    38	    static constexpr double MAX_LOAD_FACTOR = 0.75;
+    39	    static constexpr uint32_t MIN_CAPACITY = 8;
+    40	
+    41	public:
+    42	    explicit ObjHashTable(Allocator alloc, uint32_t cap = 0) 
+    43	        : alloc_(alloc) {
+    44	        if (cap > 0) allocate(cap);
+    45	    }
+    46	
+    47	    ~ObjHashTable() override {
+    48	        if (entries_) {
+    49	            alloc_.deallocate(entries_, capacity_);
+    50	        }
+    51	    }
+    52	
+    53	    // --- Core Operations ---
+    54	
+    55	    [[gnu::always_inline]] 
+    56	    inline Entry* find_entry(Entry* entries, uint32_t mask, string_t key) const {
+    57	        uint32_t index = key->hash() & mask;
+    58	        for (;;) {
+    59	            Entry* entry = &entries[index];
+    60	            if (entry->first == key || entry->first == nullptr) [[likely]] {
+    61	                return entry;
+    62	            }
+    63	            index = (index + 1) & mask;
+    64	        }
     65	    }
     66	
-    67	    // --- Capacity ---
-    68	    inline size_t size() const noexcept {
-    69	        return fields_.size();
-    70	    }
-    71	    inline bool empty() const noexcept {
-    72	        return fields_.empty();
-    73	    }
-    74	
-    75	    // --- Iterators ---
-    76	    template <typename Self>
-    77	    auto begin(this Self&& self) noexcept { return std::forward<Self>(self).fields_.begin(); }
-    78	
-    79	    template <typename Self>
-    80	    auto end(this Self&& self) noexcept { return std::forward<Self>(self).fields_.end(); }
-    81	
-    82	    size_t obj_size() const noexcept override { return sizeof(ObjHashTable); }
+    67	    [[gnu::always_inline]] 
+    68	    inline bool set(string_t key, Value value) {
+    69	        if (count_ + 1 > (capacity_ * MAX_LOAD_FACTOR)) [[unlikely]] {
+    70	            grow();
+    71	        }
+    72	
+    73	        Entry* entry = find_entry(entries_, mask_, key);
+    74	        bool is_new = (entry->first == nullptr);
+    75	        
+    76	        if (is_new) [[likely]] {
+    77	            count_++;
+    78	            entry->first = key;
+    79	        }
+    80	        entry->second = value;
+    81	        return is_new;
+    82	    }
     83	
-    84	    void trace(visitor_t& visitor) const noexcept override;
-    85	};
-    86	}
+    84	    [[gnu::always_inline]] 
+    85	    inline bool get(string_t key, Value* result) const {
+    86	        if (count_ == 0) [[unlikely]] return false;
+    87	        Entry* entry = find_entry(entries_, mask_, key);
+    88	        if (entry->first == nullptr) return false;
+    89	        *result = entry->second;
+    90	        return true;
+    91	    }
+    92	
+    93	    [[gnu::always_inline]]
+    94	    inline Value get(string_t key) const {
+    95	        if (count_ == 0) return Value(null_t{});
+    96	        Entry* entry = find_entry(entries_, mask_, key);
+    97	        if (entry->first == nullptr) return Value(null_t{});
+    98	        return entry->second;
+    99	    }
+   100	
+   101	    [[gnu::always_inline]] 
+   102	    inline bool has(string_t key) const {
+   103	        if (count_ == 0) return false;
+   104	        return find_entry(entries_, mask_, key)->first != nullptr;
+   105	    }
+   106	
+   107	    bool remove(string_t key) {
+   108	        if (count_ == 0) return false;
+   109	        Entry* entry = find_entry(entries_, mask_, key);
+   110	        if (entry->first == nullptr) return false;
+   111	
+   112	        entry->first = nullptr;
+   113	        entry->second = Value(null_t{});
+   114	        count_--;
+   115	
+   116	        uint32_t index = (uint32_t)(entry - entries_);
+   117	        uint32_t next_index = index;
+   118	
+   119	        for (;;) {
+   120	            next_index = (next_index + 1) & mask_;
+   121	            Entry* next = &entries_[next_index];
+   122	            if (next->first == nullptr) break;
+   123	
+   124	            uint32_t ideal = next->first->hash() & mask_;
+   125	            bool shift = false;
+   126	            if (index < next_index) {
+   127	                if (ideal <= index || ideal > next_index) shift = true;
+   128	            } else {
+   129	                if (ideal <= index && ideal > next_index) shift = true;
+   130	            }
+   131	
+   132	            if (shift) {
+   133	                entries_[index] = *next;
+   134	                entries_[next_index].first = nullptr;
+   135	                entries_[next_index].second = Value(null_t{});
+   136	                index = next_index;
+   137	            }
+   138	        }
+   139	        return true;
+   140	    }
+   141	
+   142	    // --- Capacity ---
+   143	    inline uint32_t size() const noexcept { return count_; }
+   144	    inline bool empty() const noexcept { return count_ == 0; }
+   145	    inline uint32_t capacity() const noexcept { return capacity_; }
+   146	
+   147	    class Iterator {
+   148	        Entry* ptr_; Entry* end_;
+   149	    public:
+   150	        Iterator(Entry* ptr, Entry* end) : ptr_(ptr), end_(end) {
+   151	            while (ptr_ < end_ && ptr_->first == nullptr) ptr_++;
+   152	        }
+   153	        Iterator& operator++() {
+   154	            do { ptr_++; } while (ptr_ < end_ && ptr_->first == nullptr);
+   155	            return *this;
+   156	        }
+   157	        bool operator!=(const Iterator& other) const { return ptr_ != other.ptr_; }
+   158	        
+   159	        Entry& operator*() const { return *ptr_; }
+   160	        Entry* operator->() const { return ptr_; }
+   161	    };
+   162	
+   163	    inline Iterator begin() { return Iterator(entries_, entries_ + capacity_); }
+   164	    inline Iterator end() { return Iterator(entries_ + capacity_, entries_ + capacity_); }
+   165	
+   166	    size_t obj_size() const noexcept override {
+   167	        return sizeof(ObjHashTable) + sizeof(Entry) * capacity_;
+   168	    }
+   169	
+   170	    void trace(GCVisitor& visitor) const noexcept override {
+   171	        for (uint32_t i = 0; i < capacity_; i++) {
+   172	            if (entries_[i].first) {
+   173	                visitor.visit_object(entries_[i].first);
+   174	                visitor.visit_value(entries_[i].second);
+   175	            }
+   176	        }
+   177	    }
+   178	
+   179	private:
+   180	    void allocate(uint32_t capacity) {
+   181	        capacity_ = (capacity < MIN_CAPACITY) ? MIN_CAPACITY : std::bit_ceil(capacity);
+   182	        mask_ = capacity_ - 1;
+   183	        
+   184	        entries_ = alloc_.allocate(capacity_);
+   185	        std::memset(static_cast<void*>(entries_), 0, sizeof(Entry) * capacity_);
+   186	    }
+   187	
+   188	    void grow() {
+   189	        uint32_t old_cap = capacity_;
+   190	        Entry* old_entries = entries_;
+   191	
+   192	        allocate(old_cap == 0 ? MIN_CAPACITY : old_cap * 2);
+   193	        count_ = 0;
+   194	
+   195	        if (old_entries) {
+   196	            for (uint32_t i = 0; i < old_cap; i++) {
+   197	                if (old_entries[i].first != nullptr) {
+   198	                    Entry* dest = find_entry(entries_, mask_, old_entries[i].first);
+   199	                    dest->first = old_entries[i].first;
+   200	                    dest->second = old_entries[i].second;
+   201	                    count_++;
+   202	                }
+   203	            }
+   204	            alloc_.deallocate(old_entries, old_cap);
+   205	        }
+   206	    }
+   207	};
+   208	
+   209	} // namespace meow
 
 
 ================================================================================

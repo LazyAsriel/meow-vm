@@ -69,31 +69,31 @@
     66	    return ip;
     67	}
     68	
-    69	[[gnu::always_inline]] static const uint8_t* impl_NEW_HASH(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    70	    uint16_t dst = read_u16(ip);
-    71	    uint16_t start_idx = read_u16(ip);
-    72	    uint16_t count = read_u16(ip);
-    73	    
-    74	    auto hash = state->heap.new_hash();
-    75	
-    76	    regs[dst] = Value(hash); 
-    77	
-    78	    for (size_t i = 0; i < count; ++i) {
-    79	        Value& key = regs[start_idx + i * 2];
-    80	        Value& val = regs[start_idx + i * 2 + 1];
-    81	        
-    82	        if (key.is_string()) {
-    83	            hash->set(key.as_string(), val);
-    84	        } else {
-    85	            std::string s = to_string(key);
-    86	            string_t k = state->heap.new_string(s);
-    87	            hash->set(k, val);
-    88	        }
-    89	    }
-    90	    
-    91	    return ip;
-    92	}
-    93	
+    69	[[gnu::always_inline]] 
+    70	static const uint8_t* impl_NEW_HASH(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    71	    uint16_t dst = read_u16(ip);
+    72	    uint16_t start_idx = read_u16(ip);
+    73	    uint16_t count = read_u16(ip);
+    74	    
+    75	    auto hash = state->heap.new_hash(count); 
+    76	
+    77	    regs[dst] = Value(hash); 
+    78	
+    79	    for (size_t i = 0; i < count; ++i) {
+    80	        Value& key = regs[start_idx + i * 2];
+    81	        Value& val = regs[start_idx + i * 2 + 1];
+    82	        
+    83	        if (key.is_string()) [[likely]] {
+    84	            hash->set(key.as_string(), val);
+    85	        } else {
+    86	            std::string s = to_string(key);
+    87	            string_t k = state->heap.new_string(s);
+    88	            hash->set(k, val);
+    89	        }
+    90	    }
+    91	    
+    92	    return ip;
+    93	}
     94	[[gnu::always_inline]] static const uint8_t* impl_GET_INDEX(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     95	    uint16_t dst = read_u16(ip);
     96	    uint16_t src_reg = read_u16(ip);
