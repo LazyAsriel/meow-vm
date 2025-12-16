@@ -99,7 +99,7 @@ void Machine::execute(function_t func) {
     proto_t proto = func->get_proto();
     size_t num_regs = proto->get_num_registers();
     
-    if (!context_->check_overflow(num_regs)) {
+    if (!context_->check_overflow(num_regs)) [[unlikely]] {
         error("Stack Overflow on startup");
         return;
     }

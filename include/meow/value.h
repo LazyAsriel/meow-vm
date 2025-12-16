@@ -14,12 +14,11 @@ private:
     base_t data_;
 
     template <typename Self>
-    inline auto get_object_ptr(this Self&& self) noexcept {
-        if (auto obj_ptr = self.data_.template get_if<object_t>()) {
-            return *obj_ptr;
+    inline auto get_object_ptr(this Self&& self) noexcept -> object_t {
+        if (auto* val_ptr = self.data_.template get_if<object_t>()) {
+            return *val_ptr;
         }
-        using ret_t = std::remove_reference_t<decltype(*std::declval<object_t*>())>;
-        return static_cast<ret_t>(nullptr);
+        return nullptr;
     }
 
 public:
@@ -56,19 +55,20 @@ public:
     inline Value& operator=(native_t v) noexcept { data_ = v; return *this; }
     inline Value& operator=(object_t v) noexcept { data_ = v; return *this; }
 
-    inline constexpr size_t index() const noexcept {
-        return data_.index();
+    inline bool operator==(const Value& other) const noexcept {
+        return data_ == other.data_;
+    }
+    inline bool operator!=(const Value& other) const noexcept {
+        return data_ != other.data_;
     }
 
-    [[nodiscard]] __attribute__((always_inline)) 
-    uint64_t as_raw_u64() const noexcept {
-        return data_.raw();
-    }
+    inline constexpr size_t index() const noexcept { return data_.index(); }
+    inline uint64_t raw_tag() const noexcept { return data_.raw_tag(); }
+    inline void set_raw(uint64_t bits) noexcept { data_.set_raw(bits); }
     
-    static Value from_raw_u64(uint64_t bits) noexcept {
-        Value v;
-        v.data_ = base_t::from_raw(bits);
-        return v;
+    template <typename T>
+    inline bool holds_both(const Value& other) const noexcept {
+        return data_.template holds_both<T>(other.data_);
     }
 
     // === Type Checkers ===

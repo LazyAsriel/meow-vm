@@ -1,0 +1,22 @@
+{
+  "importTimes": {
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/precedence.meow": 1762815352712,
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/diagnostic.meow": 1765099560196,
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/token.meow": 1760138829018,
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/ast.meow": 1762695475696
+  },
+  "srcSize": 35896,
+  "srcTime": 1765803600218,
+  "importSizes": {
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/precedence.meow": 355,
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/diagnostic.meow": 11621,
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/token.meow": 8469,
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/ast.meow": 8162
+  },
+  "imports": [
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/ast.meow",
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/token.meow",
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/diagnostic.meow",
+    "/home/lazycat/Projects/meow-vm/compiler/src/frontend/precedence.meow"
+  ]
+}

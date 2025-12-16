@@ -32,14 +32,9 @@ HOT_HANDLER impl_ADD(const uint8_t* ip, Value* regs, const Value* constants, VMS
     const auto& args = *reinterpret_cast<const BinaryArgs*>(ip);
     Value& left = regs[args.r1];
     Value& right = regs[args.r2];
-    // if (left.is_int() && right.is_int()) [[likely]] {
-    //     int64_t res = left.as_int() + right.as_int();
-    //     regs[args.dst] = Value::from_raw_u64(
-    //         NanboxLayout::QNAN_POS | (uint64_t(ValueType::Int) << NanboxLayout::TAG_SHIFT) | (uint64_t(res) & NanboxLayout::PAYLOAD_MASK)
-    //     );
-    // }
-    if (left.is_int() && right.is_int()) [[likely]] regs[args.dst] = left.as_int() + right.as_int();
-    else if (left.is_float() && right.is_float()) regs[args.dst] = Value(left.as_float() + right.as_float());
+    // [OPTIMIZED] Thay thế check rời rạc bằng holds_both
+    if (left.holds_both<int_t>(right)) [[likely]] regs[args.dst] = left.as_int() + right.as_int();
+    else if (left.holds_both<float_t>(right)) regs[args.dst] = Value(left.as_float() + right.as_float());
     else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
     return ip + sizeof(BinaryArgs);
 }
@@ -48,14 +43,9 @@ HOT_HANDLER impl_ADD_B(const uint8_t* ip, Value* regs, const Value* constants, V
     const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip);
     Value& left = regs[args.r1];
     Value& right = regs[args.r2];
-    // if (left.is_int() && right.is_int()) [[likely]] {
-    //     int64_t res = left.as_int() + right.as_int();
-    //     regs[args.dst] = Value::from_raw_u64(
-    //         NanboxLayout::QNAN_POS | (uint64_t(ValueType::Int) << NanboxLayout::TAG_SHIFT) | (uint64_t(res) & NanboxLayout::PAYLOAD_MASK)
-    //     );
-    // }
-    if (left.is_int() && right.is_int()) [[likely]] regs[args.dst] = left.as_int() + right.as_int();
-    else if (left.is_float() && right.is_float()) regs[args.dst] = Value(left.as_float() + right.as_float());
+    // [OPTIMIZED] Thay thế check rời rạc bằng holds_both
+    if (left.holds_both<int_t>(right)) [[likely]] regs[args.dst] = left.as_int() + right.as_int();
+    else if (left.holds_both<float_t>(right)) regs[args.dst] = Value(left.as_float() + right.as_float());
     else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
     return ip + sizeof(BinaryArgsB);
 }
@@ -76,7 +66,8 @@ BINARY_OP_B_IMPL(MOD, MOD)
         const auto& args = *reinterpret_cast<const BinaryArgs*>(ip); \
         Value& left = regs[args.r1]; \
         Value& right = regs[args.r2]; \
-        if (left.is_int() && right.is_int()) [[likely]] { \
+        /* [OPTIMIZED] Thay thế check rời rạc bằng holds_both */ \
+        if (left.holds_both<int_t>(right)) [[likely]] { \
             regs[args.dst] = Value(left.as_int() OPERATOR right.as_int()); \
         } else [[unlikely]] { \
             regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
@@ -87,7 +78,8 @@ BINARY_OP_B_IMPL(MOD, MOD)
         const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip); \
         Value& left = regs[args.r1]; \
         Value& right = regs[args.r2]; \
-        if (left.is_int() && right.is_int()) [[likely]] { \
+        /* [OPTIMIZED] Thay thế check rời rạc bằng holds_both */ \
+        if (left.holds_both<int_t>(right)) [[likely]] { \
             regs[args.dst] = Value(left.as_int() OPERATOR right.as_int()); \
         } else [[unlikely]] { \
             regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \

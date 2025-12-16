@@ -34,6 +34,7 @@ namespace meow::handlers {
 [[gnu::always_inline]] static const uint8_t* impl_LOAD_INT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     regs[dst] = *reinterpret_cast<const int64_t*>(ip);
+    ip += 8;
     return ip;
 }
 

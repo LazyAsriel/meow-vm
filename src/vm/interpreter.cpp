@@ -34,7 +34,6 @@ namespace {
     template <OpCode Op, OpImpl ImplFn>
     static void op_wrapper(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
         const uint8_t* next_ip = ImplFn(ip, regs, constants, state);
-        state->heap.disable_gc();
         if (next_ip) [[likely]] {
             if constexpr (IsFrameChange<Op>) {
                 regs = state->registers;
@@ -109,7 +108,7 @@ namespace {
 
 } // namespace anonymous
 
-void Interpreter::run(VMState state) {
+void Interpreter::run(VMState state) noexcept {
     if (!state.ctx.current_frame_) return;
     
     state.update_pointers();
