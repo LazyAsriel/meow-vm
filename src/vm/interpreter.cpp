@@ -83,6 +83,8 @@ namespace {
             reg(GET_PROP); reg(SET_PROP); reg(SET_METHOD);
             reg(INHERIT); reg(GET_SUPER);
 
+            reg(INVOKE);
+
             // Exception
             reg(THROW); reg(SETUP_TRY); reg(POP_TRY);
 

@@ -228,6 +228,7 @@ int Assembler::get_arity(meow::OpCode op) {
         case meow::OpCode::GET_KEYS: case meow::OpCode::GET_VALUES:
         case meow::OpCode::GET_SUPER: 
         case meow::OpCode::GET_GLOBAL: case meow::OpCode::SET_GLOBAL:
+        case meow::OpCode::INHERIT:
             return 2;
 
         case meow::OpCode::GET_EXPORT: 
@@ -240,12 +241,13 @@ int Assembler::get_arity(meow::OpCode op) {
         case meow::OpCode::GET_INDEX: case meow::OpCode::SET_INDEX: 
         case meow::OpCode::GET_PROP: case meow::OpCode::SET_PROP:
         case meow::OpCode::SET_METHOD: case meow::OpCode::CALL_VOID:
-        case meow::OpCode::INHERIT:
+        // case meow::OpCode::INHERIT:
             return 3;
             
         case meow::OpCode::CALL:
         case meow::OpCode::TAIL_CALL:
             return 4;
+        case meow::OpCode::INVOKE: return 5;
         default: return 0;
     }
 }
@@ -351,12 +353,152 @@ std::vector<uint8_t> Assembler::serialize_binary() {
     return buffer;
 }
 
+static size_t get_instr_size(meow::OpCode op) {
+    using namespace meow;
+    switch (op) {
+        // --- Nhóm 1 byte (Không tham số) ---
+        case OpCode::HALT: 
+        case OpCode::POP_TRY: 
+        case OpCode::CLOSE_UPVALUES: 
+        case OpCode::RETURN: 
+        case OpCode::IMPORT_ALL:
+        case OpCode::THROW:
+            return 1 + 2; // Op(1) + U16(2) -> Wait, check get_arity
+        case OpCode::GET_PROP: 
+        case OpCode::SET_PROP: 
+            return 1 + 6 + 48; // Op + 3*U16 + 48(Cache) = 55 bytes
+            
+        case OpCode::CALL: 
+        case OpCode::TAIL_CALL: 
+            return 1 + 8 + 16; // Op + 4*U16 + 16(Cache) = 25 bytes
+            
+        case OpCode::CALL_VOID: 
+            return 1 + 6 + 16; // Op + 3*U16 + 16(Cache) = 23 bytes
+            
+        case OpCode::INVOKE: 
+            return 80;         // Fat Instruction (Size cố định)
+
+        // 2. Các lệnh Byte-code (Optimized B instructions)
+        case OpCode::ADD_B: case OpCode::SUB_B: case OpCode::MUL_B: 
+        case OpCode::DIV_B: case OpCode::MOD_B: 
+        case OpCode::EQ_B:  case OpCode::NEQ_B: case OpCode::GT_B: 
+        case OpCode::GE_B:  case OpCode::LT_B:  case OpCode::LE_B:
+        case OpCode::BIT_AND_B: case OpCode::BIT_OR_B: case OpCode::BIT_XOR_B:
+        case OpCode::LSHIFT_B:  case OpCode::RSHIFT_B:
+        case OpCode::MOVE_B:
+            return 1 + 3; // Op(1) + Dst(1) + R1(1) + R2(1) = 4 bytes
+            
+        case OpCode::LOAD_INT_B:
+            return 1 + 1 + 1; // Op(1) + Dst(1) + Val(1) = 3 bytes
+
+        case OpCode::JUMP_IF_TRUE_B:
+        case OpCode::JUMP_IF_FALSE_B:
+            return 1 + 1 + 2; // Op(1) + Cond(1) + Offset(2) = 4 bytes
+
+        // 3. Các lệnh Load hằng số lớn (64-bit)
+        case OpCode::LOAD_INT: 
+        case OpCode::LOAD_FLOAT: 
+            return 1 + 2 + 8; // Op(1) + Dst(2) + Value(8) = 11 bytes
+
+        // 4. Các lệnh Jump (Offset 16-bit)
+        case OpCode::JUMP: 
+            return 1 + 2; // Op + Offset = 3 bytes
+            
+        case OpCode::JUMP_IF_TRUE: 
+        case OpCode::JUMP_IF_FALSE: 
+            return 1 + 2 + 2; // Op + Cond + Offset = 5 bytes (Struct JumpCondArgs)
+
+        case OpCode::SETUP_TRY:
+            return 1 + 2 + 2; // Op + Offset + CatchReg = 5 bytes
+
+        // 5. Default case (Dựa vào arity)
+        default: {
+            int arity = Assembler::get_arity(op);
+            return 1 + (arity * 2);
+        }
+    }
+}
+
+void Assembler::optimize() {
+    for (auto& proto : protos_) {
+        std::vector<uint8_t>& code = proto.bytecode;
+        size_t ip = 0;
+
+        while (ip < code.size()) {
+            meow::OpCode op = static_cast<meow::OpCode>(code[ip]);
+
+            // Pattern Check: GET_PROP (55 bytes) followed by CALL (25 bytes)
+            if (op == meow::OpCode::GET_PROP) {
+                size_t prop_size = 55;
+                if (ip + 80 <= code.size()) {
+                    meow::OpCode next_op = static_cast<meow::OpCode>(code[ip + prop_size]);
+                    
+                    if (next_op == meow::OpCode::CALL) {
+                         // Decode Registers
+                        size_t prop_ip = ip;
+                        size_t call_ip = ip + 55;
+
+                        uint16_t prop_dst = (uint16_t)code[prop_ip+1] | ((uint16_t)code[prop_ip+2] << 8);
+                        uint16_t obj_reg  = (uint16_t)code[prop_ip+3] | ((uint16_t)code[prop_ip+4] << 8);
+                        uint16_t name_idx = (uint16_t)code[prop_ip+5] | ((uint16_t)code[prop_ip+6] << 8);
+
+                        // CALL layout: [OP] [Dst] [Fn] [ArgStart] [Argc]
+                        uint16_t call_dst = (uint16_t)code[call_ip+1] | ((uint16_t)code[call_ip+2] << 8);
+                        uint16_t fn_reg   = (uint16_t)code[call_ip+3] | ((uint16_t)code[call_ip+4] << 8);
+                        uint16_t arg_start= (uint16_t)code[call_ip+5] | ((uint16_t)code[call_ip+6] << 8);
+                        uint16_t argc     = (uint16_t)code[call_ip+7] | ((uint16_t)code[call_ip+8] << 8);
+
+                        // Optimization Condition: Output của GET_PROP là Input Function của CALL
+                        if (prop_dst == fn_reg) {
+                            // --- REWRITE TO INVOKE (80 bytes) ---
+                            size_t write = prop_ip;
+                            
+                            // 1. Opcode
+                            code[write++] = static_cast<uint8_t>(meow::OpCode::INVOKE);
+                            
+                            // 2. Args (10 bytes): Dst, Obj, Name, ArgStart, Argc
+                            auto emit_u16 = [&](uint16_t v) {
+                                code[write++] = v & 0xFF; 
+                                code[write++] = (v >> 8) & 0xFF;
+                            };
+                            emit_u16(call_dst);
+                            emit_u16(obj_reg);
+                            emit_u16(name_idx);
+                            emit_u16(arg_start);
+                            emit_u16(argc);
+
+                            // 3. Inline Cache (48 bytes) - Init 0
+                            std::memset(&code[write], 0, 48);
+                            write += 48;
+
+                            // 4. Padding (21 bytes) - Init 0
+                            // Tổng size cũ: 55 + 25 = 80
+                            // Size INVOKE header: 1 + 10 = 11
+                            // Size INVOKE IC: 48
+                            // Còn lại: 80 - 11 - 48 = 21 bytes padding
+                            std::memset(&code[write], 0, 21);
+                            
+                            // Nhảy qua khối lệnh đã gộp
+                            ip += 80;
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            // Nếu không tối ưu được, nhảy lệnh bình thường
+            ip += get_instr_size(op);
+        }
+    }
+}
+
 std::vector<uint8_t> Assembler::assemble() {
     while (!is_at_end()) {
         parse_statement();
     }
     link_proto_refs();
     patch_labels();
+    optimize();
     return serialize_binary();
 }
 

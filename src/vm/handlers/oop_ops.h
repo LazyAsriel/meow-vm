@@ -63,6 +63,135 @@ static inline Value find_primitive_method(VMState* state, const Value& obj, stri
 // --- HANDLERS ---
 
 [[gnu::always_inline]] 
+static const uint8_t* impl_INVOKE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    static bool is_ran = false;
+    if (!is_ran) {
+        std::println("Đang dùng INVOKE OpCode (chỉ hiện log một lần)");
+        is_ran = true;
+    }
+    // 1. Tính toán địa chỉ return (Nhảy qua 80 bytes fat instruction)
+    // ip đang ở byte đầu tiên của tham số (sau opcode)
+    // Next Opcode = (ip - 1) + 80 = ip + 79
+    const uint8_t* next_ip = ip + 79;
+    const uint8_t* start_ip = ip - 1; // Để báo lỗi chính xác
+
+    // 2. Decode Arguments (10 bytes)
+    uint16_t dst = read_u16(ip);
+    uint16_t obj_reg = read_u16(ip);
+    uint16_t name_idx = read_u16(ip);
+    uint16_t arg_start = read_u16(ip);
+    uint16_t argc = read_u16(ip);
+    
+    // 3. Inline Cache (48 bytes)
+    InlineCache* ic = get_inline_cache(ip); 
+
+    Value& receiver = regs[obj_reg];
+    string_t name = constants[name_idx].as_string();
+
+    // 4. Instance Method Call (Fast Path)
+    if (receiver.is_instance()) [[likely]] {
+        instance_t inst = receiver.as_instance();
+        Shape* current_shape = inst->get_shape();
+
+        // --- OPTIMIZATION: Inline Cache Check ---
+        // Nếu shape của object trùng với shape trong cache, ta lấy luôn method offset/index
+        // (Lưu ý: Bạn cần mở rộng cấu trúc IC để lưu method ptr hoặc dùng cơ chế lookup nhanh)
+        
+        // Hiện tại ta vẫn lookup thủ công (nhưng vẫn nhanh hơn tạo BoundMethod):
+        class_t k = inst->get_class();
+        while (k) {
+            if (k->has_method(name)) {
+                Value method = k->get_method(name);
+                
+                // A. Gọi Meow Function (Optimized)
+                if (method.is_function()) {
+                    const uint8_t* jump_target = push_call_frame(
+                        state,
+                        method.as_function(),
+                        argc,
+                        &regs[arg_start], // Arguments source
+                        &receiver,        // Receiver ('this')
+                        (dst == 0xFFFF) ? nullptr : &regs[dst],
+                        next_ip,          // Return address (sau padding)
+                        start_ip          // Error address
+                    );
+                    
+                    if (jump_target == nullptr) return impl_PANIC(start_ip, regs, constants, state);
+                    return jump_target;
+                }
+                
+                // B. Gọi Native Function
+                else if (method.is_native()) {
+                    // Native cần mảng liên tục [this, arg1, arg2...]
+                    // Vì 'receiver' và 'args' không nằm liền nhau trên stack (regs),
+                    // ta phải tạo buffer tạm.
+                    
+                    // Small optimization: Dùng stack C++ (alloca) hoặc vector nhỏ
+                    std::vector<Value> native_args;
+                    native_args.reserve(argc + 1);
+                    native_args.push_back(receiver); // this
+                    for(int i=0; i<argc; ++i) native_args.push_back(regs[arg_start + i]);
+
+                    Value result = method.as_native()(&state->machine, native_args.size(), native_args.data());
+                    
+                    if (state->machine.has_error()) return impl_PANIC(start_ip, regs, constants, state);
+                    
+                    if (dst != 0xFFFF) regs[dst] = result;
+                    return next_ip;
+                }
+                break;
+            }
+            k = k->get_super();
+        }
+    }
+
+    // 5. Fallback (Slow Path)
+    // Xử lý trường hợp:
+    // - Receiver không phải Instance (vd: String, Array, Module...)
+    // - Method không tìm thấy trong Class (có thể là field chứa closure: obj.callback())
+    
+    // Logic: Tái sử dụng logic của GET_PROP để lấy value, sau đó CALL value đó.
+    
+    // a. Mô phỏng GET_PROP (lấy value vào regs[dst] tạm thời hoặc temp var)
+    // Lưu ý: impl_GET_PROP trong oop_ops.h đã có logic tìm field/method/bound_method.
+    // Nhưng ta không gọi impl_GET_PROP được vì nó thao tác IP và Stack khác.
+    
+    // Solution đơn giản: Gọi hàm helper find_property (bạn cần tách logic từ impl_GET_PROP ra)
+    // Hoặc copy logic find primitive method.
+    
+    // Ví dụ fallback đơn giản cho Primitive (String/Array method):
+    Value method_val = find_primitive_method(state, receiver, name); 
+    if (!method_val.is_null()) {
+         // Primitive method thường là Native, xử lý như case Native ở trên
+         // Cần tạo BoundMethod? Không, native call trực tiếp được nếu ta pass receiver.
+         // Nhưng find_primitive_method trả về NativeFunction thuần.
+         
+         std::vector<Value> native_args;
+         native_args.reserve(argc + 1);
+         native_args.push_back(receiver); 
+         for(int i=0; i<argc; ++i) native_args.push_back(regs[arg_start + i]);
+         
+         Value result;
+         if (method_val.is_native()) {
+             result = method_val.as_native()(&state->machine, native_args.size(), native_args.data());
+         } else {
+             // Trường hợp hiếm: Primitive trả về BoundMethod hoặc Closure
+             // ... xử lý tương tự ...
+             state->error("INVOKE: Primitive method type not supported yet.");
+             return impl_PANIC(start_ip, regs, constants, state);
+         }
+
+         if (state->machine.has_error()) return impl_PANIC(start_ip, regs, constants, state);
+         if (dst != 0xFFFF) regs[dst] = result;
+         return next_ip;
+    }
+
+    // Nếu vẫn không tìm thấy -> Lỗi
+    state->error(std::format("INVOKE: Method '{}' not found on object '{}'.", name->c_str(), to_string(receiver)));
+    return impl_PANIC(start_ip, regs, constants, state);
+}
+
+[[gnu::always_inline]] 
 static const uint8_t* impl_NEW_CLASS(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     uint16_t dst = read_u16(ip);
     uint16_t name_idx = read_u16(ip);
@@ -130,46 +259,21 @@ static const uint8_t* impl_GET_PROP(const uint8_t* ip, Value* regs, const Value*
             k = k->get_super();
         }
     }
-    // 2. [FIX] Hash Table (Dictionary / Object Literal)
-    // else if (obj.is_hash_table()) {
-    //     hash_table_t hash = obj.as_hash_table();
-        
-    //     // Ưu tiên 1: Tìm key trong map (obj.prop)
-    //     if (hash->has(name)) {
-    //         regs[dst] = hash->get(name);
-    //         return ip;
-    //     }
-        
-    //     // Ưu tiên 2: Tìm method primitive (obj.keys(), obj.has()...)
-    //     Value method = find_primitive_method(state, obj, name);
-    //     if (!method.is_null()) {
-    //         regs[dst] = method;
-    //         return ip;
-    //     }
-        
-    //     // [CRITICAL FIX] Nếu là Hash Table và không tìm thấy, trả về null (Thay vì Panic)
-    //     regs[dst] = Value(null_t{}); 
-    //     return ip;
-    // }
     else if (obj.is_hash_table()) {
         hash_table_t hash = obj.as_hash_table();
         
-        // Ưu tiên 1: Tìm key trong map (obj.prop)
         if (hash->has(name)) {
             regs[dst] = hash->get(name);
             return ip;
         }
         
-        // Ưu tiên 2: Tìm method primitive (obj.keys(), obj.has()...)
         Value method = find_primitive_method(state, obj, name);
         if (!method.is_null()) {
-            // [FIXED] Phải tạo BoundMethod để truyền 'obj' vào làm 'this' cho hàm native
             auto bound = state->heap.new_bound_method(obj, method); 
             regs[dst] = Value(bound);
             return ip;
         }
         
-        // [CRITICAL FIX] Trả về null thay vì Panic
         regs[dst] = Value(null_t{}); 
         return ip;
     }

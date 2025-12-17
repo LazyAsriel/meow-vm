@@ -29,6 +29,69 @@ namespace meow::handlers {
     }
 
     [[gnu::always_inline]]
+    inline static const uint8_t* push_call_frame(
+        VMState* state, 
+        function_t closure, 
+        int argc, 
+        Value* args_src,       // Nguồn arguments (đối với CALL thường)
+        Value* receiver,       // 'this' (Nếu có - dành cho INVOKE)
+        Value* ret_dest,       // Nơi lưu kết quả trả về
+        const uint8_t* ret_ip, // Địa chỉ return (Sau lệnh call)
+        const uint8_t* err_ip  // IP hiện tại để báo lỗi nếu Stack Overflow
+    ) {
+        proto_t proto = closure->get_proto();
+        size_t num_params = proto->get_num_registers();
+
+        // 1. Check Stack Overflow
+        if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
+            state->ctx.current_frame_->ip_ = err_ip;
+            state->error("Stack Overflow!");
+            return nullptr; // Báo hiệu lỗi
+        }
+
+        Value* new_base = state->ctx.stack_top_;
+        size_t arg_offset = 0;
+
+        // 2. Setup 'this' (Nếu là method call)
+        if (receiver != nullptr && num_params > 0) {
+            new_base[0] = *receiver;
+            arg_offset = 1; // Các arg sau sẽ lùi lại 1 slot
+        }
+
+        // 3. Copy Arguments
+        // INVOKE: args_src trỏ đến arg đầu tiên, receiver đã xử lý riêng
+        // CALL: args_src trỏ đến arg đầu tiên, không có receiver
+        size_t copy_count = (argc < (num_params - arg_offset)) ? argc : (num_params - arg_offset);
+        
+        for (size_t i = 0; i < copy_count; ++i) {
+            new_base[arg_offset + i] = args_src[i];
+        }
+
+        // 4. Fill Null (Nếu thiếu args)
+        size_t filled = arg_offset + argc;
+        for (size_t i = filled; i < num_params; ++i) {
+            new_base[i] = Value(null_t{});
+        }
+
+        // 5. Push Frame
+        state->ctx.frame_ptr_++;
+        *state->ctx.frame_ptr_ = CallFrame(
+            closure,
+            new_base,
+            ret_dest, 
+            ret_ip 
+        );
+        
+        // 6. Update Pointers
+        state->ctx.current_regs_ = new_base;
+        state->ctx.stack_top_ += num_params;
+        state->ctx.current_frame_ = state->ctx.frame_ptr_;
+        state->update_pointers(); 
+
+        return state->instruction_base; // Nhảy đến đầu hàm callee
+    }
+
+    [[gnu::always_inline]]
     inline static const uint8_t* impl_PANIC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
         (void)ip; (void)regs; (void)constants;
         

@@ -246,6 +246,7 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
             case OpCode::GET_KEYS: case OpCode::GET_VALUES:
             case OpCode::GET_SUPER: 
             case OpCode::GET_GLOBAL: case OpCode::SET_GLOBAL:
+            case OpCode::INHERIT:
                 ip += 4; break;
 
             case OpCode::GET_EXPORT: 
@@ -258,7 +259,7 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
             case OpCode::GET_INDEX: case OpCode::SET_INDEX: 
             case OpCode::GET_PROP: case OpCode::SET_PROP:
             case OpCode::SET_METHOD:
-            case OpCode::INHERIT:
+            // case OpCode::INHERIT:
                 ip += 6; break;
             
             case OpCode::CALL: 
@@ -287,7 +288,9 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
             case OpCode::DIV_B: case OpCode::MOD_B: case OpCode::LT_B:
             case OpCode::JUMP_IF_TRUE_B: case OpCode::JUMP_IF_FALSE_B:
                 ip += 3; break;
-
+            case OpCode::INVOKE:
+                ip += 79; 
+                break;
             default: break;
         }
         

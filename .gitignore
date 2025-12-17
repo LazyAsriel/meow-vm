@@ -16,7 +16,8 @@ CMakeFiles/
 CMakeScripts/
 cmake_install.cmake
 compile_commands.json
-
+report.txt
+perf.data
 *.o
 *.a
 *.dll

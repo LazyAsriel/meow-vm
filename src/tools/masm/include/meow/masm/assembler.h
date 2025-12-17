@@ -19,6 +19,8 @@ public:
 
     std::vector<uint8_t> assemble();
     void assemble_to_file(const std::string& output_file);
+    
+    static int get_arity(meow::OpCode op);
 
 private:
     Token peek() const;
@@ -37,8 +39,8 @@ private:
     void parse_label();
     void parse_instruction();
     
-    // Helpers
-    int get_arity(meow::OpCode op);
+    void optimize();
+    
     std::string parse_string_literal(std::string_view sv);
 
     // Emit bytecode helpers
