@@ -31,7 +31,7 @@ extern "C" void binary_op_generic(int op, uint64_t v1_bits, uint64_t v2_bits, ui
             } else {
                 // TODO: Handle String concat hoặc báo lỗi
                 // Tạm thời trả về Null nếu lỗi type
-                result = Value(nullptr); 
+                result = Value(); 
             }
         } 
         else if (opcode == OpCode::SUB || opcode == OpCode::SUB_B) {

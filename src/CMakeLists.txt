@@ -14,7 +14,7 @@ target_include_directories(meow_core
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
-target_link_libraries(meow_core PRIVATE meow::libs)
+target_link_libraries(meow_core PUBLIC meow::libs)
 target_compile_options(meow_core PRIVATE -Wno-unused-parameter)
 
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")

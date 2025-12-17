@@ -2,6 +2,7 @@
 #include "jit_config.h"
 #include "x64/common.h"
 #include "meow/value.h"
+#include "meow/bytecode/op_codes.h"
 #include <cstring>
 #include <iostream>
 
@@ -294,12 +295,15 @@ JitFunc CodeGenerator::compile(const uint8_t* bytecode, size_t len) {
                 store_vm_reg(dst, RAX);
                 break;
             }
-            case OpCode::LOAD_BOOL: { // Giả sử có opcode này hoặc dùng LOAD_INT thay thế
+            case OpCode::LOAD_TRUE: {
                  uint16_t dst = read_u16();
-                 uint8_t val = read_u8();
-                 asm_.mov(RAX, TAG_BOOL);
-                 if (val) asm_.mov(RCX, 1); else asm_.mov(RCX, 0);
-                 asm_.or_(RAX, RCX);
+                 asm_.mov(RAX, TAG_BOOL | 1);
+                 store_vm_reg(dst, RAX);
+                 break;
+            }
+            case OpCode::LOAD_FALSE: {
+                 uint16_t dst = read_u16();
+                 asm_.mov(RAX, TAG_BOOL); 
                  store_vm_reg(dst, RAX);
                  break;
             }
@@ -397,7 +401,8 @@ JitFunc CodeGenerator::compile(const uint8_t* bytecode, size_t len) {
 
         // 3. Align Stack (Linux/System V requirement)
         // Hiện tại RSP đang lệch 8 (do Push 5 regs + RBP).
-        asm_.sub(RSP, 8); 
+        asm_.mov(RAX, 8);
+        asm_.sub(RSP, RAX);
 
         // 4. Setup Runtime Call (System V ABI: RDI, RSI, RDX, RCX, ...)
         asm_.mov(RDI, (uint64_t)sp.op);    // Arg1: Opcode
@@ -418,7 +423,8 @@ JitFunc CodeGenerator::compile(const uint8_t* bytecode, size_t len) {
         asm_.call(RAX);
 
         // 6. Restore Stack
-        asm_.add(RSP, 8);
+        asm_.mov(RAX, 8);
+        asm_.add(RSP, RAX);
 
         // 7. Reload State (vì GC có thể đã chạy)
         reload_cached_regs();

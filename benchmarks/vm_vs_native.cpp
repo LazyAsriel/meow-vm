@@ -160,11 +160,14 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    meow::Value regs[256];
+
     meow::VMState state {
         machine,
         *machine.context_,
         *machine.heap_,
-        *machine.mod_manager_
+        *machine.mod_manager_,
+        regs
     };
 
     auto res_jit = run_benchmark("MeowVM (JIT x64)", limit, [&]() {

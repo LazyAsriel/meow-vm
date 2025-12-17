@@ -75,6 +75,16 @@ public:
         return data_.template holds_both<T>(other.data_);
     }
 
+    inline uint64_t raw() const noexcept { 
+        return data_.raw(); 
+    }
+
+    static inline Value from_raw(uint64_t bits) noexcept {
+        Value v;
+        v.set_raw(bits);
+        return v;
+    }
+
     // === Type Checkers ===
 
     // --- Primary type ---

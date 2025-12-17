@@ -1,5 +1,6 @@
 #pragma once
 
+#include "jit_compiler.h"
 #include "x64/assembler.h"
 #include "x64/common.h"
 #include <vector>
