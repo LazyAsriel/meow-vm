@@ -7,7 +7,7 @@ add_library(meow_jit OBJECT
     
     # Backend (x64)
     x64/assembler.cpp
-    x64/code_gen.cpp
+    x64/code_generator.cpp
     
     # Runtime Support
     runtime/runtime_stubs.cpp

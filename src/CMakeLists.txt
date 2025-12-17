@@ -1,12 +1,13 @@
-# Gom source code
+# [src/CMakeLists.txt]
+
+# 1. Bỏ "jit/*.cpp" và "jit/*.h" trong GLOB_RECURSE
 file(GLOB_RECURSE CORE_SOURCES 
     "vm/*.cpp"          "vm/*.h"
     "bytecode/*.cpp"    "bytecode/*.h"
     "memory/*.cpp"      "core/*.cpp"
     "runtime/*.cpp"     "runtime/*.h"
-    "jit/*.h"           "module/*.cpp"      
+    "module/*.cpp"      
     "diagnostics/*.cpp"
-    "jit/*.cpp"
 )
 
 # Tạo thư viện Core
@@ -24,10 +25,15 @@ if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
     target_precompile_headers(meow_core PRIVATE "pch.h")
 endif()
 
+# 2. Thêm thư mục JIT
+add_subdirectory(jit)
+
 # Executable (CLI)
 add_executable(meow-vm "cli/main.cpp")
-target_link_libraries(meow-vm PRIVATE meow_core masm_core meow::libs)
-target_link_libraries(meow-vm PRIVATE meow_core meow::libs)
+
+# 3. Link thêm meow_jit vào meow-vm
+target_link_libraries(meow-vm PRIVATE meow_core meow_jit masm_core meow::libs)
+
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
     target_precompile_headers(meow-vm PRIVATE "pch.h")
 endif()
