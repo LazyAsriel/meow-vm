@@ -3,6 +3,7 @@
 compiler/
 # libs/
 scripts/
+benchmarks/
 build/
 builds/
 build-*/
