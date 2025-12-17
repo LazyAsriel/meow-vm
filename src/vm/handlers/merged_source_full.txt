@@ -567,138 +567,138 @@
    192	                    new_base[i] = regs[arg_start + i];
    193	                }
    194	
-   195	                state->ctx.frame_ptr_++;
-   196	                *state->ctx.frame_ptr_ = CallFrame(
-   197	                    closure,
-   198	                    new_base,
-   199	                    IsVoid ? nullptr : &regs[dst], 
-   200	                    ip 
-   201	                );
-   202	                
-   203	                state->ctx.current_regs_ = new_base;
-   204	                state->ctx.stack_top_ += num_params;
-   205	                state->ctx.current_frame_ = state->ctx.frame_ptr_;
-   206	                state->update_pointers(); 
-   207	
-   208	                return state->instruction_base;
-   209	            }
-   210	            
-   211	            ic->check_tag = proto;
-   212	        } 
-   213	        else if (callee.is_native()) {
-   214	                native_t fn = callee.as_native();
-   215	                
-   216	                if (ic->check_tag == (void*)fn) [[likely]] {
-   217	                    Value result = fn(&state->machine, argc, &regs[arg_start]);
-   218	                    
-   219	                    if (state->machine.has_error()) [[unlikely]] {
-   220	                        state->error(std::string(state->machine.get_error_message()));
-   221	                        state->machine.clear_error();
-   222	                        return impl_PANIC(ip, regs, constants, state);
-   223	                    }
-   224	
-   225	                    if constexpr (!IsVoid) regs[dst] = result;
-   226	                    return ip; 
-   227	                }
-   228	                ic->check_tag = (void*)fn;
-   229	            }
-   230	        
-   231	        Value* ret_dest_ptr = nullptr;
-   232	        if constexpr (!IsVoid) {
-   233	            if (dst != 0xFFFF) ret_dest_ptr = &regs[dst];
-   234	        }
-   235	        if (callee.is_native()) {
-   236	            native_t fn = callee.as_native();
-   237	            Value result = fn(&state->machine, argc, &regs[arg_start]);
-   238	            
-   239	            if (state->machine.has_error()) [[unlikely]] {
-   240	                state->error(std::string(state->machine.get_error_message()));
-   241	                state->machine.clear_error();
-   242	                return impl_PANIC(ip, regs, constants, state);
-   243	            }
-   244	
-   245	            if (ret_dest_ptr) *ret_dest_ptr = result;
-   246	            return ip;
-   247	        }
-   248	
-   249	        instance_t self = nullptr;
-   250	        function_t closure = nullptr;
-   251	        bool is_init = false;
-   252	
-   253	        if (callee.is_function()) {
-   254	            closure = callee.as_function();
-   255	        } 
-   256	        else if (callee.is_bound_method()) {
-   257	            bound_method_t bound = callee.as_bound_method();
-   258	            Value receiver = bound->get_receiver();
-   259	            Value method = bound->get_method();
-   260	
-   261	            if (method.is_native()) {
-   262	                native_t fn = method.as_native();
-   263	                
-   264	                std::vector<Value> args;
-   265	                args.reserve(argc + 1);
-   266	                args.push_back(receiver);
+   195	                for (size_t i = copy_count; i < num_params; ++i) {
+   196	                    new_base[i] = Value(null_t{});
+   197	                }
+   198	
+   199	                state->ctx.frame_ptr_++;
+   200	                *state->ctx.frame_ptr_ = CallFrame(
+   201	                    closure,
+   202	                    new_base,
+   203	                    IsVoid ? nullptr : &regs[dst], 
+   204	                    ip 
+   205	                );
+   206	                
+   207	                state->ctx.current_regs_ = new_base;
+   208	                state->ctx.stack_top_ += num_params;
+   209	                state->ctx.current_frame_ = state->ctx.frame_ptr_;
+   210	                state->update_pointers(); 
+   211	
+   212	                return state->instruction_base;
+   213	            }
+   214	            
+   215	            ic->check_tag = proto;
+   216	        } 
+   217	        
+   218	        if (callee.is_native()) {
+   219	            native_t fn = callee.as_native();
+   220	            if (ic->check_tag != (void*)fn) {
+   221	                ic->check_tag = (void*)fn;
+   222	            }
+   223	
+   224	            Value result = fn(&state->machine, argc, &regs[arg_start]);
+   225	            
+   226	            if (state->machine.has_error()) [[unlikely]] {
+   227	                state->error(std::string(state->machine.get_error_message()));
+   228	                state->machine.clear_error();
+   229	                return impl_PANIC(ip, regs, constants, state);
+   230	            }
+   231	
+   232	            if constexpr (!IsVoid) {
+   233	                if (dst != 0xFFFF) regs[dst] = result;
+   234	            }
+   235	            return ip;
+   236	        }
+   237	
+   238	        Value* ret_dest_ptr = nullptr;
+   239	        if constexpr (!IsVoid) {
+   240	            if (dst != 0xFFFF) ret_dest_ptr = &regs[dst];
+   241	        }
+   242	
+   243	        instance_t self = nullptr;
+   244	        function_t closure = nullptr;
+   245	        bool is_init = false;
+   246	
+   247	        if (callee.is_function()) {
+   248	            closure = callee.as_function();
+   249	        } 
+   250	        else if (callee.is_bound_method()) {
+   251	            bound_method_t bound = callee.as_bound_method();
+   252	            Value receiver = bound->get_receiver();
+   253	            Value method = bound->get_method();
+   254	
+   255	            if (method.is_native()) {
+   256	                native_t fn = method.as_native();
+   257	                
+   258	                std::vector<Value> args;
+   259	                args.reserve(argc + 1);
+   260	                args.push_back(receiver);
+   261	                
+   262	                for (size_t i = 0; i < argc; ++i) {
+   263	                    args.push_back(regs[arg_start + i]);
+   264	                }
+   265	
+   266	                Value result = fn(&state->machine, static_cast<int>(args.size()), args.data());
    267	                
-   268	                for (size_t i = 0; i < argc; ++i) {
-   269	                    args.push_back(regs[arg_start + i]);
+   268	                if (state->machine.has_error()) {
+   269	                     return impl_PANIC(ip, regs, constants, state);
    270	                }
    271	
-   272	                Value result = fn(&state->machine, static_cast<int>(args.size()), args.data());
-   273	                
-   274	                if (state->machine.has_error()) {
-   275	                     return impl_PANIC(ip, regs, constants, state);
-   276	                }
-   277	
-   278	                if constexpr (!IsVoid) regs[dst] = result;
-   279	                return ip;
-   280	            }
-   281	            
-   282	            else if (method.is_function()) {
-   283	                closure = method.as_function();
-   284	                if (receiver.is_instance()) self = receiver.as_instance();
-   285	            }
-   286	        }
-   287	        else if (callee.is_class()) {
-   288	            class_t klass = callee.as_class();
-   289	            self = state->heap.new_instance(klass, state->heap.get_empty_shape());
-   290	            if (ret_dest_ptr) *ret_dest_ptr = Value(self);
-   291	            
-   292	            Value init_method = klass->get_method(state->heap.new_string("init"));
-   293	            if (init_method.is_function()) {
-   294	                closure = init_method.as_function();
-   295	                is_init = true;
-   296	            } else {
-   297	                return ip; 
-   298	            }
-   299	        } 
-   300	        else [[unlikely]] {
-   301	            state->ctx.current_frame_->ip_ = start_ip;
-   302	            state->error(std::format("Giá trị loại '{}' không thể gọi được (Not callable).", to_string(callee)));
-   303	            return impl_PANIC(ip, regs, constants, state);
-   304	        }
-   305	
-   306	        proto_t proto = closure->get_proto();
-   307	        size_t num_params = proto->get_num_registers();
-   308	
-   309	        if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
-   310	            state->ctx.current_frame_->ip_ = start_ip;
-   311	            state->error("Stack Overflow!");
-   312	            return impl_PANIC(ip, regs, constants, state);
-   313	        }
-   314	
-   315	        Value* new_base = state->ctx.stack_top_;
-   316	        size_t arg_offset = 0;
-   317	        
-   318	        if (self != nullptr && num_params > 0) {
-   319	            new_base[0] = Value(self);
-   320	            arg_offset = 1;
-   321	        }
-   322	
-   323	        for (size_t i = 0; i < argc; ++i) {
-   324	            if (arg_offset + i < num_params) {
-   325	                new_base[arg_offset + i] = regs[arg_start + i];
-   326	            }
+   272	                if constexpr (!IsVoid) regs[dst] = result;
+   273	                return ip;
+   274	            }
+   275	            else if (method.is_function()) {
+   276	                closure = method.as_function();
+   277	                if (receiver.is_instance()) self = receiver.as_instance();
+   278	            }
+   279	        }
+   280	        else if (callee.is_class()) {
+   281	            class_t klass = callee.as_class();
+   282	            self = state->heap.new_instance(klass, state->heap.get_empty_shape());
+   283	            if (ret_dest_ptr) *ret_dest_ptr = Value(self);
+   284	            
+   285	            Value init_method = klass->get_method(state->heap.new_string("init"));
+   286	            if (init_method.is_function()) {
+   287	                closure = init_method.as_function();
+   288	                is_init = true;
+   289	            } else {
+   290	                return ip; 
+   291	            }
+   292	        } 
+   293	        else [[unlikely]] {
+   294	            state->ctx.current_frame_->ip_ = start_ip;
+   295	            state->error(std::format("Giá trị loại '{}' không thể gọi được (Not callable).", to_string(callee)));
+   296	            return impl_PANIC(ip, regs, constants, state);
+   297	        }
+   298	
+   299	        proto_t proto = closure->get_proto();
+   300	        size_t num_params = proto->get_num_registers();
+   301	
+   302	        if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
+   303	            state->ctx.current_frame_->ip_ = start_ip;
+   304	            state->error("Stack Overflow!");
+   305	            return impl_PANIC(ip, regs, constants, state);
+   306	        }
+   307	
+   308	        Value* new_base = state->ctx.stack_top_;
+   309	        size_t arg_offset = 0;
+   310	        
+   311	        if (self != nullptr && num_params > 0) {
+   312	            new_base[0] = Value(self);
+   313	            arg_offset = 1;
+   314	        }
+   315	
+   316	        for (size_t i = 0; i < argc; ++i) {
+   317	            if (arg_offset + i < num_params) {
+   318	                new_base[arg_offset + i] = regs[arg_start + i];
+   319	            }
+   320	        }
+   321	
+   322	        size_t filled_count = arg_offset + argc;
+   323	        if (filled_count > num_params) filled_count = num_params;
+   324	
+   325	        for (size_t i = filled_count; i < num_params; ++i) {
+   326	            new_base[i] = Value(null_t{});
    327	        }
    328	
    329	        state->ctx.frame_ptr_++;
@@ -777,166 +777,164 @@
 ================================================================================
      1	#pragma once
      2	#include "vm/handlers/utils.h"
-     3	#include "meow_nanbox_layout.h"
-     4	#include "vm/handlers/flow_ops.h"
-     5	
-     6	namespace meow::handlers {
-     7	
-     8	struct BinaryArgs { uint16_t dst; uint16_t r1; uint16_t r2; } __attribute__((packed));
-     9	struct BinaryArgsB { uint8_t dst; uint8_t r1; uint8_t r2; } __attribute__((packed));
-    10	struct UnaryArgs { uint16_t dst; uint16_t src; };
-    11	
-    12	// --- MACROS ---
-    13	#define BINARY_OP_IMPL(NAME, OP_ENUM) \
-    14	    HOT_HANDLER impl_##NAME(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
-    15	        const auto& args = *reinterpret_cast<const BinaryArgs*>(ip); \
-    16	        Value& left  = regs[args.r1]; \
-    17	        Value& right = regs[args.r2]; \
-    18	        regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
-    19	        return ip + sizeof(BinaryArgs); \
-    20	    }
-    21	
-    22	#define BINARY_OP_B_IMPL(NAME, OP_ENUM) \
-    23	    HOT_HANDLER impl_##NAME##_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
-    24	        const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip); \
-    25	        Value& left  = regs[args.r1]; \
-    26	        Value& right = regs[args.r2]; \
-    27	        regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
-    28	        return ip + sizeof(BinaryArgsB); \
-    29	    }
-    30	
-    31	HOT_HANDLER impl_ADD(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    32	    const auto& args = *reinterpret_cast<const BinaryArgs*>(ip);
-    33	    Value& left = regs[args.r1];
-    34	    Value& right = regs[args.r2];
-    35	    // [OPTIMIZED] Thay thế check rời rạc bằng holds_both
-    36	    if (left.holds_both<int_t>(right)) [[likely]] regs[args.dst] = left.as_int() + right.as_int();
-    37	    else if (left.holds_both<float_t>(right)) regs[args.dst] = Value(left.as_float() + right.as_float());
-    38	    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
-    39	    return ip + sizeof(BinaryArgs);
-    40	}
-    41	
-    42	HOT_HANDLER impl_ADD_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    43	    const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip);
-    44	    Value& left = regs[args.r1];
-    45	    Value& right = regs[args.r2];
-    46	    // [OPTIMIZED] Thay thế check rời rạc bằng holds_both
-    47	    if (left.holds_both<int_t>(right)) [[likely]] regs[args.dst] = left.as_int() + right.as_int();
-    48	    else if (left.holds_both<float_t>(right)) regs[args.dst] = Value(left.as_float() + right.as_float());
-    49	    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
-    50	    return ip + sizeof(BinaryArgsB);
-    51	}
-    52	
-    53	BINARY_OP_IMPL(SUB, SUB)
-    54	BINARY_OP_IMPL(MUL, MUL)
-    55	BINARY_OP_IMPL(DIV, DIV)
-    56	BINARY_OP_IMPL(MOD, MOD)
-    57	BINARY_OP_IMPL(POW, POW)
-    58	
-    59	BINARY_OP_B_IMPL(SUB, SUB)
-    60	BINARY_OP_B_IMPL(MUL, MUL)
-    61	BINARY_OP_B_IMPL(DIV, DIV)
-    62	BINARY_OP_B_IMPL(MOD, MOD)
-    63	
-    64	#define CMP_FAST_IMPL(OP_NAME, OP_ENUM, OPERATOR) \
-    65	    HOT_HANDLER impl_##OP_NAME(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
-    66	        const auto& args = *reinterpret_cast<const BinaryArgs*>(ip); \
-    67	        Value& left = regs[args.r1]; \
-    68	        Value& right = regs[args.r2]; \
-    69	        /* [OPTIMIZED] Thay thế check rời rạc bằng holds_both */ \
-    70	        if (left.holds_both<int_t>(right)) [[likely]] { \
-    71	            regs[args.dst] = Value(left.as_int() OPERATOR right.as_int()); \
-    72	        } else [[unlikely]] { \
-    73	            regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
-    74	        } \
-    75	        return ip + sizeof(BinaryArgs); \
-    76	    } \
-    77	    HOT_HANDLER impl_##OP_NAME##_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
-    78	        const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip); \
-    79	        Value& left = regs[args.r1]; \
-    80	        Value& right = regs[args.r2]; \
-    81	        /* [OPTIMIZED] Thay thế check rời rạc bằng holds_both */ \
-    82	        if (left.holds_both<int_t>(right)) [[likely]] { \
-    83	            regs[args.dst] = Value(left.as_int() OPERATOR right.as_int()); \
-    84	        } else [[unlikely]] { \
-    85	            regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
-    86	        } \
-    87	        return ip + sizeof(BinaryArgsB); \
-    88	    }
-    89	
-    90	CMP_FAST_IMPL(EQ, EQ, ==)
-    91	CMP_FAST_IMPL(NEQ, NEQ, !=)
-    92	CMP_FAST_IMPL(GT, GT, >)
-    93	CMP_FAST_IMPL(GE, GE, >=)
-    94	CMP_FAST_IMPL(LT, LT, <)
-    95	CMP_FAST_IMPL(LE, LE, <=)
-    96	BINARY_OP_IMPL(BIT_AND, BIT_AND)
-    97	BINARY_OP_IMPL(BIT_OR, BIT_OR)
-    98	BINARY_OP_IMPL(BIT_XOR, BIT_XOR)
-    99	BINARY_OP_IMPL(LSHIFT, LSHIFT)
-   100	BINARY_OP_IMPL(RSHIFT, RSHIFT)
-   101	
-   102	HOT_HANDLER impl_NEG(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   103	    const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
-   104	    Value& val = regs[args.src];
-   105	    if (val.is_int()) [[likely]] regs[args.dst] = Value(-val.as_int());
-   106	    else if (val.is_float()) regs[args.dst] = Value(-val.as_float());
-   107	    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::NEG, val)(&state->heap, val);
-   108	    return ip + sizeof(UnaryArgs);
-   109	}
-   110	
-   111	HOT_HANDLER impl_BIT_NOT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   112	    const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
-   113	    Value& val = regs[args.src];
-   114	    regs[args.dst] = OperatorDispatcher::find(OpCode::BIT_NOT, val)(&state->heap, val);
-   115	    return ip + sizeof(UnaryArgs);
-   116	}
-   117	
-   118	HOT_HANDLER impl_NOT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   119	    const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
-   120	    regs[args.dst] = Value(!to_bool(regs[args.src]));
-   121	    return ip + sizeof(UnaryArgs);
-   122	}
-   123	
-   124	[[gnu::always_inline]] static const uint8_t* impl_INC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   125	    uint16_t reg_idx = read_u16(ip);
-   126	    Value& val = regs[reg_idx];
-   127	
-   128	    if (val.is_int()) [[likely]] {
-   129	        val = Value(val.as_int() + 1);
-   130	    } 
-   131	    else if (val.is_float()) {
-   132	        val = Value(val.as_float() + 1.0);
-   133	    }
-   134	    else [[unlikely]] {
-   135	        state->error("INC: Toán hạng phải là số (Int/Real).");
-   136	        return impl_PANIC(ip, regs, constants, state);
-   137	    }
-   138	    return ip;
-   139	}
-   140	
-   141	[[gnu::always_inline]] static const uint8_t* impl_DEC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   142	    uint16_t reg_idx = read_u16(ip);
-   143	    Value& val = regs[reg_idx];
-   144	
-   145	    if (val.is_int()) [[likely]] {
-   146	        val = Value(val.as_int() - 1);
-   147	    } 
-   148	    else if (val.is_float()) {
-   149	        val = Value(val.as_float() - 1.0);
-   150	    } 
-   151	    else [[unlikely]] {
-   152	        state->error("DEC: Toán hạng phải là số (Int/Real).");
-   153	        return impl_PANIC(ip, regs, constants, state);
-   154	    }
-   155	    return ip;
-   156	}
-   157	
-   158	#undef BINARY_OP_IMPL
-   159	#undef BINARY_OP_B_IMPL
-   160	#undef CMP_FAST_IMPL
-   161	
-   162	} // namespace meow::handlers
+     3	#include "vm/handlers/flow_ops.h"
+     4	
+     5	namespace meow::handlers {
+     6	
+     7	struct BinaryArgs { uint16_t dst; uint16_t r1; uint16_t r2; } __attribute__((packed));
+     8	struct BinaryArgsB { uint8_t dst; uint8_t r1; uint8_t r2; } __attribute__((packed));
+     9	struct UnaryArgs { uint16_t dst; uint16_t src; } __attribute__((packed));
+    10	
+    11	// --- MACROS ---
+    12	#define BINARY_OP_IMPL(NAME, OP_ENUM) \
+    13	    HOT_HANDLER impl_##NAME(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
+    14	        const auto& args = *reinterpret_cast<const BinaryArgs*>(ip); \
+    15	        Value& left  = regs[args.r1]; \
+    16	        Value& right = regs[args.r2]; \
+    17	        regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
+    18	        return ip + sizeof(BinaryArgs); \
+    19	    }
+    20	
+    21	#define BINARY_OP_B_IMPL(NAME, OP_ENUM) \
+    22	    HOT_HANDLER impl_##NAME##_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
+    23	        const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip); \
+    24	        Value& left  = regs[args.r1]; \
+    25	        Value& right = regs[args.r2]; \
+    26	        regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
+    27	        return ip + sizeof(BinaryArgsB); \
+    28	    }
+    29	
+    30	HOT_HANDLER impl_ADD(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    31	    const auto& args = *reinterpret_cast<const BinaryArgs*>(ip);
+    32	    Value& left = regs[args.r1];
+    33	    Value& right = regs[args.r2];
+    34	    if (left.holds_both<int_t>(right)) [[likely]] regs[args.dst] = left.as_int() + right.as_int();
+    35	    else if (left.holds_both<float_t>(right)) regs[args.dst] = Value(left.as_float() + right.as_float());
+    36	    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
+    37	    return ip + sizeof(BinaryArgs);
+    38	}
+    39	
+    40	HOT_HANDLER impl_ADD_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    41	    const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip);
+    42	    Value& left = regs[args.r1];
+    43	    Value& right = regs[args.r2];
+    44	    // [OPTIMIZED] Thay thế check rời rạc bằng holds_both
+    45	    if (left.holds_both<int_t>(right)) [[likely]] regs[args.dst] = left.as_int() + right.as_int();
+    46	    else if (left.holds_both<float_t>(right)) regs[args.dst] = Value(left.as_float() + right.as_float());
+    47	    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
+    48	    return ip + sizeof(BinaryArgsB);
+    49	}
+    50	
+    51	BINARY_OP_IMPL(SUB, SUB)
+    52	BINARY_OP_IMPL(MUL, MUL)
+    53	BINARY_OP_IMPL(DIV, DIV)
+    54	BINARY_OP_IMPL(MOD, MOD)
+    55	BINARY_OP_IMPL(POW, POW)
+    56	
+    57	BINARY_OP_B_IMPL(SUB, SUB)
+    58	BINARY_OP_B_IMPL(MUL, MUL)
+    59	BINARY_OP_B_IMPL(DIV, DIV)
+    60	BINARY_OP_B_IMPL(MOD, MOD)
+    61	
+    62	#define CMP_FAST_IMPL(OP_NAME, OP_ENUM, OPERATOR) \
+    63	    HOT_HANDLER impl_##OP_NAME(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
+    64	        const auto& args = *reinterpret_cast<const BinaryArgs*>(ip); \
+    65	        Value& left = regs[args.r1]; \
+    66	        Value& right = regs[args.r2]; \
+    67	        /* [OPTIMIZED] Thay thế check rời rạc bằng holds_both */ \
+    68	        if (left.holds_both<int_t>(right)) [[likely]] { \
+    69	            regs[args.dst] = Value(left.as_int() OPERATOR right.as_int()); \
+    70	        } else [[unlikely]] { \
+    71	            regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
+    72	        } \
+    73	        return ip + sizeof(BinaryArgs); \
+    74	    } \
+    75	    HOT_HANDLER impl_##OP_NAME##_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
+    76	        const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip); \
+    77	        Value& left = regs[args.r1]; \
+    78	        Value& right = regs[args.r2]; \
+    79	        /* [OPTIMIZED] Thay thế check rời rạc bằng holds_both */ \
+    80	        if (left.holds_both<int_t>(right)) [[likely]] { \
+    81	            regs[args.dst] = Value(left.as_int() OPERATOR right.as_int()); \
+    82	        } else [[unlikely]] { \
+    83	            regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
+    84	        } \
+    85	        return ip + sizeof(BinaryArgsB); \
+    86	    }
+    87	
+    88	CMP_FAST_IMPL(EQ, EQ, ==)
+    89	CMP_FAST_IMPL(NEQ, NEQ, !=)
+    90	CMP_FAST_IMPL(GT, GT, >)
+    91	CMP_FAST_IMPL(GE, GE, >=)
+    92	CMP_FAST_IMPL(LT, LT, <)
+    93	CMP_FAST_IMPL(LE, LE, <=)
+    94	BINARY_OP_IMPL(BIT_AND, BIT_AND)
+    95	BINARY_OP_IMPL(BIT_OR, BIT_OR)
+    96	BINARY_OP_IMPL(BIT_XOR, BIT_XOR)
+    97	BINARY_OP_IMPL(LSHIFT, LSHIFT)
+    98	BINARY_OP_IMPL(RSHIFT, RSHIFT)
+    99	
+   100	HOT_HANDLER impl_NEG(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   101	    const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
+   102	    Value& val = regs[args.src];
+   103	    if (val.is_int()) [[likely]] regs[args.dst] = Value(-val.as_int());
+   104	    else if (val.is_float()) regs[args.dst] = Value(-val.as_float());
+   105	    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::NEG, val)(&state->heap, val);
+   106	    return ip + sizeof(UnaryArgs);
+   107	}
+   108	
+   109	HOT_HANDLER impl_BIT_NOT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   110	    const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
+   111	    Value& val = regs[args.src];
+   112	    regs[args.dst] = OperatorDispatcher::find(OpCode::BIT_NOT, val)(&state->heap, val);
+   113	    return ip + sizeof(UnaryArgs);
+   114	}
+   115	
+   116	HOT_HANDLER impl_NOT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   117	    const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
+   118	    regs[args.dst] = Value(!to_bool(regs[args.src]));
+   119	    return ip + sizeof(UnaryArgs);
+   120	}
+   121	
+   122	[[gnu::always_inline]] static const uint8_t* impl_INC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   123	    uint16_t reg_idx = read_u16(ip);
+   124	    Value& val = regs[reg_idx];
+   125	
+   126	    if (val.is_int()) [[likely]] {
+   127	        val = Value(val.as_int() + 1);
+   128	    } 
+   129	    else if (val.is_float()) {
+   130	        val = Value(val.as_float() + 1.0);
+   131	    }
+   132	    else [[unlikely]] {
+   133	        state->error("INC: Toán hạng phải là số (Int/Real).");
+   134	        return impl_PANIC(ip, regs, constants, state);
+   135	    }
+   136	    return ip;
+   137	}
+   138	
+   139	[[gnu::always_inline]] static const uint8_t* impl_DEC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   140	    uint16_t reg_idx = read_u16(ip);
+   141	    Value& val = regs[reg_idx];
+   142	
+   143	    if (val.is_int()) [[likely]] {
+   144	        val = Value(val.as_int() - 1);
+   145	    } 
+   146	    else if (val.is_float()) {
+   147	        val = Value(val.as_float() - 1.0);
+   148	    } 
+   149	    else [[unlikely]] {
+   150	        state->error("DEC: Toán hạng phải là số (Int/Real).");
+   151	        return impl_PANIC(ip, regs, constants, state);
+   152	    }
+   153	    return ip;
+   154	}
+   155	
+   156	#undef BINARY_OP_IMPL
+   157	#undef BINARY_OP_B_IMPL
+   158	#undef CMP_FAST_IMPL
+   159	
+   160	} // namespace meow::handlers
 
 
 ================================================================================
@@ -1012,31 +1010,32 @@
     68	    proto_t proto = val.as_proto();
     69	    function_t closure = state->heap.new_function(proto);
     70	    
-    71	    size_t current_base_idx = regs - state->ctx.stack_;
+    71	    regs[dst] = Value(closure); 
     72	
-    73	    for (size_t i = 0; i < proto->get_num_upvalues(); ++i) {
-    74	        const auto& desc = proto->get_desc(i);
-    75	        if (desc.is_local_) {
-    76	            closure->set_upvalue(i, capture_upvalue(&state->ctx, &state->heap, current_base_idx + desc.index_));
-    77	        } else {
-    78	            closure->set_upvalue(i, state->ctx.frame_ptr_->function_->get_upvalue(desc.index_));
-    79	        }
-    80	    }
-    81	    
-    82	    regs[dst] = Value(closure);
-    83	    return ip;
-    84	}
-    85	
-    86	[[gnu::always_inline]] static const uint8_t* impl_CLOSE_UPVALUES(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    87	    uint16_t last_reg = read_u16(ip);
-    88	    (void)constants;
-    89	    
-    90	    size_t current_base_idx = regs - state->ctx.stack_;
-    91	    close_upvalues(&state->ctx, current_base_idx + last_reg);
-    92	    return ip;
-    93	}
-    94	
-    95	} // namespace meow::handlers
+    73	    size_t current_base_idx = regs - state->ctx.stack_;
+    74	
+    75	    for (size_t i = 0; i < proto->get_num_upvalues(); ++i) {
+    76	        const auto& desc = proto->get_desc(i);
+    77	        if (desc.is_local_) {
+    78	            closure->set_upvalue(i, capture_upvalue(&state->ctx, &state->heap, current_base_idx + desc.index_));
+    79	        } else {
+    80	            closure->set_upvalue(i, state->ctx.frame_ptr_->function_->get_upvalue(desc.index_));
+    81	        }
+    82	    }
+    83	
+    84	    return ip;
+    85	}
+    86	
+    87	[[gnu::always_inline]] static const uint8_t* impl_CLOSE_UPVALUES(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    88	    uint16_t last_reg = read_u16(ip);
+    89	    (void)constants;
+    90	    
+    91	    size_t current_base_idx = regs - state->ctx.stack_;
+    92	    close_upvalues(&state->ctx, current_base_idx + last_reg);
+    93	    return ip;
+    94	}
+    95	
+    96	} // namespace meow::handlers
 
 
 ================================================================================

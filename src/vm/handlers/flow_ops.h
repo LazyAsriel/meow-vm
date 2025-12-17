@@ -192,6 +192,10 @@ namespace meow::handlers {
                     new_base[i] = regs[arg_start + i];
                 }
 
+                for (size_t i = copy_count; i < num_params; ++i) {
+                    new_base[i] = Value(null_t{});
+                }
+
                 state->ctx.frame_ptr_++;
                 *state->ctx.frame_ptr_ = CallFrame(
                     closure,
@@ -210,30 +214,13 @@ namespace meow::handlers {
             
             ic->check_tag = proto;
         } 
-        else if (callee.is_native()) {
-                native_t fn = callee.as_native();
-                
-                if (ic->check_tag == (void*)fn) [[likely]] {
-                    Value result = fn(&state->machine, argc, &regs[arg_start]);
-                    
-                    if (state->machine.has_error()) [[unlikely]] {
-                        state->error(std::string(state->machine.get_error_message()));
-                        state->machine.clear_error();
-                        return impl_PANIC(ip, regs, constants, state);
-                    }
-
-                    if constexpr (!IsVoid) regs[dst] = result;
-                    return ip; 
-                }
-                ic->check_tag = (void*)fn;
-            }
         
-        Value* ret_dest_ptr = nullptr;
-        if constexpr (!IsVoid) {
-            if (dst != 0xFFFF) ret_dest_ptr = &regs[dst];
-        }
         if (callee.is_native()) {
             native_t fn = callee.as_native();
+            if (ic->check_tag != (void*)fn) {
+                ic->check_tag = (void*)fn;
+            }
+
             Value result = fn(&state->machine, argc, &regs[arg_start]);
             
             if (state->machine.has_error()) [[unlikely]] {
@@ -242,8 +229,15 @@ namespace meow::handlers {
                 return impl_PANIC(ip, regs, constants, state);
             }
 
-            if (ret_dest_ptr) *ret_dest_ptr = result;
+            if constexpr (!IsVoid) {
+                if (dst != 0xFFFF) regs[dst] = result;
+            }
             return ip;
+        }
+
+        Value* ret_dest_ptr = nullptr;
+        if constexpr (!IsVoid) {
+            if (dst != 0xFFFF) ret_dest_ptr = &regs[dst];
         }
 
         instance_t self = nullptr;
@@ -278,7 +272,6 @@ namespace meow::handlers {
                 if constexpr (!IsVoid) regs[dst] = result;
                 return ip;
             }
-            
             else if (method.is_function()) {
                 closure = method.as_function();
                 if (receiver.is_instance()) self = receiver.as_instance();
@@ -324,6 +317,13 @@ namespace meow::handlers {
             if (arg_offset + i < num_params) {
                 new_base[arg_offset + i] = regs[arg_start + i];
             }
+        }
+
+        size_t filled_count = arg_offset + argc;
+        if (filled_count > num_params) filled_count = num_params;
+
+        for (size_t i = filled_count; i < num_params; ++i) {
+            new_base[i] = Value(null_t{});
         }
 
         state->ctx.frame_ptr_++;
