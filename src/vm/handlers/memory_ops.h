@@ -68,6 +68,8 @@ namespace meow::handlers {
     proto_t proto = val.as_proto();
     function_t closure = state->heap.new_function(proto);
     
+    regs[dst] = Value(closure); 
+
     size_t current_base_idx = regs - state->ctx.stack_;
 
     for (size_t i = 0; i < proto->get_num_upvalues(); ++i) {
@@ -78,8 +80,7 @@ namespace meow::handlers {
             closure->set_upvalue(i, state->ctx.frame_ptr_->function_->get_upvalue(desc.index_));
         }
     }
-    
-    regs[dst] = Value(closure);
+
     return ip;
 }
 
