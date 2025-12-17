@@ -20,29 +20,23 @@ using unary_function_t  = return_t (*)(MemoryManager*, param_t);
 
 class OperatorDispatcher {
 public:
-    // [FIX] Helper function để lấy ValueType chi tiết
     [[gnu::always_inline]] 
-    static inline ValueType get_detailed_type(const Value& v) noexcept {
+    static inline ValueType get_detailed_type(param_t v) noexcept {
         if (v.is_object()) {
             switch (v.as_object()->get_type()) {
                 case ObjectType::STRING: return ValueType::String;
                 case ObjectType::ARRAY:  return ValueType::Array;
                 case ObjectType::HASH_TABLE: return ValueType::HashTable;
-                // Các loại object khác ít khi tham gia toán tử, 
-                // nhưng có thể map nếu cần. Mặc định trả về Object.
                 default: return ValueType::Object;
             }
         }
-        // Với các kiểu nguyên thủy (Int, Float, Bool, Null), 
-        // index của variant trùng khớp với ValueType đầu enum
         return static_cast<ValueType>(v.index());
     }
 
     [[nodiscard]] 
-    [[gnu::always_inline]] static binary_function_t find(OpCode op, const Value& lhs, const Value& rhs) noexcept {
+    [[gnu::always_inline]] static binary_function_t find(OpCode op, param_t lhs, param_t rhs) noexcept {
         const size_t op_idx = std::to_underlying(op) - OP_OFFSET;
         
-        // [FIX] Sử dụng get_detailed_type thay vì lhs.index()
         const size_t t1 = std::to_underlying(get_detailed_type(lhs));
         const size_t t2 = std::to_underlying(get_detailed_type(rhs));
 
@@ -52,10 +46,9 @@ public:
     }
 
     [[nodiscard]]
-    [[gnu::always_inline]] static unary_function_t find(OpCode op, const Value& rhs) noexcept {
+    [[gnu::always_inline]] static unary_function_t find(OpCode op, param_t rhs) noexcept {
         const size_t op_idx = std::to_underlying(op) - OP_OFFSET;
         
-        // [FIX] Sử dụng get_detailed_type
         const size_t t1 = std::to_underlying(get_detailed_type(rhs));
         
         const size_t idx = (op_idx << TYPE_BITS) | t1;

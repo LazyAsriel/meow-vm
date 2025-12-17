@@ -28,4 +28,4 @@
 
 ---
 
-*File này được thiết kế để cung cấp context thực thi nhanh nhất cho Developer và AI. Chi tiết lý thuyết xem tại [docs/architecture.md](docs/architecture.md)*
+*File này được thiết kế để cung cấp context thực thi nhanh nhất cho Developer. Chi tiết lý thuyết xem tại [docs/architecture.md](docs/architecture.md)*
