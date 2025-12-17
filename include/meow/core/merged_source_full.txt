@@ -563,103 +563,99 @@
     37	public:
     38	    explicit ObjModule(string_t file_name, string_t file_path, proto_t main_proto = nullptr) noexcept 
     39	        : file_name_(file_name), file_path_(file_path), main_proto_(main_proto), state(State::INITIAL) {}
-    40	
-    41	    // --- Globals ---
-    42	    
-    43	    [[gnu::always_inline]]
-    44	    inline return_t get_global_by_index(uint32_t index) const noexcept {
-    45	        return globals_store_[index];
-    46	    }
-    47	
-    48	    [[gnu::always_inline]]
-    49	    inline void set_global_by_index(uint32_t index, param_t value) noexcept {
-    50	        globals_store_[index] = value;
-    51	    }
-    52	
-    53	    uint32_t intern_global(string_t name) {
-    54	        auto idx = global_names_.index_of(name);
-    55	        if (idx != GlobalNameMap::npos) {
-    56	            return global_names_.unsafe_get(idx);
+    40	    
+    41	    [[gnu::always_inline]]
+    42	    inline return_t get_global_by_index(uint32_t index) const noexcept {
+    43	        return globals_store_[index];
+    44	    }
+    45	
+    46	    [[gnu::always_inline]]
+    47	    inline void set_global_by_index(uint32_t index, param_t value) noexcept {
+    48	        globals_store_[index] = value;
+    49	    }
+    50	
+    51	    uint32_t intern_global(string_t name) {
+    52	        uint32_t next_idx = static_cast<uint32_t>(globals_store_.size());
+    53	        auto [ptr, inserted] = global_names_.try_emplace(name, next_idx);
+    54	        
+    55	        if (inserted) {
+    56	            globals_store_.push_back(Value(null_t{}));
     57	        }
     58	        
-    59	        uint32_t index = static_cast<uint32_t>(globals_store_.size());
-    60	        globals_store_.push_back(Value(null_t{}));
-    61	        
-    62	        global_names_[name] = index;
-    63	        return index;
+    59	        return *ptr;
+    60	    }
+    61	
+    62	    inline bool has_global(string_t name) {
+    63	        return global_names_.contains(name);
     64	    }
     65	
-    66	    inline bool has_global(string_t name) {
-    67	        return global_names_.contains(name);
-    68	    }
-    69	
-    70	    inline return_t get_global(string_t name) noexcept {
-    71	        auto idx = global_names_.index_of(name);
-    72	        if (idx != GlobalNameMap::npos) {
-    73	            return globals_store_[global_names_.unsafe_get(idx)];
-    74	        }
-    75	        return Value(null_t{});
+    66	    inline return_t get_global(string_t name) noexcept {
+    67	        if (auto* idx_ptr = global_names_.find(name)) {
+    68	            return globals_store_[*idx_ptr];
+    69	        }
+    70	        return Value(null_t{});
+    71	    }
+    72	
+    73	    inline void set_global(string_t name, param_t value) noexcept {
+    74	        uint32_t idx = intern_global(name);
+    75	        globals_store_[idx] = value;
     76	    }
     77	
-    78	    inline void set_global(string_t name, param_t value) noexcept {
-    79	        uint32_t idx = intern_global(name);
-    80	        globals_store_[idx] = value;
-    81	    }
-    82	
-    83	    inline void import_all_global(const module_t other) noexcept {
-    84	        const auto& other_keys = other->global_names_.keys();
-    85	        const auto& other_vals = other->global_names_.values();
-    86	        
-    87	        for (size_t i = 0; i < other_keys.size(); ++i) {
-    88	            set_global(other_keys[i], other->globals_store_[other_vals[i]]);
-    89	        }
-    90	    }
-    91	
-    92	    // --- Exports ---
-    93	    inline return_t get_export(string_t name) noexcept {
-    94	        auto idx = exports_.index_of(name);
-    95	        if (idx != ExportMap::npos) return exports_.unsafe_get(idx);
-    96	        return Value(null_t{});
-    97	    }
-    98	    
-    99	    inline void set_export(string_t name, param_t value) noexcept {
-   100	        exports_[name] = value;
-   101	    }
-   102	    
-   103	    inline bool has_export(string_t name) {
-   104	        return exports_.contains(name);
-   105	    }
-   106	    
-   107	    inline void import_all_export(const module_t other) noexcept {
-   108	        const auto& other_keys = other->exports_.keys();
-   109	        const auto& other_vals = other->exports_.values();
-   110	        
-   111	        for (size_t i = 0; i < other_keys.size(); ++i) {
-   112	            exports_[other_keys[i]] = other_vals[i];
-   113	        }
-   114	    }
-   115	
-   116	    // --- Accessors ---
-   117	    inline string_t get_file_name() const noexcept { return file_name_; }
-   118	    inline string_t get_file_path() const noexcept { return file_path_; }
-   119	    inline proto_t get_main_proto() const noexcept { return main_proto_; }
-   120	    inline void set_main_proto(proto_t proto) noexcept { main_proto_ = proto; }
-   121	    inline bool is_has_main() const noexcept { return main_proto_ != nullptr; }
-   122	
-   123	    inline void set_execution() noexcept { state = State::EXECUTING; }
-   124	    inline void set_executed() noexcept { state = State::EXECUTED; }
-   125	    inline bool is_executing() const noexcept { return state == State::EXECUTING; }
-   126	    inline bool is_executed() const noexcept { return state == State::EXECUTED; }
-   127	
-   128	    friend void obj_module_trace(const ObjModule* mod, visitor_t& visitor);
-   129	    void trace(visitor_t& visitor) const noexcept override;
-   130	    
-   131	    const auto& get_global_names_raw() const { return global_names_; }
-   132	    const auto& get_exports_raw() const { return exports_; }
-   133	
-   134	    size_t obj_size() const noexcept override { return sizeof(ObjModule); }
-   135	};
-   136	}
+    78	    inline void import_all_global(const module_t other) noexcept {
+    79	        const auto& other_keys = other->global_names_.keys();
+    80	        const auto& other_vals = other->global_names_.values();
+    81	        
+    82	        for (size_t i = 0; i < other_keys.size(); ++i) {
+    83	            Value val = other->globals_store_[other_vals[i]];
+    84	            set_global(other_keys[i], val);
+    85	        }
+    86	    }
+    87	
+    88	    // --- Exports ---
+    89	    inline return_t get_export(string_t name) noexcept {
+    90	        if (auto* val_ptr = exports_.find(name)) {
+    91	            return *val_ptr;
+    92	        }
+    93	        return Value(null_t{});
+    94	    }
+    95	    
+    96	    inline void set_export(string_t name, param_t value) noexcept {
+    97	        exports_[name] = value; 
+    98	    }
+    99	    
+   100	    inline bool has_export(string_t name) {
+   101	        return exports_.contains(name);
+   102	    }
+   103	    
+   104	    inline void import_all_export(const module_t other) noexcept {
+   105	        const auto& other_keys = other->exports_.keys();
+   106	        const auto& other_vals = other->exports_.values();
+   107	        
+   108	        for (size_t i = 0; i < other_keys.size(); ++i) {
+   109	            exports_.try_emplace(other_keys[i], other_vals[i]);
+   110	        }
+   111	    }
+   112	
+   113	    inline string_t get_file_name() const noexcept { return file_name_; }
+   114	    inline string_t get_file_path() const noexcept { return file_path_; }
+   115	    inline proto_t get_main_proto() const noexcept { return main_proto_; }
+   116	    inline void set_main_proto(proto_t proto) noexcept { main_proto_ = proto; }
+   117	    inline bool is_has_main() const noexcept { return main_proto_ != nullptr; }
+   118	
+   119	    inline void set_execution() noexcept { state = State::EXECUTING; }
+   120	    inline void set_executed() noexcept { state = State::EXECUTED; }
+   121	    inline bool is_executing() const noexcept { return state == State::EXECUTING; }
+   122	    inline bool is_executed() const noexcept { return state == State::EXECUTED; }
+   123	
+   124	    friend void obj_module_trace(const ObjModule* mod, visitor_t& visitor);
+   125	    void trace(visitor_t& visitor) const noexcept override;
+   126	    
+   127	    const auto& get_global_names_raw() const { return global_names_; }
+   128	    const auto& get_exports_raw() const { return exports_; }
+   129	
+   130	    size_t obj_size() const noexcept override { return sizeof(ObjModule); }
+   131	};
+   132	}
 
 
 ================================================================================
@@ -735,99 +731,96 @@
     53	    }
     54	    
     55	    inline return_t get_method(string_t name) noexcept {
-    56	        auto idx = methods_.index_of(name);
-    57	        if (idx != method_map::npos) {
-    58	            return methods_.unsafe_get(idx);
-    59	        }
-    60	        return Value(null_t{});
-    61	    }
-    62	    
-    63	    inline void set_method(string_t name, return_t value) noexcept {
-    64	        methods_[name] = value;
-    65	    }
-    66	
-    67	    inline const method_map& get_methods_raw() const { return methods_; }
-    68	
-    69	    size_t obj_size() const noexcept override { return sizeof(ObjClass); }
+    56	        if (auto* val_ptr = methods_.find(name)) {
+    57	            return *val_ptr;
+    58	        }
+    59	        return Value(null_t{});
+    60	    }
+    61	    
+    62	    inline void set_method(string_t name, param_t value) noexcept {
+    63	        methods_[name] = value;
+    64	    }
+    65	
+    66	    size_t obj_size() const noexcept override { return sizeof(ObjClass); }
+    67	
+    68	    void trace(visitor_t& visitor) const noexcept override;
+    69	};
     70	
-    71	    void trace(visitor_t& visitor) const noexcept override;
-    72	};
-    73	
-    74	class ObjInstance : public ObjBase<ObjectType::INSTANCE> {
-    75	private:
-    76	    using string_t = string_t;
-    77	    using class_t = class_t;
-    78	    using visitor_t = GCVisitor;
-    79	
-    80	    class_t klass_;
-    81	    Shape* shape_;              
-    82	    std::vector<Value> fields_; 
-    83	public:
-    84	    explicit ObjInstance(class_t k, Shape* empty_shape) noexcept 
-    85	        : klass_(k), shape_(empty_shape) {
-    86	    }
-    87	
-    88	    // --- Metadata ---
-    89	    inline class_t get_class() const noexcept { return klass_; }
-    90	    inline void set_class(class_t klass) noexcept { klass_ = klass; }
+    71	class ObjInstance : public ObjBase<ObjectType::INSTANCE> {
+    72	private:
+    73	    using string_t = string_t;
+    74	    using class_t = class_t;
+    75	    using visitor_t = GCVisitor;
+    76	
+    77	    class_t klass_;
+    78	    Shape* shape_;              
+    79	    std::vector<Value> fields_; 
+    80	public:
+    81	    explicit ObjInstance(class_t k, Shape* empty_shape) noexcept 
+    82	        : klass_(k), shape_(empty_shape) {
+    83	    }
+    84	
+    85	    // --- Metadata ---
+    86	    inline class_t get_class() const noexcept { return klass_; }
+    87	    inline void set_class(class_t klass) noexcept { klass_ = klass; }
+    88	
+    89	    inline Shape* get_shape() const noexcept { return shape_; }
+    90	    inline void set_shape(Shape* s) noexcept { shape_ = s; }
     91	
-    92	    inline Shape* get_shape() const noexcept { return shape_; }
-    93	    inline void set_shape(Shape* s) noexcept { shape_ = s; }
-    94	
-    95	    inline Value get_field_at(int offset) const noexcept {
-    96	        return fields_[offset];
-    97	    }
-    98	    
-    99	    inline void set_field_at(int offset, Value value) noexcept {
-   100	        fields_[offset] = value;
-   101	    }
-   102	    
-   103	    inline void add_field(param_t value) noexcept {
-   104	        fields_.push_back(value);
-   105	    }
-   106	
-   107	    inline bool has_field(string_t name) const {
-   108	        return shape_->get_offset(name) != -1;
-   109	    }
-   110	    
-   111	    inline Value get_field(string_t name) const {
-   112	        int offset = shape_->get_offset(name);
-   113	        if (offset != -1) return fields_[offset];
-   114	        return Value(null_t{});
-   115	    }
-   116	
-   117	    size_t obj_size() const noexcept override { return sizeof(ObjInstance); }
-   118	
-   119	    void trace(visitor_t& visitor) const noexcept override {
-   120	        visitor.visit_object(klass_);
-   121	        visitor.visit_object(shape_);
-   122	        for (const auto& val : fields_) {
-   123	            visitor.visit_value(val);
-   124	        }
-   125	    }
-   126	};
-   127	
-   128	class ObjBoundMethod : public ObjBase<ObjectType::BOUND_METHOD> {
-   129	private:
-   130	    Value receiver_; 
-   131	    Value method_;   
-   132	
-   133	    using visitor_t = GCVisitor;
-   134	public:
-   135	    explicit ObjBoundMethod(Value receiver, Value method) noexcept 
-   136	        : receiver_(receiver), method_(method) {}
+    92	    inline Value get_field_at(int offset) const noexcept {
+    93	        return fields_[offset];
+    94	    }
+    95	    
+    96	    inline void set_field_at(int offset, Value value) noexcept {
+    97	        fields_[offset] = value;
+    98	    }
+    99	    
+   100	    inline void add_field(param_t value) noexcept {
+   101	        fields_.push_back(value);
+   102	    }
+   103	
+   104	    inline bool has_field(string_t name) const {
+   105	        return shape_->get_offset(name) != -1;
+   106	    }
+   107	    
+   108	    inline Value get_field(string_t name) const {
+   109	        int offset = shape_->get_offset(name);
+   110	        if (offset != -1) return fields_[offset];
+   111	        return Value(null_t{});
+   112	    }
+   113	
+   114	    size_t obj_size() const noexcept override { return sizeof(ObjInstance); }
+   115	
+   116	    void trace(visitor_t& visitor) const noexcept override {
+   117	        visitor.visit_object(klass_);
+   118	        visitor.visit_object(shape_);
+   119	        for (const auto& val : fields_) {
+   120	            visitor.visit_value(val);
+   121	        }
+   122	    }
+   123	};
+   124	
+   125	class ObjBoundMethod : public ObjBase<ObjectType::BOUND_METHOD> {
+   126	private:
+   127	    Value receiver_; 
+   128	    Value method_;   
+   129	
+   130	    using visitor_t = GCVisitor;
+   131	public:
+   132	    explicit ObjBoundMethod(Value receiver, Value method) noexcept 
+   133	        : receiver_(receiver), method_(method) {}
+   134	
+   135	    inline Value get_receiver() const noexcept { return receiver_; }
+   136	    inline Value get_method() const noexcept { return method_; }
    137	
-   138	    inline Value get_receiver() const noexcept { return receiver_; }
-   139	    inline Value get_method() const noexcept { return method_; }
-   140	
-   141	    size_t obj_size() const noexcept override { return sizeof(ObjBoundMethod); }
-   142	
-   143	    void trace(visitor_t& visitor) const noexcept override {
-   144	        visitor.visit_value(receiver_);
-   145	        visitor.visit_value(method_);
-   146	    }
-   147	};
-   148	}
+   138	    size_t obj_size() const noexcept override { return sizeof(ObjBoundMethod); }
+   139	
+   140	    void trace(visitor_t& visitor) const noexcept override {
+   141	        visitor.visit_value(receiver_);
+   142	        visitor.visit_value(method_);
+   143	    }
+   144	};
+   145	}
 
 
 ================================================================================

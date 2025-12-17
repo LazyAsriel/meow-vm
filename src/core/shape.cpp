@@ -4,32 +4,30 @@
 namespace meow {
 
 int Shape::get_offset(string_t name) const {
-    auto idx = property_offsets_.index_of(name);
-    if (idx != PropertyMap::npos) {
-        return static_cast<int>(property_offsets_.unsafe_get(idx));
+    if (const uint32_t* ptr = property_offsets_.find(name)) {
+        return static_cast<int>(*ptr);
     }
     return -1;
 }
 
 Shape* Shape::get_transition(string_t name) const {
-    auto idx = transitions_.index_of(name);
-    if (idx != TransitionMap::npos) {
-        return transitions_.unsafe_get(idx);
+    if (Shape* const* ptr = transitions_.find(name)) {
+        return *ptr;
     }
     return nullptr;
 }
 
 Shape* Shape::add_transition(string_t name, MemoryManager* heap) {
+    heap->disable_gc();
     Shape* new_shape = heap->new_shape();
     
     new_shape->copy_from(this);
-    
     new_shape->add_property(name);
 
-    transitions_[name] = new_shape;
+    transitions_.try_emplace(name, new_shape);
     
     heap->write_barrier(this, Value(reinterpret_cast<object_t>(new_shape))); 
-    
+    heap->enable_gc();
     return new_shape;
 }
 

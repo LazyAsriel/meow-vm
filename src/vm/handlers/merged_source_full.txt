@@ -783,7 +783,7 @@
      6	
      7	struct BinaryArgs { uint16_t dst; uint16_t r1; uint16_t r2; } __attribute__((packed));
      8	struct BinaryArgsB { uint8_t dst; uint8_t r1; uint8_t r2; } __attribute__((packed));
-     9	struct UnaryArgs { uint16_t dst; uint16_t src; } __attribute__((packed));
+     9	struct UnaryArgs { uint16_t dst; uint16_t src; };
     10	
     11	// --- MACROS ---
     12	#define BINARY_OP_IMPL(NAME, OP_ENUM) \
@@ -818,123 +818,120 @@
     41	    const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip);
     42	    Value& left = regs[args.r1];
     43	    Value& right = regs[args.r2];
-    44	    // [OPTIMIZED] Thay thế check rời rạc bằng holds_both
-    45	    if (left.holds_both<int_t>(right)) [[likely]] regs[args.dst] = left.as_int() + right.as_int();
-    46	    else if (left.holds_both<float_t>(right)) regs[args.dst] = Value(left.as_float() + right.as_float());
-    47	    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
-    48	    return ip + sizeof(BinaryArgsB);
-    49	}
-    50	
-    51	BINARY_OP_IMPL(SUB, SUB)
-    52	BINARY_OP_IMPL(MUL, MUL)
-    53	BINARY_OP_IMPL(DIV, DIV)
-    54	BINARY_OP_IMPL(MOD, MOD)
-    55	BINARY_OP_IMPL(POW, POW)
-    56	
-    57	BINARY_OP_B_IMPL(SUB, SUB)
-    58	BINARY_OP_B_IMPL(MUL, MUL)
-    59	BINARY_OP_B_IMPL(DIV, DIV)
-    60	BINARY_OP_B_IMPL(MOD, MOD)
-    61	
-    62	#define CMP_FAST_IMPL(OP_NAME, OP_ENUM, OPERATOR) \
-    63	    HOT_HANDLER impl_##OP_NAME(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
-    64	        const auto& args = *reinterpret_cast<const BinaryArgs*>(ip); \
-    65	        Value& left = regs[args.r1]; \
-    66	        Value& right = regs[args.r2]; \
-    67	        /* [OPTIMIZED] Thay thế check rời rạc bằng holds_both */ \
-    68	        if (left.holds_both<int_t>(right)) [[likely]] { \
-    69	            regs[args.dst] = Value(left.as_int() OPERATOR right.as_int()); \
-    70	        } else [[unlikely]] { \
-    71	            regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
-    72	        } \
-    73	        return ip + sizeof(BinaryArgs); \
-    74	    } \
-    75	    HOT_HANDLER impl_##OP_NAME##_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
-    76	        const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip); \
-    77	        Value& left = regs[args.r1]; \
-    78	        Value& right = regs[args.r2]; \
-    79	        /* [OPTIMIZED] Thay thế check rời rạc bằng holds_both */ \
-    80	        if (left.holds_both<int_t>(right)) [[likely]] { \
-    81	            regs[args.dst] = Value(left.as_int() OPERATOR right.as_int()); \
-    82	        } else [[unlikely]] { \
-    83	            regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
-    84	        } \
-    85	        return ip + sizeof(BinaryArgsB); \
-    86	    }
-    87	
-    88	CMP_FAST_IMPL(EQ, EQ, ==)
-    89	CMP_FAST_IMPL(NEQ, NEQ, !=)
-    90	CMP_FAST_IMPL(GT, GT, >)
-    91	CMP_FAST_IMPL(GE, GE, >=)
-    92	CMP_FAST_IMPL(LT, LT, <)
-    93	CMP_FAST_IMPL(LE, LE, <=)
-    94	BINARY_OP_IMPL(BIT_AND, BIT_AND)
-    95	BINARY_OP_IMPL(BIT_OR, BIT_OR)
-    96	BINARY_OP_IMPL(BIT_XOR, BIT_XOR)
-    97	BINARY_OP_IMPL(LSHIFT, LSHIFT)
-    98	BINARY_OP_IMPL(RSHIFT, RSHIFT)
-    99	
-   100	HOT_HANDLER impl_NEG(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   101	    const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
-   102	    Value& val = regs[args.src];
-   103	    if (val.is_int()) [[likely]] regs[args.dst] = Value(-val.as_int());
-   104	    else if (val.is_float()) regs[args.dst] = Value(-val.as_float());
-   105	    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::NEG, val)(&state->heap, val);
-   106	    return ip + sizeof(UnaryArgs);
-   107	}
-   108	
-   109	HOT_HANDLER impl_BIT_NOT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   110	    const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
-   111	    Value& val = regs[args.src];
-   112	    regs[args.dst] = OperatorDispatcher::find(OpCode::BIT_NOT, val)(&state->heap, val);
-   113	    return ip + sizeof(UnaryArgs);
-   114	}
-   115	
-   116	HOT_HANDLER impl_NOT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   117	    const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
-   118	    regs[args.dst] = Value(!to_bool(regs[args.src]));
-   119	    return ip + sizeof(UnaryArgs);
-   120	}
-   121	
-   122	[[gnu::always_inline]] static const uint8_t* impl_INC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   123	    uint16_t reg_idx = read_u16(ip);
-   124	    Value& val = regs[reg_idx];
-   125	
-   126	    if (val.is_int()) [[likely]] {
-   127	        val = Value(val.as_int() + 1);
-   128	    } 
-   129	    else if (val.is_float()) {
-   130	        val = Value(val.as_float() + 1.0);
-   131	    }
-   132	    else [[unlikely]] {
-   133	        state->error("INC: Toán hạng phải là số (Int/Real).");
-   134	        return impl_PANIC(ip, regs, constants, state);
-   135	    }
-   136	    return ip;
-   137	}
-   138	
-   139	[[gnu::always_inline]] static const uint8_t* impl_DEC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   140	    uint16_t reg_idx = read_u16(ip);
-   141	    Value& val = regs[reg_idx];
-   142	
-   143	    if (val.is_int()) [[likely]] {
-   144	        val = Value(val.as_int() - 1);
+    44	    if (left.holds_both<int_t>(right)) [[likely]] regs[args.dst] = left.as_int() + right.as_int();
+    45	    else if (left.holds_both<float_t>(right)) regs[args.dst] = Value(left.as_float() + right.as_float());
+    46	    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
+    47	    return ip + sizeof(BinaryArgsB);
+    48	}
+    49	
+    50	BINARY_OP_IMPL(SUB, SUB)
+    51	BINARY_OP_IMPL(MUL, MUL)
+    52	BINARY_OP_IMPL(DIV, DIV)
+    53	BINARY_OP_IMPL(MOD, MOD)
+    54	BINARY_OP_IMPL(POW, POW)
+    55	
+    56	BINARY_OP_B_IMPL(SUB, SUB)
+    57	BINARY_OP_B_IMPL(MUL, MUL)
+    58	BINARY_OP_B_IMPL(DIV, DIV)
+    59	BINARY_OP_B_IMPL(MOD, MOD)
+    60	
+    61	#define CMP_FAST_IMPL(OP_NAME, OP_ENUM, OPERATOR) \
+    62	    HOT_HANDLER impl_##OP_NAME(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
+    63	        const auto& args = *reinterpret_cast<const BinaryArgs*>(ip); \
+    64	        Value& left = regs[args.r1]; \
+    65	        Value& right = regs[args.r2]; \
+    66	        if (left.holds_both<int_t>(right)) [[likely]] { \
+    67	            regs[args.dst] = Value(left.as_int() OPERATOR right.as_int()); \
+    68	        } else [[unlikely]] { \
+    69	            regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
+    70	        } \
+    71	        return ip + sizeof(BinaryArgs); \
+    72	    } \
+    73	    HOT_HANDLER impl_##OP_NAME##_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
+    74	        const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip); \
+    75	        Value& left = regs[args.r1]; \
+    76	        Value& right = regs[args.r2]; \
+    77	        if (left.holds_both<int_t>(right)) [[likely]] { \
+    78	            regs[args.dst] = Value(left.as_int() OPERATOR right.as_int()); \
+    79	        } else [[unlikely]] { \
+    80	            regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
+    81	        } \
+    82	        return ip + sizeof(BinaryArgsB); \
+    83	    }
+    84	
+    85	CMP_FAST_IMPL(EQ, EQ, ==)
+    86	CMP_FAST_IMPL(NEQ, NEQ, !=)
+    87	CMP_FAST_IMPL(GT, GT, >)
+    88	CMP_FAST_IMPL(GE, GE, >=)
+    89	CMP_FAST_IMPL(LT, LT, <)
+    90	CMP_FAST_IMPL(LE, LE, <=)
+    91	BINARY_OP_IMPL(BIT_AND, BIT_AND)
+    92	BINARY_OP_IMPL(BIT_OR, BIT_OR)
+    93	BINARY_OP_IMPL(BIT_XOR, BIT_XOR)
+    94	BINARY_OP_IMPL(LSHIFT, LSHIFT)
+    95	BINARY_OP_IMPL(RSHIFT, RSHIFT)
+    96	
+    97	HOT_HANDLER impl_NEG(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    98	    const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
+    99	    Value& val = regs[args.src];
+   100	    if (val.is_int()) [[likely]] regs[args.dst] = Value(-val.as_int());
+   101	    else if (val.is_float()) regs[args.dst] = Value(-val.as_float());
+   102	    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::NEG, val)(&state->heap, val);
+   103	    return ip + sizeof(UnaryArgs);
+   104	}
+   105	
+   106	HOT_HANDLER impl_BIT_NOT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   107	    const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
+   108	    Value& val = regs[args.src];
+   109	    regs[args.dst] = OperatorDispatcher::find(OpCode::BIT_NOT, val)(&state->heap, val);
+   110	    return ip + sizeof(UnaryArgs);
+   111	}
+   112	
+   113	HOT_HANDLER impl_NOT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   114	    const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
+   115	    regs[args.dst] = Value(!to_bool(regs[args.src]));
+   116	    return ip + sizeof(UnaryArgs);
+   117	}
+   118	
+   119	[[gnu::always_inline]] static const uint8_t* impl_INC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   120	    uint16_t reg_idx = read_u16(ip);
+   121	    Value& val = regs[reg_idx];
+   122	
+   123	    if (val.is_int()) [[likely]] {
+   124	        val = Value(val.as_int() + 1);
+   125	    } 
+   126	    else if (val.is_float()) {
+   127	        val = Value(val.as_float() + 1.0);
+   128	    }
+   129	    else [[unlikely]] {
+   130	        state->error("INC: Toán hạng phải là số (Int/Real).");
+   131	        return impl_PANIC(ip, regs, constants, state);
+   132	    }
+   133	    return ip;
+   134	}
+   135	
+   136	[[gnu::always_inline]] static const uint8_t* impl_DEC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   137	    uint16_t reg_idx = read_u16(ip);
+   138	    Value& val = regs[reg_idx];
+   139	
+   140	    if (val.is_int()) [[likely]] {
+   141	        val = Value(val.as_int() - 1);
+   142	    } 
+   143	    else if (val.is_float()) {
+   144	        val = Value(val.as_float() - 1.0);
    145	    } 
-   146	    else if (val.is_float()) {
-   147	        val = Value(val.as_float() - 1.0);
-   148	    } 
-   149	    else [[unlikely]] {
-   150	        state->error("DEC: Toán hạng phải là số (Int/Real).");
-   151	        return impl_PANIC(ip, regs, constants, state);
-   152	    }
-   153	    return ip;
-   154	}
-   155	
-   156	#undef BINARY_OP_IMPL
-   157	#undef BINARY_OP_B_IMPL
-   158	#undef CMP_FAST_IMPL
-   159	
-   160	} // namespace meow::handlers
+   146	    else [[unlikely]] {
+   147	        state->error("DEC: Toán hạng phải là số (Int/Real).");
+   148	        return impl_PANIC(ip, regs, constants, state);
+   149	    }
+   150	    return ip;
+   151	}
+   152	
+   153	#undef BINARY_OP_IMPL
+   154	#undef BINARY_OP_B_IMPL
+   155	#undef CMP_FAST_IMPL
+   156	
+   157	} // namespace meow::handlers
 
 
 ================================================================================

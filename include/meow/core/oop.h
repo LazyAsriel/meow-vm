@@ -53,18 +53,15 @@ public:
     }
     
     inline return_t get_method(string_t name) noexcept {
-        auto idx = methods_.index_of(name);
-        if (idx != method_map::npos) {
-            return methods_.unsafe_get(idx);
+        if (auto* val_ptr = methods_.find(name)) {
+            return *val_ptr;
         }
         return Value(null_t{});
     }
     
-    inline void set_method(string_t name, return_t value) noexcept {
+    inline void set_method(string_t name, param_t value) noexcept {
         methods_[name] = value;
     }
-
-    inline const method_map& get_methods_raw() const { return methods_; }
 
     size_t obj_size() const noexcept override { return sizeof(ObjClass); }
 

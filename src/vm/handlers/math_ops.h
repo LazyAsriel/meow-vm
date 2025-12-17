@@ -6,7 +6,7 @@ namespace meow::handlers {
 
 struct BinaryArgs { uint16_t dst; uint16_t r1; uint16_t r2; } __attribute__((packed));
 struct BinaryArgsB { uint8_t dst; uint8_t r1; uint8_t r2; } __attribute__((packed));
-struct UnaryArgs { uint16_t dst; uint16_t src; } __attribute__((packed));
+struct UnaryArgs { uint16_t dst; uint16_t src; };
 
 // --- MACROS ---
 #define BINARY_OP_IMPL(NAME, OP_ENUM) \
@@ -41,7 +41,6 @@ HOT_HANDLER impl_ADD_B(const uint8_t* ip, Value* regs, const Value* constants, V
     const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip);
     Value& left = regs[args.r1];
     Value& right = regs[args.r2];
-    // [OPTIMIZED] Thay thế check rời rạc bằng holds_both
     if (left.holds_both<int_t>(right)) [[likely]] regs[args.dst] = left.as_int() + right.as_int();
     else if (left.holds_both<float_t>(right)) regs[args.dst] = Value(left.as_float() + right.as_float());
     else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
@@ -64,7 +63,6 @@ BINARY_OP_B_IMPL(MOD, MOD)
         const auto& args = *reinterpret_cast<const BinaryArgs*>(ip); \
         Value& left = regs[args.r1]; \
         Value& right = regs[args.r2]; \
-        /* [OPTIMIZED] Thay thế check rời rạc bằng holds_both */ \
         if (left.holds_both<int_t>(right)) [[likely]] { \
             regs[args.dst] = Value(left.as_int() OPERATOR right.as_int()); \
         } else [[unlikely]] { \
@@ -76,7 +74,6 @@ BINARY_OP_B_IMPL(MOD, MOD)
         const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip); \
         Value& left = regs[args.r1]; \
         Value& right = regs[args.r2]; \
-        /* [OPTIMIZED] Thay thế check rời rạc bằng holds_both */ \
         if (left.holds_both<int_t>(right)) [[likely]] { \
             regs[args.dst] = Value(left.as_int() OPERATOR right.as_int()); \
         } else [[unlikely]] { \

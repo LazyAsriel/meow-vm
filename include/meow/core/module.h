@@ -37,8 +37,6 @@ private:
 public:
     explicit ObjModule(string_t file_name, string_t file_path, proto_t main_proto = nullptr) noexcept 
         : file_name_(file_name), file_path_(file_path), main_proto_(main_proto), state(State::INITIAL) {}
-
-    // --- Globals ---
     
     [[gnu::always_inline]]
     inline return_t get_global_by_index(uint32_t index) const noexcept {
@@ -51,16 +49,14 @@ public:
     }
 
     uint32_t intern_global(string_t name) {
-        auto idx = global_names_.index_of(name);
-        if (idx != GlobalNameMap::npos) {
-            return global_names_.unsafe_get(idx);
+        uint32_t next_idx = static_cast<uint32_t>(globals_store_.size());
+        auto [ptr, inserted] = global_names_.try_emplace(name, next_idx);
+        
+        if (inserted) {
+            globals_store_.push_back(Value(null_t{}));
         }
         
-        uint32_t index = static_cast<uint32_t>(globals_store_.size());
-        globals_store_.push_back(Value(null_t{}));
-        
-        global_names_[name] = index;
-        return index;
+        return *ptr;
     }
 
     inline bool has_global(string_t name) {
@@ -68,9 +64,8 @@ public:
     }
 
     inline return_t get_global(string_t name) noexcept {
-        auto idx = global_names_.index_of(name);
-        if (idx != GlobalNameMap::npos) {
-            return globals_store_[global_names_.unsafe_get(idx)];
+        if (auto* idx_ptr = global_names_.find(name)) {
+            return globals_store_[*idx_ptr];
         }
         return Value(null_t{});
     }
@@ -85,19 +80,21 @@ public:
         const auto& other_vals = other->global_names_.values();
         
         for (size_t i = 0; i < other_keys.size(); ++i) {
-            set_global(other_keys[i], other->globals_store_[other_vals[i]]);
+            Value val = other->globals_store_[other_vals[i]];
+            set_global(other_keys[i], val);
         }
     }
 
     // --- Exports ---
     inline return_t get_export(string_t name) noexcept {
-        auto idx = exports_.index_of(name);
-        if (idx != ExportMap::npos) return exports_.unsafe_get(idx);
+        if (auto* val_ptr = exports_.find(name)) {
+            return *val_ptr;
+        }
         return Value(null_t{});
     }
     
     inline void set_export(string_t name, param_t value) noexcept {
-        exports_[name] = value;
+        exports_[name] = value; 
     }
     
     inline bool has_export(string_t name) {
@@ -109,11 +106,10 @@ public:
         const auto& other_vals = other->exports_.values();
         
         for (size_t i = 0; i < other_keys.size(); ++i) {
-            exports_[other_keys[i]] = other_vals[i];
+            exports_.try_emplace(other_keys[i], other_vals[i]);
         }
     }
 
-    // --- Accessors ---
     inline string_t get_file_name() const noexcept { return file_name_; }
     inline string_t get_file_path() const noexcept { return file_path_; }
     inline proto_t get_main_proto() const noexcept { return main_proto_; }

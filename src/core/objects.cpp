@@ -14,12 +14,12 @@ void ObjClass::trace(GCVisitor& visitor) const noexcept {
     visitor.visit_object(name_);
     visitor.visit_object(superclass_);
     
-    const auto& method_keys = get_methods_raw().keys();
-    const auto& method_vals = get_methods_raw().values();
-    
-    for (size_t i = 0; i < method_keys.size(); ++i) {
-        visitor.visit_object(method_keys[i]);
-        visitor.visit_value(method_vals[i]);
+    const auto& keys = methods_.keys();
+    const auto& vals = methods_.values();
+    const size_t size = keys.size();
+    for (size_t i = 0; i < size; ++i) {
+        visitor.visit_object(keys[i]);
+        visitor.visit_value(vals[i]);
     }
 }
 
@@ -51,15 +51,16 @@ void ObjModule::trace(GCVisitor& visitor) const noexcept {
         visitor.visit_value(val);
     }
     
-    const auto& g_keys = get_global_names_raw().keys();
+    const auto& g_keys = global_names_.keys();
     for (auto key : g_keys) {
         visitor.visit_object(key);
     }
 
-    const auto& e_keys = get_exports_raw().keys();
-    const auto& e_vals = get_exports_raw().values();
+    const auto& e_keys = exports_.keys();
+    const auto& e_vals = exports_.values();
     
-    for (size_t i = 0; i < e_keys.size(); ++i) {
+    const size_t e_size = e_keys.size();
+    for (size_t i = 0; i < e_size; ++i) {
         visitor.visit_object(e_keys[i]);
         visitor.visit_value(e_vals[i]);
     }
