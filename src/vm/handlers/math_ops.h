@@ -106,13 +106,34 @@ HOT_HANDLER impl_NEG(const uint8_t* ip, Value* regs, const Value* constants, VMS
 HOT_HANDLER impl_BIT_NOT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
     Value& val = regs[args.src];
-    regs[args.dst] = OperatorDispatcher::find(OpCode::BIT_NOT, val)(&state->heap, val);
+
+    if (val.is_int()) [[likely]] {
+        regs[args.dst] = Value(~val.as_int());
+    } 
+    else [[unlikely]] {
+        regs[args.dst] = OperatorDispatcher::find(OpCode::BIT_NOT, val)(&state->heap, val);
+    }
+
     return ip + sizeof(UnaryArgs);
 }
 
 HOT_HANDLER impl_NOT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
     const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
-    regs[args.dst] = Value(!to_bool(regs[args.src]));
+    Value& val = regs[args.src];
+
+    if (val.is_bool()) [[likely]] {
+        regs[args.dst] = Value(!val.as_bool());
+    } 
+    else if (val.is_int()) {
+        regs[args.dst] = Value(val.as_int() == 0); 
+    }
+    else if (val.is_null()) {
+        regs[args.dst] = Value(true);
+    }
+    else [[unlikely]] {
+        regs[args.dst] = Value(!to_bool(val)); 
+    }
+
     return ip + sizeof(UnaryArgs);
 }
 
