@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "jit/x64/common.h"
+#include "x64/common.h"
 #include <vector>
 #include <cstddef>
 #include <cstdint>

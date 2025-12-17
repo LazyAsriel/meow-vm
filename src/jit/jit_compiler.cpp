@@ -1,6 +1,6 @@
-#include "jit/jit_compiler.h"
-#include "jit/jit_config.h"
-#include "jit/x64/code_generator.h"
+#include "jit_compiler.h"
+#include "jit_config.h"
+#include "x64/code_generator.h"
 
 #include <iostream>
 #include <cstring>

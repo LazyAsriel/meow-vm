@@ -1,6 +1,6 @@
-#include "jit/x64/code_generator.h"
-#include "jit/jit_config.h"
-#include "jit/x64/common.h"
+#include "x64/code_generator.h"
+#include "jit_config.h"
+#include "x64/common.h"
 #include "meow/value.h"
 #include <cstring>
 #include <iostream>

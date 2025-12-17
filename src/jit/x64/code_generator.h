@@ -1,7 +1,7 @@
 #pragma once
 
-#include "jit/x64/assembler.h"
-#include "jit/x64/common.h"
+#include "x64/assembler.h"
+#include "x64/common.h"
 #include <vector>
 #include <unordered_map>
 
