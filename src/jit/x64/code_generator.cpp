@@ -95,9 +95,8 @@ void CodeGenerator::emit_prologue() {
     // => Hiện tại RSP đang LẺ (misaligned).
     asm_.push(RBX); asm_.push(R12); asm_.push(R13); asm_.push(R14); asm_.push(R15);
 
-    // Setup VM Context
-    asm_.mov(REG_VM_REGS_BASE, RDI, 0); // R14 = state->registers
-    asm_.mov(REG_CONSTS_BASE,  RDI, 8); // R15 = state->constants
+    asm_.mov(REG_VM_REGS_BASE, RDI, 32); // R14 = state->registers
+    asm_.mov(REG_CONSTS_BASE,  RDI, 40); // R15 = state->constants
 
     // Load Cached Registers from RAM
     for (int i = 0; i <= 2; ++i) {
@@ -373,6 +372,47 @@ JitFunc CodeGenerator::compile(const uint8_t* bytecode, size_t len) {
                 // Nếu Equal (là Null) -> Jump
                 fixups_.push_back({asm_.cursor(), (size_t)off, true});
                 asm_.jcc(E, 0); 
+
+                break;
+            }
+
+            case OpCode::JUMP_IF_TRUE: case OpCode::JUMP_IF_TRUE_B: {
+                bool is_b = (op == OpCode::JUMP_IF_TRUE_B);
+                uint16_t reg = is_b ? read_u8() : read_u16();
+                uint16_t off = read_u16();
+
+                Reg r = map_vm_reg(reg);
+                if (r == INVALID_REG) { load_vm_reg(RAX, reg); r = RAX; }
+
+                // Logic: Nhảy nếu (Val != FALSE) AND (Val != NULL)
+                
+                // 1. Kiểm tra FALSE. Nếu bằng False -> KHÔNG nhảy (bỏ qua lệnh nhảy)
+                asm_.mov(RCX, VALUE_FALSE);
+                asm_.cmp(r, RCX);
+                size_t skip_jump1 = asm_.cursor();
+                asm_.jcc(E, 0); // Nhảy đến 'next_instruction' (sẽ patch sau)
+
+                // 2. Kiểm tra NULL. Nếu bằng Null -> KHÔNG nhảy
+                asm_.mov(RCX, TAG_NULL);
+                asm_.cmp(r, RCX);
+                size_t skip_jump2 = asm_.cursor();
+                asm_.jcc(E, 0); // Nhảy đến 'next_instruction'
+
+                // 3. Thực hiện nhảy (Vì không phải False cũng không phải Null)
+                // Đây là nhảy không điều kiện về mặt CPU (vì ta đã lọc ở trên)
+                fixups_.push_back({asm_.cursor(), (size_t)off, false}); // false = unconditional jump (5 bytes)
+                asm_.jmp(0); 
+
+                // 4. Patch các lệnh kiểm tra ở trên để trỏ xuống đây (bỏ qua lệnh nhảy)
+                size_t next_instruction = asm_.cursor();
+                
+                // Patch skip_jump1
+                int32_t dist1 = (int32_t)(next_instruction - (skip_jump1 + 6)); // JCC near là 6 bytes
+                asm_.patch_u32(skip_jump1 + 2, dist1);
+
+                // Patch skip_jump2
+                int32_t dist2 = (int32_t)(next_instruction - (skip_jump2 + 6));
+                asm_.patch_u32(skip_jump2 + 2, dist2);
 
                 break;
             }

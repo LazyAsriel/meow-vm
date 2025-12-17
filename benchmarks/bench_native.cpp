@@ -1,9 +1,3 @@
-/**
- * @file vm_vs_native.cpp
- * @brief Benchmark: Native C++ vs MeowVM Interpreter vs MeowVM JIT
- * @author Modified by Gemini (Teacher Mode)
- */
-
 #include <iostream>
 #include <chrono>
 #include <vector>
@@ -26,9 +20,9 @@
 #include <meow/memory/memory_manager.h>
 #include <meow/bytecode/chunk.h>
 #include <meow/bytecode/op_codes.h>
-#include "jit/jit_compiler.h"
-#include "make_chunk.h"
 #include <meow/config.h>
+#include "jit/jit_compiler.h"
+#include "create_chunk.h"
 
 using namespace meow;
 

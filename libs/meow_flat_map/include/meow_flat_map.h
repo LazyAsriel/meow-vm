@@ -7,7 +7,7 @@
 #include <utility>
 #include <ranges>
 #include <stdexcept>
-#include <cstring> 
+#include <memory>
 
 #if defined(__GNUC__) || defined(__clang__)
     #define MEOW_ALWAYS_INLINE __attribute__((always_inline)) inline
@@ -25,28 +25,47 @@ namespace meow {
 template <typename T>
 concept FastScalarKey = std::is_scalar_v<T> && (sizeof(T) <= sizeof(void*));
 
-template<typename Key, typename T, 
-         typename Compare = std::less<Key>, 
-         typename KeyContainer = std::vector<Key>,
-         typename ValueContainer = std::vector<T>>
+template<
+    typename Key, 
+    typename T, 
+    typename Compare = std::less<Key>,
+    typename Allocator = std::allocator<std::pair<const Key, T>>
+>
 class flat_map {
 public:
     using size_type = std::size_t;
-    static constexpr size_type LINEAR_SEARCH_THRESHOLD = 64;
+    using key_type = Key;
+    using mapped_type = T;
+    using allocator_type = Allocator;
+
+    static constexpr size_type LINEAR_SEARCH_THRESHOLD = 24;
     static constexpr size_type npos = static_cast<size_type>(-1);
 
 private:
+    using KeyAlloc = typename std::allocator_traits<Allocator>::template rebind_alloc<Key>;
+    using ValueAlloc = typename std::allocator_traits<Allocator>::template rebind_alloc<T>;
+
+    using KeyContainer = std::vector<Key, KeyAlloc>;
+    using ValueContainer = std::vector<T, ValueAlloc>;
+
     KeyContainer keys_;
     ValueContainer values_;
     [[no_unique_address]] Compare comp_;
 
     MEOW_ALWAYS_INLINE void grow_if_needed(size_type n = 1) {
         if (keys_.size() + n > keys_.capacity()) [[unlikely]] {
-            size_type new_cap = keys_.capacity() ? keys_.capacity() * 2 : 8;
+            size_type new_cap = keys_.capacity() ? keys_.capacity() * 2 : 16;
             if (new_cap < keys_.size() + n) new_cap = keys_.size() + n;
             keys_.reserve(new_cap);
             values_.reserve(new_cap);
         }
+    }
+
+    template <typename K>
+    static constexpr bool can_use_equality_opt() {
+        return FastScalarKey<Key> && 
+               std::is_same_v<Key, K> && 
+               std::is_same_v<Compare, std::less<Key>>;
     }
 
     template <typename K>
@@ -55,15 +74,19 @@ private:
         const size_type sz = keys_.size();
         const Key* __restrict k_ptr = keys_.data(); 
 
-        if constexpr (FastScalarKey<Key> && std::is_same_v<Key, K>) {
-            if (sz <= LINEAR_SEARCH_THRESHOLD) {
+        if (sz <= LINEAR_SEARCH_THRESHOLD) {
+            if constexpr (can_use_equality_opt<K>()) {
+                for (size_type i = 0; i < sz; ++i) {
+                    if (k_ptr[i] == key) return i;
+                }
+            } else {
                 for (size_type i = 0; i < sz; ++i) {
                     if (!comp_(k_ptr[i], key) && !comp_(key, k_ptr[i])) {
                         return i;
                     }
                 }
-                return npos;
             }
+            return npos;
         }
 
         auto it = std::lower_bound(keys_.begin(), keys_.end(), key, comp_);
@@ -74,17 +97,26 @@ private:
     }
 
 public:
-    flat_map() = default;
+    // --- Constructors ---
+    flat_map() : flat_map(Allocator()) {}
 
+    explicit flat_map(const Allocator& alloc)
+        : keys_(alloc), values_(alloc), comp_(Compare()) {}
+
+    flat_map(const Compare& comp, const Allocator& alloc = Allocator())
+        : keys_(alloc), values_(alloc), comp_(comp) {}
+
+    // --- Accessors ---
     [[nodiscard]] MEOW_ALWAYS_INLINE const KeyContainer& keys() const noexcept { return keys_; }
     [[nodiscard]] MEOW_ALWAYS_INLINE const ValueContainer& values() const noexcept { return values_; }
 
-    [[nodiscard]] MEOW_ALWAYS_INLINE T* data_values() noexcept { return values_.data(); }
-    [[nodiscard]] MEOW_ALWAYS_INLINE const T* data_values() const noexcept { return values_.data(); }
-    
     [[nodiscard]] MEOW_ALWAYS_INLINE bool empty() const noexcept { return keys_.empty(); }
     [[nodiscard]] MEOW_ALWAYS_INLINE size_type size() const noexcept { return keys_.size(); }
     [[nodiscard]] MEOW_ALWAYS_INLINE size_type capacity() const noexcept { return keys_.capacity(); }
+
+    [[nodiscard]] allocator_type get_allocator() const noexcept { 
+        return allocator_type(keys_.get_allocator()); 
+    }
 
     void clear() noexcept {
         keys_.clear();
@@ -103,26 +135,24 @@ public:
         return find_impl(key) != npos;
     }
 
-    [[nodiscard]] MEOW_ALWAYS_INLINE T* find(const Key& key) noexcept {
+    template <typename K = Key>
+    [[nodiscard]] MEOW_ALWAYS_INLINE T* find(const K& key) noexcept {
         size_type idx = find_impl(key);
         if (idx != npos) return &values_[idx];
         return nullptr;
     }
     
-    [[nodiscard]] MEOW_ALWAYS_INLINE const T* find(const Key& key) const noexcept {
+    template <typename K = Key>
+    [[nodiscard]] MEOW_ALWAYS_INLINE const T* find(const K& key) const noexcept {
         size_type idx = find_impl(key);
         if (idx != npos) return &values_[idx];
         return nullptr;
     }
 
-    [[nodiscard]] MEOW_ALWAYS_INLINE T& get_unchecked(size_type idx) noexcept {
-        return values_[idx];
-    }
-
     // --- Operators ---
 
     T& operator[](const Key& key) {
-        if constexpr (FastScalarKey<Key>) {
+        if constexpr (can_use_equality_opt<Key>()) {
             size_type idx = find_impl(key);
             if (idx != npos) return values_[idx];
         }
@@ -130,7 +160,7 @@ public:
     }
 
     T& operator[](Key&& key) {
-        if constexpr (FastScalarKey<Key>) {
+        if constexpr (can_use_equality_opt<Key>()) {
              size_type idx = find_impl(key);
              if (idx != npos) return values_[idx];
         }
@@ -155,15 +185,15 @@ public:
 
         keys_.insert(it, std::move(key));
 
-        if constexpr (std::is_nothrow_constructible_v<T, Args...>) {
-            values_.emplace(values_.begin() + idx, std::forward<Args>(args)...);
-        } else {
-            try {
+        try {
+            if constexpr (std::is_nothrow_constructible_v<T, Args...>) {
                 values_.emplace(values_.begin() + idx, std::forward<Args>(args)...);
-            } catch (...) {
-                keys_.erase(keys_.begin() + idx);
-                throw;
+            } else {
+                values_.emplace(values_.begin() + idx, std::forward<Args>(args)...);
             }
+        } catch (...) {
+            keys_.erase(keys_.begin() + idx);
+            throw;
         }
 
         return {&values_[idx], true};

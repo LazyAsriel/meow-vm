@@ -44,9 +44,9 @@ private:
         const size_t bin_idx = get_bin_index(total_size) - 1;
 
         if (ObjectMeta* node = free_bins_[bin_idx]) [[likely]] {
-            if (node->next_free) {
-                __builtin_prefetch(node->next_free, 0, 3);
-            }
+            // if (node->next_free) {
+            //     __builtin_prefetch(node->next_free, 0, 3);
+            // }
 
             free_bins_[bin_idx] = node->next_free;
             
