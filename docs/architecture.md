@@ -44,7 +44,7 @@ root/
 ├── include/meow/           # [Interface] Các header file công khai
 │   ├── cast.h              # Hàm chuyển đổi kiểu (Safe Casting)
 │   ├── config.h.in         # Template versioning
-│   ├── definitions.h       # Các định nghĩa kiểu dữ liệu cơ bản (ValueType)
+│   ├── common.h            # Các định nghĩa kiểu dữ liệu cơ bản
 │   ├── machine.h           # Class chính điều khiển máy ảo
 │   ├── value.h             # Cấu trúc dữ liệu Value (NaN Boxing)
 │   ├── bytecode/           # Bytecode format & tooling interface

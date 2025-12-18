@@ -1,7 +1,7 @@
 #pragma once
 
 #include "pch.h"
-#include <meow/definitions.h>
+#include <meow/common.h>
 #include <meow/memory/garbage_collector.h>
 #include <meow/memory/gc_visitor.h>
 #include "meow_heap.h"

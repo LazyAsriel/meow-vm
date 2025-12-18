@@ -1,6 +1,6 @@
 #pragma once
 
-#include <meow/definitions.h>
+#include <meow/common.h>
 
 namespace meow {
 class Value;

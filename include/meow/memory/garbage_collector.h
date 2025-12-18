@@ -6,7 +6,6 @@
 
 namespace meow {
 struct MeowObject;
-class heap;
 
 namespace gc_flags {
     static constexpr uint32_t GEN_YOUNG = 0;       // Bit 0 = 0

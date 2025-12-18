@@ -11,7 +11,7 @@
 #include <cstdlib>
 #include <iostream>
 
-#include <meow/definitions.h>
+#include <meow/common.h>
 #include <meow/core/objects.h>
 #include <meow/value.h>
 #include "meow/bytecode/disassemble.h"

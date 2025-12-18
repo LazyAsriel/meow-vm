@@ -2,7 +2,7 @@
 
 #include "pch.h"
 #include <meow/core/module.h>
-#include <meow/definitions.h>
+#include <meow/common.h>
 
 namespace meow {
     class Machine;

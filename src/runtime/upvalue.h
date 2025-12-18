@@ -3,7 +3,7 @@
 #include "pch.h"
 #include "runtime/execution_context.h"
 #include <meow/memory/memory_manager.h>
-#include <meow/definitions.h>
+#include <meow/common.h>
 
 namespace meow {
 inline upvalue_t capture_upvalue(ExecutionContext* context, MemoryManager* heap, size_t register_index) noexcept {

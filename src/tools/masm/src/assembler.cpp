@@ -420,76 +420,107 @@ static size_t get_instr_size(meow::OpCode op) {
 }
 
 void Assembler::optimize() {
+    std::cout << "[MASM] Starting Optimization Pass..." << std::endl;
+    int optimized_count = 0;
+
     for (auto& proto : protos_) {
         std::vector<uint8_t>& code = proto.bytecode;
         size_t ip = 0;
 
         while (ip < code.size()) {
             meow::OpCode op = static_cast<meow::OpCode>(code[ip]);
+            size_t instr_size = get_instr_size(op); // GET_PROP = 55 bytes
 
-            // Pattern Check: GET_PROP (55 bytes) followed by CALL (25 bytes)
             if (op == meow::OpCode::GET_PROP) {
-                size_t prop_size = 55;
-                if (ip + 80 <= code.size()) {
-                    meow::OpCode next_op = static_cast<meow::OpCode>(code[ip + prop_size]);
-                    
+                size_t next_ip = ip + instr_size;
+
+                if (next_ip < code.size()) {
+                    uint8_t next_op_raw = code[next_ip];
+                    meow::OpCode next_op = static_cast<meow::OpCode>(next_op_raw);
+
+                    // Decode GET_PROP: [OP] [Dst] [Obj] [Name] [Cache]
+                    uint16_t prop_dst = (uint16_t)code[ip+1] | ((uint16_t)code[ip+2] << 8);
+                    uint16_t obj_reg  = (uint16_t)code[ip+3] | ((uint16_t)code[ip+4] << 8);
+                    uint16_t name_idx = (uint16_t)code[ip+5] | ((uint16_t)code[ip+6] << 8);
+
+                    // ---------------------------------------------------------
+                    // TRƯỜNG HỢP 1: GET_PROP -> CALL (Chuẩn, 80 bytes)
+                    // ---------------------------------------------------------
                     if (next_op == meow::OpCode::CALL) {
-                         // Decode Registers
-                        size_t prop_ip = ip;
-                        size_t call_ip = ip + 55;
+                        size_t call_base = next_ip;
+                        // CALL: [OP] [Dst] [Fn] ...
+                        uint16_t call_dst = (uint16_t)code[call_base+1] | ((uint16_t)code[call_base+2] << 8);
+                        uint16_t fn_reg   = (uint16_t)code[call_base+3] | ((uint16_t)code[call_base+4] << 8);
+                        uint16_t arg_start= (uint16_t)code[call_base+5] | ((uint16_t)code[call_base+6] << 8);
+                        uint16_t argc     = (uint16_t)code[call_base+7] | ((uint16_t)code[call_base+8] << 8);
 
-                        uint16_t prop_dst = (uint16_t)code[prop_ip+1] | ((uint16_t)code[prop_ip+2] << 8);
-                        uint16_t obj_reg  = (uint16_t)code[prop_ip+3] | ((uint16_t)code[prop_ip+4] << 8);
-                        uint16_t name_idx = (uint16_t)code[prop_ip+5] | ((uint16_t)code[prop_ip+6] << 8);
-
-                        // CALL layout: [OP] [Dst] [Fn] [ArgStart] [Argc]
-                        uint16_t call_dst = (uint16_t)code[call_ip+1] | ((uint16_t)code[call_ip+2] << 8);
-                        uint16_t fn_reg   = (uint16_t)code[call_ip+3] | ((uint16_t)code[call_ip+4] << 8);
-                        uint16_t arg_start= (uint16_t)code[call_ip+5] | ((uint16_t)code[call_ip+6] << 8);
-                        uint16_t argc     = (uint16_t)code[call_ip+7] | ((uint16_t)code[call_ip+8] << 8);
-
-                        // Optimization Condition: Output của GET_PROP là Input Function của CALL
                         if (prop_dst == fn_reg) {
-                            // --- REWRITE TO INVOKE (80 bytes) ---
-                            size_t write = prop_ip;
+                            std::cout << "[MASM] MERGED (Direct): GET_PROP + CALL -> INVOKE at " << ip << "\n";
                             
-                            // 1. Opcode
+                            // Ghi đè INVOKE (80 bytes)
+                            size_t write = ip;
                             code[write++] = static_cast<uint8_t>(meow::OpCode::INVOKE);
                             
-                            // 2. Args (10 bytes): Dst, Obj, Name, ArgStart, Argc
-                            auto emit_u16 = [&](uint16_t v) {
-                                code[write++] = v & 0xFF; 
-                                code[write++] = (v >> 8) & 0xFF;
-                            };
-                            emit_u16(call_dst);
-                            emit_u16(obj_reg);
-                            emit_u16(name_idx);
-                            emit_u16(arg_start);
-                            emit_u16(argc);
-
-                            // 3. Inline Cache (48 bytes) - Init 0
-                            std::memset(&code[write], 0, 48);
-                            write += 48;
-
-                            // 4. Padding (21 bytes) - Init 0
-                            // Tổng size cũ: 55 + 25 = 80
-                            // Size INVOKE header: 1 + 10 = 11
-                            // Size INVOKE IC: 48
-                            // Còn lại: 80 - 11 - 48 = 21 bytes padding
-                            std::memset(&code[write], 0, 21);
+                            auto emit_u16 = [&](uint16_t v) { code[write++] = v & 0xFF; code[write++] = (v >> 8) & 0xFF; };
+                            emit_u16(call_dst); emit_u16(obj_reg); emit_u16(name_idx); emit_u16(arg_start); emit_u16(argc);
                             
-                            // Nhảy qua khối lệnh đã gộp
-                            ip += 80;
-                            continue;
+                            std::memset(&code[write], 0, 48); write += 48; // IC
+                            std::memset(&code[write], 0, 21); // Padding (80 - 11 - 48 = 21)
+                            
+                            ip += 80; optimized_count++; continue;
+                        }
+                    }
+                    // ---------------------------------------------------------
+                    // TRƯỜNG HỢP 2: GET_PROP -> MOVE -> CALL (Có rác, 85 bytes)
+                    // ---------------------------------------------------------
+                    else if (next_op == meow::OpCode::MOVE) {
+                        size_t move_size = 5; // OP(1) + DST(2) + SRC(2)
+                        size_t call_ip = next_ip + move_size;
+
+                        if (call_ip < code.size() && static_cast<meow::OpCode>(code[call_ip]) == meow::OpCode::CALL) {
+                            // Decode MOVE: [OP] [Dst] [Src]
+                            uint16_t move_dst = (uint16_t)code[next_ip+1] | ((uint16_t)code[next_ip+2] << 8);
+                            uint16_t move_src = (uint16_t)code[next_ip+3] | ((uint16_t)code[next_ip+4] << 8);
+
+                            // Decode CALL
+                            uint16_t call_dst = (uint16_t)code[call_ip+1] | ((uint16_t)code[call_ip+2] << 8);
+                            uint16_t fn_reg   = (uint16_t)code[call_ip+3] | ((uint16_t)code[call_ip+4] << 8);
+                            uint16_t arg_start= (uint16_t)code[call_ip+5] | ((uint16_t)code[call_ip+6] << 8);
+                            uint16_t argc     = (uint16_t)code[call_ip+7] | ((uint16_t)code[call_ip+8] << 8);
+
+                            // Logic check: GET_PROP -> rA, MOVE rB, rA, CALL rB
+                            if (prop_dst == move_src && move_dst == fn_reg) {
+                                std::cout << "[MASM] MERGED (Jump Move): GET_PROP + MOVE + CALL -> INVOKE at " << ip << "\n";
+
+                                // 1. Ghi INVOKE (80 bytes)
+                                size_t write = ip;
+                                code[write++] = static_cast<uint8_t>(meow::OpCode::INVOKE);
+                                
+                                auto emit_u16 = [&](uint16_t v) { code[write++] = v & 0xFF; code[write++] = (v >> 8) & 0xFF; };
+                                emit_u16(call_dst); emit_u16(obj_reg); emit_u16(name_idx); emit_u16(arg_start); emit_u16(argc);
+                                
+                                std::memset(&code[write], 0, 48); write += 48;
+                                std::memset(&code[write], 0, 21); write += 21;
+
+                                // 2. Xử lý 5 bytes thừa (MOVE cũ)
+                                // Tổng block cũ là 55 + 5 + 25 = 85 bytes.
+                                // INVOKE mới dùng 80 bytes. Còn dư 5 bytes cuối cùng.
+                                // Ta ghi đè 5 bytes này bằng lệnh MOVE r0, r0 (No-Op) để giữ alignment.
+                                
+                                code[write++] = static_cast<uint8_t>(meow::OpCode::MOVE);
+                                emit_u16(0); // Dst r0
+                                emit_u16(0); // Src r0
+                                
+                                ip += 85; optimized_count++; continue;
+                            }
                         }
                     }
                 }
             }
-
-            // Nếu không tối ưu được, nhảy lệnh bình thường
-            ip += get_instr_size(op);
+            ip += instr_size;
         }
     }
+    std::cout << "[MASM] Optimization finished. Total merged: " << optimized_count << std::endl;
 }
 
 std::vector<uint8_t> Assembler::assemble() {
@@ -498,7 +529,7 @@ std::vector<uint8_t> Assembler::assemble() {
     }
     link_proto_refs();
     patch_labels();
-    optimize();
+    // optimize();
     return serialize_binary();
 }
 

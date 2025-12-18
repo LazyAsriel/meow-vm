@@ -1,7 +1,7 @@
 #pragma once
 
 #include "pch.h"
-#include <meow/definitions.h>
+#include <meow/common.h>
 #include <meow/bytecode/chunk.h>
 #include <meow/core/function.h>
 #include <meow/core/module.h>

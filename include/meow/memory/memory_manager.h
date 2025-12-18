@@ -6,7 +6,7 @@
 #include <unordered_set>
 #include <memory>
 #include <meow/core/objects.h>
-#include <meow/definitions.h>
+#include <meow/common.h>
 #include <meow/memory/garbage_collector.h>
 #include <meow/core/shape.h>
 #include <meow/core/string.h>

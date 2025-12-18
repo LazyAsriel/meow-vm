@@ -1,6 +1,7 @@
-================================================================================
- FILE PATH: include/meow/core/array.h
-================================================================================
+// =============================================================================
+//  FILE PATH: include/meow/core/array.h
+// =============================================================================
+
      1	/**
      2	 * @file array.h
      3	 * @author LazyPaws
@@ -114,9 +115,10 @@
    111	}
 
 
-================================================================================
- FILE PATH: include/meow/core/function.h
-================================================================================
+// =============================================================================
+//  FILE PATH: include/meow/core/function.h
+// =============================================================================
+
      1	/**
      2	 * @file function.h
      3	 * @author LazyPaws
@@ -132,9 +134,9 @@
     13	#include <vector>
     14	#include <string>
     15	#include <memory>
-    16	#include <meow/definitions.h>
+    16	#include <meow/common.h>
     17	#include <meow/core/meow_object.h>
-    18	#include <meow/definitions.h>
+    18	#include <meow/common.h>
     19	#include <meow/value.h>
     20	#include <meow/memory/gc_visitor.h>
     21	#include "meow/bytecode/chunk.h"
@@ -265,9 +267,10 @@
    146	}
 
 
-================================================================================
- FILE PATH: include/meow/core/hash_table.h
-================================================================================
+// =============================================================================
+//  FILE PATH: include/meow/core/hash_table.h
+// =============================================================================
+
      1	/**
      2	 * @file hash_table.h
      3	 * @brief Optimized Hash Table with State-ful Allocator (meow::allocator)
@@ -279,7 +282,7 @@
      9	#include <cstdint>
     10	#include <cstring>
     11	#include <bit> 
-    12	#include <meow/definitions.h>
+    12	#include <meow/common.h>
     13	#include <meow/core/meow_object.h>
     14	#include <meow/value.h>
     15	#include <meow/memory/gc_visitor.h>
@@ -479,9 +482,10 @@
    209	} // namespace meow
 
 
-================================================================================
- FILE PATH: include/meow/core/meow_object.h
-================================================================================
+// =============================================================================
+//  FILE PATH: include/meow/core/meow_object.h
+// =============================================================================
+
      1	#pragma once
      2	#include <cstdint>
      3	
@@ -521,18 +525,19 @@
     37	}
 
 
-================================================================================
- FILE PATH: include/meow/core/module.h
-================================================================================
+// =============================================================================
+//  FILE PATH: include/meow/core/module.h
+// =============================================================================
+
      1	#pragma once
      2	
      3	#include <cstdint>
      4	#include <vector>
      5	#include <string>
      6	#include <memory>
-     7	#include <meow/definitions.h>
+     7	#include <meow/common.h>
      8	#include <meow/core/meow_object.h>
-     9	#include <meow/definitions.h>
+     9	#include <meow/common.h>
     10	#include <meow/value.h>
     11	#include <meow/memory/gc_visitor.h>
     12	#include <meow_flat_map.h>
@@ -658,9 +663,10 @@
    132	}
 
 
-================================================================================
- FILE PATH: include/meow/core/objects.h
-================================================================================
+// =============================================================================
+//  FILE PATH: include/meow/core/objects.h
+// =============================================================================
+
      1	#pragma once
      2	
      3	#include <meow/core/array.h>
@@ -673,9 +679,10 @@
     10	#include <meow/memory/gc_visitor.h>
 
 
-================================================================================
- FILE PATH: include/meow/core/oop.h
-================================================================================
+// =============================================================================
+//  FILE PATH: include/meow/core/oop.h
+// =============================================================================
+
      1	/**
      2	 * @file oop.h
      3	 * @author LazyPaws
@@ -691,9 +698,9 @@
     13	#include <vector>
     14	#include <string>
     15	#include <memory>
-    16	#include <meow/definitions.h>
+    16	#include <meow/common.h>
     17	#include <meow/core/meow_object.h>
-    18	#include <meow/definitions.h>
+    18	#include <meow/common.h>
     19	#include <meow/value.h>
     20	#include <meow/memory/gc_visitor.h>
     21	#include <meow/core/shape.h>
@@ -823,16 +830,17 @@
    145	}
 
 
-================================================================================
- FILE PATH: include/meow/core/shape.h
-================================================================================
+// =============================================================================
+//  FILE PATH: include/meow/core/shape.h
+// =============================================================================
+
      1	#pragma once
      2	
      3	#include <cstdint>
      4	#include <vector>
      5	#include <string>
      6	#include <memory>
-     7	#include <meow/definitions.h>
+     7	#include <meow/common.h>
      8	#include <meow/core/meow_object.h>
      9	#include <meow/memory/gc_visitor.h>
     10	#include <meow/core/string.h>
@@ -880,9 +888,10 @@
     52	}
 
 
-================================================================================
- FILE PATH: include/meow/core/string.h
-================================================================================
+// =============================================================================
+//  FILE PATH: include/meow/core/string.h
+// =============================================================================
+
      1	#pragma once
      2	#include <cstdint>
      3	#include <cstring>

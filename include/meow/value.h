@@ -3,7 +3,7 @@
 #include <utility>
 #include <cstdint>
 #include <cstddef>
-#include <meow/definitions.h>
+#include <meow/common.h>
 #include "meow_variant.h"
 #include <meow/core/meow_object.h>
 

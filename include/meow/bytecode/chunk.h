@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 #include <memory>
-#include <meow/definitions.h>
+#include <meow/common.h>
 #include <meow/value.h>
 
 namespace meow {

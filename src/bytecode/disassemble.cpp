@@ -1,5 +1,5 @@
 #include <meow/bytecode/disassemble.h>
-#include <meow/definitions.h>
+#include <meow/common.h>
 #include <meow/core/objects.h>
 #include <meow/bytecode/op_codes.h>
 #include <meow/value.h>

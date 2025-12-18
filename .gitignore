@@ -1,7 +1,5 @@
 .vscode/
 .meowconfig/
-compiler/
-# libs/
 scripts/
 benchmarks/
 build/

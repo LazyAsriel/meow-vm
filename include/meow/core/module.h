@@ -4,9 +4,9 @@
 #include <vector>
 #include <string>
 #include <memory>
-#include <meow/definitions.h>
+#include <meow/common.h>
 #include <meow/core/meow_object.h>
-#include <meow/definitions.h>
+#include <meow/common.h>
 #include <meow/value.h>
 #include <meow/memory/gc_visitor.h>
 #include <meow_flat_map.h>

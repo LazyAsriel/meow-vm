@@ -1,4 +1,4 @@
-#include <meow/definitions.h>
+#include <meow/common.h>
 #pragma once
 
 #include <vector>

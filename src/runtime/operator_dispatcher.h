@@ -2,7 +2,7 @@
 #pragma once
 #include <meow/bytecode/op_codes.h>
 #include <meow/value.h>
-#include <meow/definitions.h>
+#include <meow/common.h>
 
 namespace meow {
 
