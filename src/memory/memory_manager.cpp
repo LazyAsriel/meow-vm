@@ -3,6 +3,8 @@
 
 namespace meow {
 
+thread_local MemoryManager* MemoryManager::current_ = nullptr;
+
 MemoryManager::MemoryManager(std::unique_ptr<GarbageCollector> gc) noexcept 
     : arena_(64 * 1024), 
       heap_(arena_),

@@ -369,99 +369,101 @@
      3	
      4	namespace meow {
      5	
-     6	MemoryManager::MemoryManager(std::unique_ptr<GarbageCollector> gc) noexcept 
-     7	    : arena_(64 * 1024), 
-     8	      heap_(arena_),
-     9	      gc_(std::move(gc)), 
-    10	      gc_threshold_(1e7), 
-    11	      object_allocated_(0) 
-    12	{ 
-    13	    if (gc_) {
-    14	        gc_->set_heap(&heap_);
-    15	    }
-    16	}
-    17	MemoryManager::~MemoryManager() noexcept {}
-    18	
-    19	string_t MemoryManager::new_string(std::string_view str_view) {
-    20	    if (auto it = string_pool_.find(str_view); it != string_pool_.end()) {
-    21	        return *it;
-    22	    }
-    23	    
-    24	    size_t length = str_view.size();
-    25	    size_t hash = std::hash<std::string_view>{}(str_view);
-    26	    
-    27	    string_t new_obj = heap_.create_varsize<ObjString>(length, str_view.data(), length, hash);
+     6	thread_local MemoryManager* MemoryManager::current_ = nullptr;
+     7	
+     8	MemoryManager::MemoryManager(std::unique_ptr<GarbageCollector> gc) noexcept 
+     9	    : arena_(64 * 1024), 
+    10	      heap_(arena_),
+    11	      gc_(std::move(gc)), 
+    12	      gc_threshold_(1e7), 
+    13	      object_allocated_(0) 
+    14	{ 
+    15	    if (gc_) {
+    16	        gc_->set_heap(&heap_);
+    17	    }
+    18	}
+    19	MemoryManager::~MemoryManager() noexcept {}
+    20	
+    21	string_t MemoryManager::new_string(std::string_view str_view) {
+    22	    if (auto it = string_pool_.find(str_view); it != string_pool_.end()) {
+    23	        return *it;
+    24	    }
+    25	    
+    26	    size_t length = str_view.size();
+    27	    size_t hash = std::hash<std::string_view>{}(str_view);
     28	    
-    29	    gc_->register_permanent(new_obj);
+    29	    string_t new_obj = heap_.create_varsize<ObjString>(length, str_view.data(), length, hash);
     30	    
-    31	    object_allocated_++;
-    32	    string_pool_.insert(new_obj);
-    33	    return new_obj;
-    34	}
-    35	
-    36	string_t MemoryManager::new_string(const char* chars, size_t length) {
-    37	    return new_string(std::string(chars, length));
-    38	}
-    39	
-    40	array_t MemoryManager::new_array(const std::vector<Value>& elements) {
-    41	    // meow::allocator<Value> alloc(arena_);
-    42	    
-    43	    // return new_object<ObjArray>(elements, alloc);
-    44	    return new_object<ObjArray>(elements);
-    45	}
-    46	
-    47	hash_table_t MemoryManager::new_hash(uint32_t capacity) {
-    48	    auto alloc = heap_.get_allocator<Entry>();
-    49	    return heap_.create<ObjHashTable>(alloc, capacity);
-    50	}
-    51	
-    52	upvalue_t MemoryManager::new_upvalue(size_t index) {
-    53	    return new_object<ObjUpvalue>(index);
-    54	}
-    55	
-    56	proto_t MemoryManager::new_proto(size_t registers, size_t upvalues, string_t name, Chunk&& chunk) {
-    57	    return new_object<ObjFunctionProto>(registers, upvalues, name, std::move(chunk));
-    58	}
-    59	
-    60	proto_t MemoryManager::new_proto(size_t registers, size_t upvalues, string_t name, Chunk&& chunk, std::vector<UpvalueDesc>&& descs) {
-    61	    return new_object<ObjFunctionProto>(registers, upvalues, name, std::move(chunk), std::move(descs));
-    62	}
-    63	
-    64	function_t MemoryManager::new_function(proto_t proto) {
-    65	    return new_object<ObjClosure>(proto);
-    66	}
-    67	
-    68	module_t MemoryManager::new_module(string_t file_name, string_t file_path, proto_t main_proto) {
-    69	    return new_object<ObjModule>(file_name, file_path, main_proto);
-    70	}
-    71	
-    72	class_t MemoryManager::new_class(string_t name) {
-    73	    return new_object<ObjClass>(name);
-    74	}
-    75	
-    76	instance_t MemoryManager::new_instance(class_t klass, Shape* shape) {
-    77	    return new_object<ObjInstance>(klass, shape);
-    78	}
-    79	
-    80	bound_method_t MemoryManager::new_bound_method(Value instance, Value function) {
-    81	    return new_object<ObjBoundMethod>(instance, function);
-    82	}
-    83	
-    84	Shape* MemoryManager::new_shape() {
-    85	    return new_object<Shape>();
-    86	}
-    87	
-    88	Shape* MemoryManager::get_empty_shape() noexcept {
-    89	    if (empty_shape_ == nullptr) {
-    90	        empty_shape_ = heap_.create<Shape>(); 
-    91	        
-    92	        if (gc_) gc_->register_permanent(empty_shape_);
+    31	    gc_->register_permanent(new_obj);
+    32	    
+    33	    object_allocated_++;
+    34	    string_pool_.insert(new_obj);
+    35	    return new_obj;
+    36	}
+    37	
+    38	string_t MemoryManager::new_string(const char* chars, size_t length) {
+    39	    return new_string(std::string(chars, length));
+    40	}
+    41	
+    42	array_t MemoryManager::new_array(const std::vector<Value>& elements) {
+    43	    // meow::allocator<Value> alloc(arena_);
+    44	    
+    45	    // return new_object<ObjArray>(elements, alloc);
+    46	    return new_object<ObjArray>(elements);
+    47	}
+    48	
+    49	hash_table_t MemoryManager::new_hash(uint32_t capacity) {
+    50	    auto alloc = heap_.get_allocator<Entry>();
+    51	    return heap_.create<ObjHashTable>(alloc, capacity);
+    52	}
+    53	
+    54	upvalue_t MemoryManager::new_upvalue(size_t index) {
+    55	    return new_object<ObjUpvalue>(index);
+    56	}
+    57	
+    58	proto_t MemoryManager::new_proto(size_t registers, size_t upvalues, string_t name, Chunk&& chunk) {
+    59	    return new_object<ObjFunctionProto>(registers, upvalues, name, std::move(chunk));
+    60	}
+    61	
+    62	proto_t MemoryManager::new_proto(size_t registers, size_t upvalues, string_t name, Chunk&& chunk, std::vector<UpvalueDesc>&& descs) {
+    63	    return new_object<ObjFunctionProto>(registers, upvalues, name, std::move(chunk), std::move(descs));
+    64	}
+    65	
+    66	function_t MemoryManager::new_function(proto_t proto) {
+    67	    return new_object<ObjClosure>(proto);
+    68	}
+    69	
+    70	module_t MemoryManager::new_module(string_t file_name, string_t file_path, proto_t main_proto) {
+    71	    return new_object<ObjModule>(file_name, file_path, main_proto);
+    72	}
+    73	
+    74	class_t MemoryManager::new_class(string_t name) {
+    75	    return new_object<ObjClass>(name);
+    76	}
+    77	
+    78	instance_t MemoryManager::new_instance(class_t klass, Shape* shape) {
+    79	    return new_object<ObjInstance>(klass, shape);
+    80	}
+    81	
+    82	bound_method_t MemoryManager::new_bound_method(Value instance, Value function) {
+    83	    return new_object<ObjBoundMethod>(instance, function);
+    84	}
+    85	
+    86	Shape* MemoryManager::new_shape() {
+    87	    return new_object<Shape>();
+    88	}
+    89	
+    90	Shape* MemoryManager::get_empty_shape() noexcept {
+    91	    if (empty_shape_ == nullptr) {
+    92	        empty_shape_ = heap_.create<Shape>(); 
     93	        
-    94	        object_allocated_++;
-    95	    }
-    96	    return empty_shape_;
-    97	}
-    98	
+    94	        if (gc_) gc_->register_permanent(empty_shape_);
+    95	        
+    96	        object_allocated_++;
+    97	    }
+    98	    return empty_shape_;
     99	}
+   100	
+   101	}
 
 

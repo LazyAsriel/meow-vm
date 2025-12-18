@@ -2067,18 +2067,19 @@
    111	} // namespace anonymous
    112	
    113	void Interpreter::run(VMState state) noexcept {
-   114	    if (!state.ctx.current_frame_) return;
-   115	    
-   116	    state.update_pointers();
-   117	    
-   118	    Value* regs = state.registers;
-   119	    const Value* constants = state.constants;
-   120	    const uint8_t* ip = state.ctx.current_frame_->ip_;
-   121	    
-   122	    dispatch(ip, regs, constants, &state);
-   123	}
-   124	
-   125	} // namespace meow
+   114	    MemoryManager::set_current(&state.heap);
+   115	    if (!state.ctx.current_frame_) return;
+   116	    
+   117	    state.update_pointers();
+   118	    
+   119	    Value* regs = state.registers;
+   120	    const Value* constants = state.constants;
+   121	    const uint8_t* ip = state.ctx.current_frame_->ip_;
+   122	    
+   123	    dispatch(ip, regs, constants, &state);
+   124	}
+   125	
+   126	} // namespace meow
 
 
 // =============================================================================

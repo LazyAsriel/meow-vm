@@ -11,6 +11,7 @@
 #include <meow/core/meow_object.h>
 #include <meow/value.h>
 #include <meow/memory/gc_visitor.h>
+#include <meow/memory/memory_manager.h>
 
 namespace meow {
 class ObjArray : public ObjBase<ObjectType::ARRAY> {
@@ -83,7 +84,9 @@ public:
     inline size_t capacity() const noexcept { return elements_.capacity(); }
 
     template <typename T>
-    inline void push(T&& value) { elements_.emplace_back(std::forward<T>(value)); }
+    inline void push(T&& value) {
+        elements_.emplace_back(std::forward<T>(value));
+    }
     inline void pop() noexcept { elements_.pop_back(); }
     
     template <typename... Args>

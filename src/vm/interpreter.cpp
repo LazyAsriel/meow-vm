@@ -111,6 +111,7 @@ namespace {
 } // namespace anonymous
 
 void Interpreter::run(VMState state) noexcept {
+    MemoryManager::set_current(&state.heap);
     if (!state.ctx.current_frame_) return;
     
     state.update_pointers();

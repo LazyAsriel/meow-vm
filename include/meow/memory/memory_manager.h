@@ -16,6 +16,8 @@
 
 namespace meow {
 class MemoryManager {
+private:
+    static thread_local MemoryManager* current_;
 public:
     explicit MemoryManager(std::unique_ptr<GarbageCollector> gc) noexcept;
     ~MemoryManager() noexcept;
@@ -55,6 +57,8 @@ public:
         }
     }
 
+    static void set_current(MemoryManager* instance) noexcept { current_ = instance; }
+    static MemoryManager* get_current() noexcept { return current_; }
 private:
     struct StringPoolHash {
         using is_transparent = void;
