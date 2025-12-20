@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include "meow_variant.h"
 
 namespace meow {
 struct MeowObject;
@@ -48,6 +49,8 @@ using proto_t = ObjFunctionProto*;
 using function_t = ObjClosure*;
 using module_t = ObjModule*;
 using shape_t = Shape*;
+
+using base_t = meow::variant<null_t, bool_t, int_t, float_t, native_t, object_t>;
 
 enum class ValueType : uint8_t {
     Null,

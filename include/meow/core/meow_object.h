@@ -1,4 +1,6 @@
 #pragma once
+
+#include <meow/common.h>
 #include <cstdint>
 
 namespace meow {
@@ -9,7 +11,7 @@ enum class GCState : uint8_t {
 };
 
 enum class ObjectType : uint8_t {
-    ARRAY = 6, STRING, HASH_TABLE, INSTANCE, CLASS,
+    ARRAY = base_t::index_of<object_t>() + 1, STRING, HASH_TABLE, INSTANCE, CLASS,
     BOUND_METHOD, UPVALUE, PROTO, FUNCTION, MODULE, SHAPE
 };
 

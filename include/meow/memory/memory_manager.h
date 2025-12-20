@@ -10,6 +10,7 @@
 #include <meow/memory/garbage_collector.h>
 #include <meow/core/shape.h>
 #include <meow/core/string.h>
+#include <meow/core/function.h>
 
 #include "meow_heap.h"
 #include "meow_allocator.h"
