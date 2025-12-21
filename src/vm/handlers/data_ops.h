@@ -106,13 +106,17 @@ static const uint8_t* impl_NEW_HASH(const uint8_t* ip, Value* regs, const Value*
         }
         array_t arr = src.as_array();
         int64_t idx = key.as_int();
+        // if (idx < 0 || static_cast<size_t>(idx) >= arr->size()) {
+        //     state->error("Array index out of bounds.");
+        //     return impl_PANIC(ip, regs, constants, state);
+        // }
+        // regs[dst] = arr->get(idx);
+
         if (idx < 0 || static_cast<size_t>(idx) >= arr->size()) {
-            std::println("Array index out of bounds {} in {}", idx, to_string(arr));
-            std::println("GET_INDEX {}, {}, {}", dst, src_reg, key_reg);
-            state->error("Array index out of bounds.");
-            return impl_PANIC(ip, regs, constants, state);
+            regs[dst] = null_t{};
+        } else {
+            regs[dst] = arr->get(idx);
         }
-        regs[dst] = arr->get(idx);
     } 
     else if (src.is_hash_table()) {
         hash_table_t hash = src.as_hash_table();

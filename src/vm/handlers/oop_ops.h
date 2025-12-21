@@ -193,11 +193,11 @@ static const uint8_t* impl_INVOKE(const uint8_t* ip, Value* regs, const Value* c
 
 [[gnu::always_inline]] 
 static const uint8_t* impl_NEW_CLASS(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    static bool is_ran = false;
-    if (!is_ran) {
-        std::println("Đang dùng NEW_CLASS OpCode (chỉ hiện log một lần)");
-        is_ran = true;
-    }
+    // static bool is_ran = false;
+    // if (!is_ran) {
+    //     std::println("Đang dùng NEW_CLASS OpCode (chỉ hiện log một lần)");
+    //     is_ran = true;
+    // }
     uint16_t dst = read_u16(ip);
     uint16_t name_idx = read_u16(ip);
     string_t name = constants[name_idx].as_string();
