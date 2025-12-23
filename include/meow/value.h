@@ -102,6 +102,7 @@ public:
     inline bool is_int() const noexcept { return data_.holds<int_t>(); }
     inline bool is_float() const noexcept { return data_.holds<float_t>(); }
     inline bool is_native() const noexcept { return data_.holds<native_t>(); }
+    inline bool is_pointer() const noexcept { return data_.holds<pointer_t>(); }
     inline bool is_object() const noexcept { return get_object_ptr() != nullptr; }
 
     inline bool is_array() const noexcept        { return check_obj_type(ObjectType::ARRAY); }
@@ -121,6 +122,7 @@ public:
     inline int64_t as_int() const noexcept     { return data_.get<int_t>(); }
     inline double as_float() const noexcept    { return data_.get<float_t>(); }
     inline native_t as_native() const noexcept { return data_.get<native_t>(); }
+    inline pointer_t as_pointer() const noexcept { return data_.get<pointer_t>(); }
     
     inline MeowObject* as_object() const noexcept { return data_.get<object_t>(); }
 
@@ -140,10 +142,16 @@ public:
 
     // === Safe Getters (Deducing 'this') ===
 
-    template <typename Self> auto as_if_bool(this Self&& self) noexcept   { return self.data_.template get_if<bool_t>(); }
-    template <typename Self> auto as_if_int(this Self&& self) noexcept    { return self.data_.template get_if<int_t>(); }
-    template <typename Self> auto as_if_float(this Self&& self) noexcept  { return self.data_.template get_if<float_t>(); }
-    template <typename Self> auto as_if_native(this Self&& self) noexcept { return self.data_.template get_if<native_t>(); }
+    template <typename Self>
+    auto as_if_bool(this Self&& self) noexcept   { return self.data_.template get_if<bool_t>(); }
+    template <typename Self>
+    auto as_if_int(this Self&& self) noexcept    { return self.data_.template get_if<int_t>(); }
+    template <typename Self>
+    auto as_if_float(this Self&& self) noexcept  { return self.data_.template get_if<float_t>(); }
+    template <typename Self>
+    auto as_if_native(this Self&& self) noexcept { return self.data_.template get_if<native_t>(); }
+    template <typename Self>
+    auto as_if_pointer(this Self&& self) noexcept  { return self.data_.template get_if<pointer_t>(); }
 
     // Objects
     template <typename Self> auto as_if_array(this Self&& self) noexcept        { return self.template get_obj_if<array_t, ObjectType::ARRAY>(); }

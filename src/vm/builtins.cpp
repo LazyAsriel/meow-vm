@@ -188,6 +188,8 @@ void Machine::load_builtins() {
     mod_manager_->add_cache(heap_->new_string("string"), stdlib::create_string_module(this, heap_.get()));
     mod_manager_->add_cache(heap_->new_string("object"), stdlib::create_object_module(this, heap_.get()));
     mod_manager_->add_cache(heap_->new_string("json"), stdlib::create_json_module(this, heap_.get()));
+    mod_manager_->add_cache(heap_->new_string("memory"), stdlib::create_memory_module(this, heap_.get()));
+
 }
 
 } // namespace meow
