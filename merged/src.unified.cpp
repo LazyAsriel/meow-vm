@@ -2517,95 +2517,93 @@
     77	        perm = perm->next_gc;
     78	    }
     79	
-    80	    // [FIX] Quét Remembered Set để đánh dấu các đối tượng con (Young Gen)
-    81	    // được tham chiếu bởi đối tượng già (Old Gen).
-    82	    for (auto* obj : remembered_set_) {
-    83	        mark_object(obj);
-    84	    }
-    85	
-    86	    if (old_count_ > old_gen_threshold_) {
-    87	        sweep_full();
-    88	        old_gen_threshold_ = std::max((size_t)100, old_count_ * 2);
-    89	    } else {
-    90	        sweep_young();
-    91	    }
-    92	
-    93	    remembered_set_.clear();
-    94	    return young_count_ + old_count_;
-    95	}
-    96	
-    97	void GenerationalGC::destroy_object(ObjectMeta* meta) {
-    98	    MeowObject* obj = static_cast<MeowObject*>(heap::get_data(meta));
-    99	    std::destroy_at(obj);
-   100	    heap_->deallocate_raw(meta, sizeof(ObjectMeta) + meta->size);
-   101	}
-   102	
-   103	void GenerationalGC::sweep_young() {
-   104	    ObjectMeta** curr = &young_head_;
-   105	    size_t survived = 0;
-   106	
-   107	    while (*curr) {
-   108	        ObjectMeta* meta = *curr;
-   109	        
-   110	        if (meta->flags & MARKED) {
-   111	            *curr = meta->next_gc; 
-   112	            meta->next_gc = old_head_;
-   113	            old_head_ = meta;
-   114	            meta->flags = GEN_OLD; 
-   115	            
-   116	            old_count_++;
-   117	            young_count_--;
-   118	        } else {
-   119	            ObjectMeta* dead = meta;
-   120	            *curr = dead->next_gc;
-   121	            
-   122	            destroy_object(dead);
-   123	            young_count_--;
-   124	        }
-   125	    }
-   126	}
-   127	
-   128	void GenerationalGC::sweep_full() {
-   129	    ObjectMeta** curr_old = &old_head_;
-   130	    size_t old_survived = 0;
-   131	    while (*curr_old) {
-   132	        ObjectMeta* meta = *curr_old;
-   133	        if (meta->flags & MARKED) {
-   134	            meta->flags &= ~MARKED;
-   135	            curr_old = &meta->next_gc;
-   136	            old_survived++;
-   137	        } else {
-   138	            ObjectMeta* dead = meta;
-   139	            *curr_old = dead->next_gc;
-   140	            destroy_object(dead);
-   141	        }
-   142	    }
-   143	    old_count_ = old_survived;
-   144	
-   145	    sweep_young(); 
-   146	}
-   147	
-   148	void GenerationalGC::visit_value(param_t value) noexcept {
-   149	    if (value.is_object()) mark_object(value.as_object());
-   150	}
-   151	
-   152	void GenerationalGC::visit_object(const MeowObject* object) noexcept {
-   153	    mark_object(const_cast<MeowObject*>(object));
-   154	}
-   155	
-   156	void GenerationalGC::mark_object(MeowObject* object) {
-   157	    if (object == nullptr) return;
+    80	    for (auto* obj : remembered_set_) {
+    81	        mark_object(obj);
+    82	    }
+    83	
+    84	    if (old_count_ > old_gen_threshold_) {
+    85	        sweep_full();
+    86	        old_gen_threshold_ = std::max((size_t)100, old_count_ * 2);
+    87	    } else {
+    88	        sweep_young();
+    89	    }
+    90	
+    91	    remembered_set_.clear();
+    92	    return young_count_ + old_count_;
+    93	}
+    94	
+    95	void GenerationalGC::destroy_object(ObjectMeta* meta) {
+    96	    MeowObject* obj = static_cast<MeowObject*>(heap::get_data(meta));
+    97	    std::destroy_at(obj);
+    98	    heap_->deallocate_raw(meta, sizeof(ObjectMeta) + meta->size);
+    99	}
+   100	
+   101	void GenerationalGC::sweep_young() {
+   102	    ObjectMeta** curr = &young_head_;
+   103	    size_t survived = 0;
+   104	
+   105	    while (*curr) {
+   106	        ObjectMeta* meta = *curr;
+   107	        
+   108	        if (meta->flags & MARKED) {
+   109	            *curr = meta->next_gc; 
+   110	            meta->next_gc = old_head_;
+   111	            old_head_ = meta;
+   112	            meta->flags = GEN_OLD; 
+   113	            
+   114	            old_count_++;
+   115	            young_count_--;
+   116	        } else {
+   117	            ObjectMeta* dead = meta;
+   118	            *curr = dead->next_gc;
+   119	            
+   120	            destroy_object(dead);
+   121	            young_count_--;
+   122	        }
+   123	    }
+   124	}
+   125	
+   126	void GenerationalGC::sweep_full() {
+   127	    ObjectMeta** curr_old = &old_head_;
+   128	    size_t old_survived = 0;
+   129	    while (*curr_old) {
+   130	        ObjectMeta* meta = *curr_old;
+   131	        if (meta->flags & MARKED) {
+   132	            meta->flags &= ~MARKED;
+   133	            curr_old = &meta->next_gc;
+   134	            old_survived++;
+   135	        } else {
+   136	            ObjectMeta* dead = meta;
+   137	            *curr_old = dead->next_gc;
+   138	            destroy_object(dead);
+   139	        }
+   140	    }
+   141	    old_count_ = old_survived;
+   142	
+   143	    sweep_young(); 
+   144	}
+   145	
+   146	void GenerationalGC::visit_value(param_t value) noexcept {
+   147	    if (value.is_object()) mark_object(value.as_object());
+   148	}
+   149	
+   150	void GenerationalGC::visit_object(const MeowObject* object) noexcept {
+   151	    mark_object(const_cast<MeowObject*>(object));
+   152	}
+   153	
+   154	void GenerationalGC::mark_object(MeowObject* object) {
+   155	    if (object == nullptr) return;
+   156	    
+   157	    auto* meta = heap::get_meta(object);
    158	    
-   159	    auto* meta = heap::get_meta(object);
+   159	    if (meta->flags & MARKED) return;
    160	    
-   161	    if (meta->flags & MARKED) return;
+   161	    meta->flags |= MARKED;
    162	    
-   163	    meta->flags |= MARKED;
-   164	    
-   165	    object->trace(*this);
+   163	    object->trace(*this);
+   164	}
+   165	
    166	}
-   167	
-   168	}
 
 
 // =============================================================================
@@ -3150,301 +3148,302 @@
 
      1	#include "module/module_utils.h"
      2	#include "pch.h"
-     3	
-     4	#if defined(_WIN32)
-     5	#define WIN32_LEAN_AND_MEAN
-     6	#include <windows.h>
-     7	#else
-     8	#include <dlfcn.h>
-     9	#if defined(__APPLE__)
-    10	#include <mach-o/dyld.h>
-    11	#else
-    12	#include <limits.h>
-    13	#include <unistd.h>
-    14	#endif
+     3	#include <mutex>
+     4	
+     5	#if defined(_WIN32)
+     6	#define WIN32_LEAN_AND_MEAN
+     7	#include <windows.h>
+     8	#else
+     9	#include <dlfcn.h>
+    10	#if defined(__APPLE__)
+    11	#include <mach-o/dyld.h>
+    12	#else
+    13	#include <limits.h>
+    14	#include <unistd.h>
     15	#endif
-    16	
-    17	namespace meow {
-    18	
-    19	static inline std::string to_lower_copy(std::string s) noexcept {
-    20	    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    21	    return s;
-    22	}
-    23	
-    24	std::filesystem::path get_executable_dir() noexcept {
-    25	    try {
-    26	#if defined(_WIN32)
-    27	        char buf[MAX_PATH];
-    28	        DWORD len = GetModuleFileNameA(NULL, buf, MAX_PATH);
-    29	        if (len == 0) return std::filesystem::current_path();
-    30	        return std::filesystem::path(std::string(buf, static_cast<size_t>(len))).parent_path();
-    31	#elif defined(__APPLE__)
-    32	        uint32_t size = 0;
-    33	        if (_NSGetExecutablePath(nullptr, &size) != 0 && size == 0) return std::filesystem::current_path();
-    34	        std::vector<char> buf(size ? size : 1);
-    35	        if (_NSGetExecutablePath(buf.data(), &size) != 0) return std::filesystem::current_path();
-    36	        return std::filesystem::absolute(std::filesystem::path(buf.data())).parent_path();
-    37	#else
-    38	        char buf[PATH_MAX];
-    39	        ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
-    40	        if (len == -1) return std::filesystem::current_path();
-    41	        buf[len] = '\0';
-    42	        return std::filesystem::path(std::string(buf, static_cast<size_t>(len))).parent_path();
-    43	#endif
-    44	    } catch (...) {
-    45	        return std::filesystem::current_path();
-    46	    }
-    47	}
-    48	
-    49	std::filesystem::path normalize_path(const std::filesystem::path& p) noexcept {
-    50	    try {
-    51	        if (p.empty()) return p;
-    52	        return std::filesystem::absolute(p).lexically_normal();
-    53	    } catch (...) {
-    54	        return p;
-    55	    }
-    56	}
-    57	
-    58	bool file_exists(const std::filesystem::path& p) noexcept {
-    59	    try {
-    60	        return std::filesystem::exists(p);
-    61	    } catch (...) {
-    62	        return false;
-    63	    }
-    64	}
-    65	
-    66	std::string read_first_non_empty_line_trimmed(const std::filesystem::path& path) noexcept {
-    67	    try {
-    68	        std::ifstream in(path);
-    69	        if (!in) return std::string();
-    70	        std::string line;
-    71	        while (std::getline(in, line)) {
-    72	            // trim both ends
-    73	            auto ltrim = [](std::string& s) { s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); })); };
-    74	            auto rtrim = [](std::string& s) { s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end()); };
-    75	            rtrim(line);
-    76	            ltrim(line);
-    77	            if (!line.empty()) return line;
-    78	        }
-    79	    } catch (...) {
-    80	    }
-    81	    return std::string();
-    82	}
-    83	
-    84	std::string expand_token(const std::string& raw, const std::string& token, const std::filesystem::path& replacement) noexcept {
-    85	    if (token.empty() || !raw.contains(token)) return raw;
-    86	    std::string out;
-    87	    out.reserve(raw.size() + replacement.string().size());
-    88	    size_t pos = 0;
-    89	    while (true) {
-    90	        size_t p = raw.find(token, pos);
-    91	        if (p == std::string::npos) {
-    92	            out.append(raw.substr(pos));
-    93	            break;
-    94	        }
-    95	        out.append(raw.substr(pos, p - pos));
-    96	        out.append(replacement.string());
-    97	        pos = p + token.size();
-    98	    }
-    99	    return out;
-   100	}
-   101	
-   102	// -------------------- root detection with caching (thread-safe, keyed)
-   103	// --------------------
-   104	struct cache_key {
-   105	    std::string config_filename;
-   106	    std::string token;
-   107	    bool treat_bin_as_parent;
-   108	    bool operator==(const cache_key& o) const noexcept {
-   109	        return config_filename == o.config_filename && token == o.token && treat_bin_as_parent == o.treat_bin_as_parent;
-   110	    }
-   111	};
-   112	namespace {
-   113	struct key_hash {
-   114	    size_t operator()(cache_key const& k) const noexcept {
-   115	        std::hash<std::string> h;
-   116	        size_t r = h(k.config_filename);
-   117	        r = r * 1315423911u + h(k.token);
-   118	        r ^= static_cast<size_t>(k.treat_bin_as_parent) + 0x9e3779b97f4a7c15ULL + (r << 6) + (r >> 2);
-   119	        return r;
-   120	    }
-   121	};
-   122	static std::mutex s_cache_mutex;
-   123	static std::unordered_map<cache_key, std::filesystem::path, key_hash> s_root_cache;
-   124	}
-   125	
-   126	std::filesystem::path detect_root_cached(const std::string& config_filename, const std::string& token, bool treat_bin_as_parent, std::function<std::filesystem::path()> exe_dir_provider) noexcept {
-   127	    try {
-   128	        cache_key k{config_filename, token, treat_bin_as_parent};
-   129	        {
-   130	            std::lock_guard<std::mutex> lk(s_cache_mutex);
-   131	            auto it = s_root_cache.find(k);
-   132	            if (it != s_root_cache.end()) return it->second;
-   133	        }
-   134	
-   135	        std::filesystem::path exe_dir = exe_dir_provider();
-   136	        if (!config_filename.empty()) {
-   137	            std::filesystem::path config_path = exe_dir / config_filename;
-   138	            if (file_exists(config_path)) {
-   139	                std::string line = read_first_non_empty_line_trimmed(config_path);
-   140	                if (!line.empty()) {
-   141	                    std::string expanded = token.empty() ? line : expand_token(line, token, exe_dir);
-   142	                    std::filesystem::path result = normalize_path(std::filesystem::path(expanded));
-   143	                    {
-   144	                        std::lock_guard<std::mutex> lk(s_cache_mutex);
-   145	                        s_root_cache.emplace(k, result);
-   146	                    }
-   147	                    return result;
-   148	                }
-   149	            }
-   150	        }
-   151	
-   152	        std::filesystem::path fallback = exe_dir;
-   153	        if (treat_bin_as_parent && exe_dir.filename() == "bin") fallback = exe_dir.parent_path();
-   154	        std::filesystem::path result = normalize_path(fallback);
-   155	        {
-   156	            std::lock_guard<std::mutex> lk(s_cache_mutex);
-   157	            s_root_cache.emplace(k, result);
-   158	        }
-   159	        return result;
-   160	    } catch (...) {
-   161	        return std::filesystem::current_path();
-   162	    }
-   163	}
-   164	
-   165	// -------------------- default search roots helper --------------------
-   166	std::vector<std::filesystem::path> make_default_search_roots(const std::filesystem::path& root) noexcept {
-   167	    std::vector<std::filesystem::path> v;
-   168	    try {
-   169	        v.reserve(5);
-   170	        v.push_back(normalize_path(root));
-   171	        v.push_back(normalize_path(root / "lib"));
-   172	        v.push_back(normalize_path(root / "stdlib"));
-   173	        v.push_back(normalize_path(root / "bin" / "stdlib"));
-   174	        v.push_back(normalize_path(root / "bin"));
-   175	    } catch (...) {
-   176	    }
-   177	    return v;
-   178	}
-   179	
-   180	std::string resolve_library_path_generic(const std::string& module_path, const std::string& importer, const std::string& entry_path, const std::vector<std::string>& forbidden_extensions,
-   181	                                         const std::vector<std::string>& candidate_extensions, const std::vector<std::filesystem::path>& search_roots, bool extra_relative_search) noexcept {
-   182	    try {
-   183	        std::filesystem::path candidate(module_path);
-   184	        std::string ext = candidate.extension().string();
-   185	        if (!ext.empty()) {
-   186	            std::string ext_l = to_lower_copy(ext);
-   187	            for (const auto& f : forbidden_extensions) {
-   188	                if (ext_l == to_lower_copy(f)) return "";
-   189	            }
-   190	            if (candidate.is_absolute() && file_exists(candidate)) return normalize_path(candidate).string();
-   191	        }
-   192	
-   193	        std::vector<std::filesystem::path> to_try;
-   194	        to_try.reserve(8);
-   195	
-   196	        if (candidate.extension().empty() && !candidate_extensions.empty()) {
-   197	            for (const auto& ce : candidate_extensions) {
-   198	                std::filesystem::path p = candidate;
-   199	                p.replace_extension(ce);
-   200	                to_try.push_back(p);
-   201	            }
-   202	        } else {
-   203	            to_try.push_back(candidate);
-   204	        }
-   205	
-   206	        for (const auto& root : search_roots) {
-   207	            for (const auto& t : to_try) {
-   208	                std::filesystem::path p = root / t;
-   209	                if (file_exists(p)) return normalize_path(p).string();
-   210	            }
-   211	        }
-   212	
-   213	        for (const auto& t : to_try) {
-   214	            if (file_exists(t)) return normalize_path(t).string();
-   215	        }
-   216	
-   217	        if (extra_relative_search) {
-   218	            std::filesystem::path base_dir;
-   219	            if (importer == entry_path)
-   220	                base_dir = std::filesystem::path(entry_path);
-   221	            else
-   222	                base_dir = std::filesystem::path(importer).parent_path();
-   223	
-   224	            for (const auto& t : to_try) {
-   225	                std::filesystem::path p = normalize_path(base_dir / t);
-   226	                if (file_exists(p)) return p.string();
-   227	            }
-   228	        }
-   229	
-   230	        return "";
-   231	    } catch (...) {
-   232	        return "";
-   233	    }
-   234	}
-   235	
-   236	std::string get_platform_library_extension() noexcept {
-   237	#if defined(_WIN32)
-   238	    return ".dll";
-   239	#elif defined(__APPLE__)
-   240	    return ".dylib";
-   241	#else
-   242	    return ".so";
-   243	#endif
-   244	}
-   245	
-   246	std::string platform_last_error() noexcept {
-   247	#if defined(_WIN32)
-   248	    DWORD err = GetLastError();
-   249	    if (err == 0) return std::string();
-   250	    LPSTR buf = nullptr;
-   251	    FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&buf, 0, nullptr);
-   252	    std::string s = buf ? std::string(buf) : std::string();
-   253	    if (buf) LocalFree(buf);
-   254	    while (!s.empty() && (s.back() == '\n' || s.back() == '\r' || s.back() == ' ' || s.back() == '\t')) s.pop_back();
-   255	    return s;
-   256	#else
-   257	    const char* e = dlerror();
-   258	    return e ? std::string(e) : std::string();
-   259	#endif
-   260	}
-   261	
-   262	void* open_native_library(const std::string& path) noexcept {
-   263	#if defined(_WIN32)
-   264	    HMODULE h = LoadLibraryA(path.c_str());
-   265	    return reinterpret_cast<void*>(h);
-   266	#else
-   267	    // clear previous errors
-   268	    dlerror();
-   269	    void* h = dlopen(path.c_str(), RTLD_LAZY | RTLD_LOCAL);
-   270	    return h;
-   271	#endif
-   272	}
-   273	
-   274	void* get_native_symbol(void* handle, const char* symbol_name) noexcept {
-   275	    if (!handle || !symbol_name) return nullptr;
-   276	#if defined(_WIN32)
-   277	    FARPROC p = GetProcAddress(reinterpret_cast<HMODULE>(handle), symbol_name);
-   278	    return reinterpret_cast<void*>(p);
-   279	#else
-   280	    dlerror();
-   281	    void* p = dlsym(handle, symbol_name);
-   282	    const char* err = dlerror();
-   283	    (void)err;
-   284	    return p;
-   285	#endif
-   286	}
-   287	
-   288	void close_native_library(void* handle) noexcept {
-   289	    if (!handle) return;
-   290	#if defined(_WIN32)
-   291	    FreeLibrary(reinterpret_cast<HMODULE>(handle));
-   292	#else
-   293	    dlclose(handle);
-   294	#endif
-   295	}
-   296	
-   297	}
+    16	#endif
+    17	
+    18	namespace meow {
+    19	
+    20	static inline std::string to_lower_copy(std::string s) noexcept {
+    21	    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    22	    return s;
+    23	}
+    24	
+    25	std::filesystem::path get_executable_dir() noexcept {
+    26	    try {
+    27	#if defined(_WIN32)
+    28	        char buf[MAX_PATH];
+    29	        DWORD len = GetModuleFileNameA(NULL, buf, MAX_PATH);
+    30	        if (len == 0) return std::filesystem::current_path();
+    31	        return std::filesystem::path(std::string(buf, static_cast<size_t>(len))).parent_path();
+    32	#elif defined(__APPLE__)
+    33	        uint32_t size = 0;
+    34	        if (_NSGetExecutablePath(nullptr, &size) != 0 && size == 0) return std::filesystem::current_path();
+    35	        std::vector<char> buf(size ? size : 1);
+    36	        if (_NSGetExecutablePath(buf.data(), &size) != 0) return std::filesystem::current_path();
+    37	        return std::filesystem::absolute(std::filesystem::path(buf.data())).parent_path();
+    38	#else
+    39	        char buf[PATH_MAX];
+    40	        ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+    41	        if (len == -1) return std::filesystem::current_path();
+    42	        buf[len] = '\0';
+    43	        return std::filesystem::path(std::string(buf, static_cast<size_t>(len))).parent_path();
+    44	#endif
+    45	    } catch (...) {
+    46	        return std::filesystem::current_path();
+    47	    }
+    48	}
+    49	
+    50	std::filesystem::path normalize_path(const std::filesystem::path& p) noexcept {
+    51	    try {
+    52	        if (p.empty()) return p;
+    53	        return std::filesystem::absolute(p).lexically_normal();
+    54	    } catch (...) {
+    55	        return p;
+    56	    }
+    57	}
+    58	
+    59	bool file_exists(const std::filesystem::path& p) noexcept {
+    60	    try {
+    61	        return std::filesystem::exists(p);
+    62	    } catch (...) {
+    63	        return false;
+    64	    }
+    65	}
+    66	
+    67	std::string read_first_non_empty_line_trimmed(const std::filesystem::path& path) noexcept {
+    68	    try {
+    69	        std::ifstream in(path);
+    70	        if (!in) return std::string();
+    71	        std::string line;
+    72	        while (std::getline(in, line)) {
+    73	            // trim both ends
+    74	            auto ltrim = [](std::string& s) { s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); })); };
+    75	            auto rtrim = [](std::string& s) { s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end()); };
+    76	            rtrim(line);
+    77	            ltrim(line);
+    78	            if (!line.empty()) return line;
+    79	        }
+    80	    } catch (...) {
+    81	    }
+    82	    return std::string();
+    83	}
+    84	
+    85	std::string expand_token(const std::string& raw, const std::string& token, const std::filesystem::path& replacement) noexcept {
+    86	    if (token.empty() || !raw.contains(token)) return raw;
+    87	    std::string out;
+    88	    out.reserve(raw.size() + replacement.string().size());
+    89	    size_t pos = 0;
+    90	    while (true) {
+    91	        size_t p = raw.find(token, pos);
+    92	        if (p == std::string::npos) {
+    93	            out.append(raw.substr(pos));
+    94	            break;
+    95	        }
+    96	        out.append(raw.substr(pos, p - pos));
+    97	        out.append(replacement.string());
+    98	        pos = p + token.size();
+    99	    }
+   100	    return out;
+   101	}
+   102	
+   103	// -------------------- root detection with caching (thread-safe, keyed)
+   104	// --------------------
+   105	struct cache_key {
+   106	    std::string config_filename;
+   107	    std::string token;
+   108	    bool treat_bin_as_parent;
+   109	    bool operator==(const cache_key& o) const noexcept {
+   110	        return config_filename == o.config_filename && token == o.token && treat_bin_as_parent == o.treat_bin_as_parent;
+   111	    }
+   112	};
+   113	namespace {
+   114	struct key_hash {
+   115	    size_t operator()(cache_key const& k) const noexcept {
+   116	        std::hash<std::string> h;
+   117	        size_t r = h(k.config_filename);
+   118	        r = r * 1315423911u + h(k.token);
+   119	        r ^= static_cast<size_t>(k.treat_bin_as_parent) + 0x9e3779b97f4a7c15ULL + (r << 6) + (r >> 2);
+   120	        return r;
+   121	    }
+   122	};
+   123	static std::mutex s_cache_mutex;
+   124	static std::unordered_map<cache_key, std::filesystem::path, key_hash> s_root_cache;
+   125	}
+   126	
+   127	std::filesystem::path detect_root_cached(const std::string& config_filename, const std::string& token, bool treat_bin_as_parent, std::function<std::filesystem::path()> exe_dir_provider) noexcept {
+   128	    try {
+   129	        cache_key k{config_filename, token, treat_bin_as_parent};
+   130	        {
+   131	            std::lock_guard<std::mutex> lk(s_cache_mutex);
+   132	            auto it = s_root_cache.find(k);
+   133	            if (it != s_root_cache.end()) return it->second;
+   134	        }
+   135	
+   136	        std::filesystem::path exe_dir = exe_dir_provider();
+   137	        if (!config_filename.empty()) {
+   138	            std::filesystem::path config_path = exe_dir / config_filename;
+   139	            if (file_exists(config_path)) {
+   140	                std::string line = read_first_non_empty_line_trimmed(config_path);
+   141	                if (!line.empty()) {
+   142	                    std::string expanded = token.empty() ? line : expand_token(line, token, exe_dir);
+   143	                    std::filesystem::path result = normalize_path(std::filesystem::path(expanded));
+   144	                    {
+   145	                        std::lock_guard<std::mutex> lk(s_cache_mutex);
+   146	                        s_root_cache.emplace(k, result);
+   147	                    }
+   148	                    return result;
+   149	                }
+   150	            }
+   151	        }
+   152	
+   153	        std::filesystem::path fallback = exe_dir;
+   154	        if (treat_bin_as_parent && exe_dir.filename() == "bin") fallback = exe_dir.parent_path();
+   155	        std::filesystem::path result = normalize_path(fallback);
+   156	        {
+   157	            std::lock_guard<std::mutex> lk(s_cache_mutex);
+   158	            s_root_cache.emplace(k, result);
+   159	        }
+   160	        return result;
+   161	    } catch (...) {
+   162	        return std::filesystem::current_path();
+   163	    }
+   164	}
+   165	
+   166	// -------------------- default search roots helper --------------------
+   167	std::vector<std::filesystem::path> make_default_search_roots(const std::filesystem::path& root) noexcept {
+   168	    std::vector<std::filesystem::path> v;
+   169	    try {
+   170	        v.reserve(5);
+   171	        v.push_back(normalize_path(root));
+   172	        v.push_back(normalize_path(root / "lib"));
+   173	        v.push_back(normalize_path(root / "stdlib"));
+   174	        v.push_back(normalize_path(root / "bin" / "stdlib"));
+   175	        v.push_back(normalize_path(root / "bin"));
+   176	    } catch (...) {
+   177	    }
+   178	    return v;
+   179	}
+   180	
+   181	std::string resolve_library_path_generic(const std::string& module_path, const std::string& importer, const std::string& entry_path, const std::vector<std::string>& forbidden_extensions,
+   182	                                         const std::vector<std::string>& candidate_extensions, const std::vector<std::filesystem::path>& search_roots, bool extra_relative_search) noexcept {
+   183	    try {
+   184	        std::filesystem::path candidate(module_path);
+   185	        std::string ext = candidate.extension().string();
+   186	        if (!ext.empty()) {
+   187	            std::string ext_l = to_lower_copy(ext);
+   188	            for (const auto& f : forbidden_extensions) {
+   189	                if (ext_l == to_lower_copy(f)) return "";
+   190	            }
+   191	            if (candidate.is_absolute() && file_exists(candidate)) return normalize_path(candidate).string();
+   192	        }
+   193	
+   194	        std::vector<std::filesystem::path> to_try;
+   195	        to_try.reserve(8);
+   196	
+   197	        if (candidate.extension().empty() && !candidate_extensions.empty()) {
+   198	            for (const auto& ce : candidate_extensions) {
+   199	                std::filesystem::path p = candidate;
+   200	                p.replace_extension(ce);
+   201	                to_try.push_back(p);
+   202	            }
+   203	        } else {
+   204	            to_try.push_back(candidate);
+   205	        }
+   206	
+   207	        for (const auto& root : search_roots) {
+   208	            for (const auto& t : to_try) {
+   209	                std::filesystem::path p = root / t;
+   210	                if (file_exists(p)) return normalize_path(p).string();
+   211	            }
+   212	        }
+   213	
+   214	        for (const auto& t : to_try) {
+   215	            if (file_exists(t)) return normalize_path(t).string();
+   216	        }
+   217	
+   218	        if (extra_relative_search) {
+   219	            std::filesystem::path base_dir;
+   220	            if (importer == entry_path)
+   221	                base_dir = std::filesystem::path(entry_path);
+   222	            else
+   223	                base_dir = std::filesystem::path(importer).parent_path();
+   224	
+   225	            for (const auto& t : to_try) {
+   226	                std::filesystem::path p = normalize_path(base_dir / t);
+   227	                if (file_exists(p)) return p.string();
+   228	            }
+   229	        }
+   230	
+   231	        return "";
+   232	    } catch (...) {
+   233	        return "";
+   234	    }
+   235	}
+   236	
+   237	std::string get_platform_library_extension() noexcept {
+   238	#if defined(_WIN32)
+   239	    return ".dll";
+   240	#elif defined(__APPLE__)
+   241	    return ".dylib";
+   242	#else
+   243	    return ".so";
+   244	#endif
+   245	}
+   246	
+   247	std::string platform_last_error() noexcept {
+   248	#if defined(_WIN32)
+   249	    DWORD err = GetLastError();
+   250	    if (err == 0) return std::string();
+   251	    LPSTR buf = nullptr;
+   252	    FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&buf, 0, nullptr);
+   253	    std::string s = buf ? std::string(buf) : std::string();
+   254	    if (buf) LocalFree(buf);
+   255	    while (!s.empty() && (s.back() == '\n' || s.back() == '\r' || s.back() == ' ' || s.back() == '\t')) s.pop_back();
+   256	    return s;
+   257	#else
+   258	    const char* e = dlerror();
+   259	    return e ? std::string(e) : std::string();
+   260	#endif
+   261	}
+   262	
+   263	void* open_native_library(const std::string& path) noexcept {
+   264	#if defined(_WIN32)
+   265	    HMODULE h = LoadLibraryA(path.c_str());
+   266	    return reinterpret_cast<void*>(h);
+   267	#else
+   268	    // clear previous errors
+   269	    dlerror();
+   270	    void* h = dlopen(path.c_str(), RTLD_LAZY | RTLD_LOCAL);
+   271	    return h;
+   272	#endif
+   273	}
+   274	
+   275	void* get_native_symbol(void* handle, const char* symbol_name) noexcept {
+   276	    if (!handle || !symbol_name) return nullptr;
+   277	#if defined(_WIN32)
+   278	    FARPROC p = GetProcAddress(reinterpret_cast<HMODULE>(handle), symbol_name);
+   279	    return reinterpret_cast<void*>(p);
+   280	#else
+   281	    dlerror();
+   282	    void* p = dlsym(handle, symbol_name);
+   283	    const char* err = dlerror();
+   284	    (void)err;
+   285	    return p;
+   286	#endif
+   287	}
+   288	
+   289	void close_native_library(void* handle) noexcept {
+   290	    if (!handle) return;
+   291	#if defined(_WIN32)
+   292	    FreeLibrary(reinterpret_cast<HMODULE>(handle));
+   293	#else
+   294	    dlclose(handle);
+   295	#endif
+   296	}
+   297	
+   298	}
 
 
 

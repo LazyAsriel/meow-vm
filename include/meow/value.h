@@ -52,10 +52,6 @@ public:
     inline Value& operator=(Value&&) noexcept = default;
     inline ~Value() noexcept = default;
 
-    // === FIX HERE ===
-    
-    // Case 1: Các loại Object (ObjString*, ObjArray*, etc.)
-    // Logic: Nếu T convert được sang MeowObject* -> Ép kiểu về MeowObject* để Variant nhận diện
     template <typename T>
     requires (std::is_convertible_v<T, MeowObject*> && !std::is_same_v<std::decay_t<T>, Value>)
     inline Value(T&& v) noexcept : data_(static_cast<MeowObject*>(v)) {}
@@ -67,8 +63,6 @@ public:
         return *this;
     }
 
-    // Case 2: Các loại Primitive (int, bool, double, null_t, native_t...)
-    // Logic: Nếu KHÔNG PHẢI object -> Giữ nguyên để Variant tự match
     template <typename T>
     requires (!std::is_convertible_v<T, MeowObject*> && !std::is_same_v<std::decay_t<T>, Value>)
     inline Value(T&& v) noexcept : data_(std::forward<T>(v)) {}

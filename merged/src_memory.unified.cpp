@@ -81,95 +81,93 @@
     77	        perm = perm->next_gc;
     78	    }
     79	
-    80	    // [FIX] Quét Remembered Set để đánh dấu các đối tượng con (Young Gen)
-    81	    // được tham chiếu bởi đối tượng già (Old Gen).
-    82	    for (auto* obj : remembered_set_) {
-    83	        mark_object(obj);
-    84	    }
-    85	
-    86	    if (old_count_ > old_gen_threshold_) {
-    87	        sweep_full();
-    88	        old_gen_threshold_ = std::max((size_t)100, old_count_ * 2);
-    89	    } else {
-    90	        sweep_young();
-    91	    }
-    92	
-    93	    remembered_set_.clear();
-    94	    return young_count_ + old_count_;
-    95	}
-    96	
-    97	void GenerationalGC::destroy_object(ObjectMeta* meta) {
-    98	    MeowObject* obj = static_cast<MeowObject*>(heap::get_data(meta));
-    99	    std::destroy_at(obj);
-   100	    heap_->deallocate_raw(meta, sizeof(ObjectMeta) + meta->size);
-   101	}
-   102	
-   103	void GenerationalGC::sweep_young() {
-   104	    ObjectMeta** curr = &young_head_;
-   105	    size_t survived = 0;
-   106	
-   107	    while (*curr) {
-   108	        ObjectMeta* meta = *curr;
-   109	        
-   110	        if (meta->flags & MARKED) {
-   111	            *curr = meta->next_gc; 
-   112	            meta->next_gc = old_head_;
-   113	            old_head_ = meta;
-   114	            meta->flags = GEN_OLD; 
-   115	            
-   116	            old_count_++;
-   117	            young_count_--;
-   118	        } else {
-   119	            ObjectMeta* dead = meta;
-   120	            *curr = dead->next_gc;
-   121	            
-   122	            destroy_object(dead);
-   123	            young_count_--;
-   124	        }
-   125	    }
-   126	}
-   127	
-   128	void GenerationalGC::sweep_full() {
-   129	    ObjectMeta** curr_old = &old_head_;
-   130	    size_t old_survived = 0;
-   131	    while (*curr_old) {
-   132	        ObjectMeta* meta = *curr_old;
-   133	        if (meta->flags & MARKED) {
-   134	            meta->flags &= ~MARKED;
-   135	            curr_old = &meta->next_gc;
-   136	            old_survived++;
-   137	        } else {
-   138	            ObjectMeta* dead = meta;
-   139	            *curr_old = dead->next_gc;
-   140	            destroy_object(dead);
-   141	        }
-   142	    }
-   143	    old_count_ = old_survived;
-   144	
-   145	    sweep_young(); 
-   146	}
-   147	
-   148	void GenerationalGC::visit_value(param_t value) noexcept {
-   149	    if (value.is_object()) mark_object(value.as_object());
-   150	}
-   151	
-   152	void GenerationalGC::visit_object(const MeowObject* object) noexcept {
-   153	    mark_object(const_cast<MeowObject*>(object));
-   154	}
-   155	
-   156	void GenerationalGC::mark_object(MeowObject* object) {
-   157	    if (object == nullptr) return;
+    80	    for (auto* obj : remembered_set_) {
+    81	        mark_object(obj);
+    82	    }
+    83	
+    84	    if (old_count_ > old_gen_threshold_) {
+    85	        sweep_full();
+    86	        old_gen_threshold_ = std::max((size_t)100, old_count_ * 2);
+    87	    } else {
+    88	        sweep_young();
+    89	    }
+    90	
+    91	    remembered_set_.clear();
+    92	    return young_count_ + old_count_;
+    93	}
+    94	
+    95	void GenerationalGC::destroy_object(ObjectMeta* meta) {
+    96	    MeowObject* obj = static_cast<MeowObject*>(heap::get_data(meta));
+    97	    std::destroy_at(obj);
+    98	    heap_->deallocate_raw(meta, sizeof(ObjectMeta) + meta->size);
+    99	}
+   100	
+   101	void GenerationalGC::sweep_young() {
+   102	    ObjectMeta** curr = &young_head_;
+   103	    size_t survived = 0;
+   104	
+   105	    while (*curr) {
+   106	        ObjectMeta* meta = *curr;
+   107	        
+   108	        if (meta->flags & MARKED) {
+   109	            *curr = meta->next_gc; 
+   110	            meta->next_gc = old_head_;
+   111	            old_head_ = meta;
+   112	            meta->flags = GEN_OLD; 
+   113	            
+   114	            old_count_++;
+   115	            young_count_--;
+   116	        } else {
+   117	            ObjectMeta* dead = meta;
+   118	            *curr = dead->next_gc;
+   119	            
+   120	            destroy_object(dead);
+   121	            young_count_--;
+   122	        }
+   123	    }
+   124	}
+   125	
+   126	void GenerationalGC::sweep_full() {
+   127	    ObjectMeta** curr_old = &old_head_;
+   128	    size_t old_survived = 0;
+   129	    while (*curr_old) {
+   130	        ObjectMeta* meta = *curr_old;
+   131	        if (meta->flags & MARKED) {
+   132	            meta->flags &= ~MARKED;
+   133	            curr_old = &meta->next_gc;
+   134	            old_survived++;
+   135	        } else {
+   136	            ObjectMeta* dead = meta;
+   137	            *curr_old = dead->next_gc;
+   138	            destroy_object(dead);
+   139	        }
+   140	    }
+   141	    old_count_ = old_survived;
+   142	
+   143	    sweep_young(); 
+   144	}
+   145	
+   146	void GenerationalGC::visit_value(param_t value) noexcept {
+   147	    if (value.is_object()) mark_object(value.as_object());
+   148	}
+   149	
+   150	void GenerationalGC::visit_object(const MeowObject* object) noexcept {
+   151	    mark_object(const_cast<MeowObject*>(object));
+   152	}
+   153	
+   154	void GenerationalGC::mark_object(MeowObject* object) {
+   155	    if (object == nullptr) return;
+   156	    
+   157	    auto* meta = heap::get_meta(object);
    158	    
-   159	    auto* meta = heap::get_meta(object);
+   159	    if (meta->flags & MARKED) return;
    160	    
-   161	    if (meta->flags & MARKED) return;
+   161	    meta->flags |= MARKED;
    162	    
-   163	    meta->flags |= MARKED;
-   164	    
-   165	    object->trace(*this);
+   163	    object->trace(*this);
+   164	}
+   165	
    166	}
-   167	
-   168	}
 
 
 // =============================================================================

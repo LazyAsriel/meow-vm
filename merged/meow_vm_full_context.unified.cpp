@@ -1,5 +1,5 @@
 // MEOW-VM FULL CONTEXT FILE
-// Generated at: Mon Dec 22 07:12:39 PM +07 2025
+// Generated at: Tue Dec 23 12:59:36 PM +07 2025
 // Structure: ALL HEADERS (include/) + ALL SOURCES (src/)
 
 
@@ -502,45 +502,46 @@
     36	using int_t = int64_t;
     37	using float_t = double;
     38	using native_t = value_t (*)(Machine* engine, int argc, value_t* argv);
-    39	using object_t = MeowObject*;
-    40	
-    41	using array_t = ObjArray*;
-    42	using string_t = ObjString*;
-    43	using hash_table_t = ObjHashTable*;
-    44	using instance_t = ObjInstance*;
-    45	using class_t = ObjClass*;
-    46	using bound_method_t = ObjBoundMethod*;
-    47	using upvalue_t = ObjUpvalue*;
-    48	using proto_t = ObjFunctionProto*;
-    49	using function_t = ObjClosure*;
-    50	using module_t = ObjModule*;
-    51	using shape_t = Shape*;
-    52	
-    53	using base_t = meow::variant<null_t, bool_t, int_t, float_t, native_t, object_t>;
-    54	
-    55	enum class ValueType : uint8_t {
-    56	    Null,
-    57	    Bool,
-    58	    Int,
-    59	    Float,
-    60	    NativeFn,
-    61	    Object,
-    62	
-    63	    Array,        // 1  — ARRAY
-    64	    String,       // 2  — STRING
-    65	    HashTable,    // 3  — HASH_TABLE
-    66	    Instance,     // 4  — INSTANCE
-    67	    Class,        // 5  — CLASS
-    68	    BoundMethod,  // 6  — BOUND_METHOD
-    69	    Upvalue,      // 7  — UPVALUE
-    70	    Proto,        // 8  — PROTO
-    71	    Function,     // 9  — FUNCTION
-    72	    Module,       // 10 — MODULE
-    73	    Shape,        // 11 - SHAPE
-    74	
-    75	    TotalValueTypes
-    76	};
-    77	}
+    39	using pointer_t = void*;
+    40	using object_t = MeowObject*;
+    41	
+    42	using array_t = ObjArray*;
+    43	using string_t = ObjString*;
+    44	using hash_table_t = ObjHashTable*;
+    45	using instance_t = ObjInstance*;
+    46	using class_t = ObjClass*;
+    47	using bound_method_t = ObjBoundMethod*;
+    48	using upvalue_t = ObjUpvalue*;
+    49	using proto_t = ObjFunctionProto*;
+    50	using function_t = ObjClosure*;
+    51	using module_t = ObjModule*;
+    52	using shape_t = Shape*;
+    53	
+    54	using base_t = meow::variant<null_t, bool_t, int_t, float_t, native_t, pointer_t, object_t>;
+    55	
+    56	enum class ValueType : uint8_t {
+    57	    Null,
+    58	    Bool,
+    59	    Int,
+    60	    Float,
+    61	    NativeFn,
+    62	    Object,
+    63	
+    64	    Array,        // 1  — ARRAY
+    65	    String,       // 2  — STRING
+    66	    HashTable,    // 3  — HASH_TABLE
+    67	    Instance,     // 4  — INSTANCE
+    68	    Class,        // 5  — CLASS
+    69	    BoundMethod,  // 6  — BOUND_METHOD
+    70	    Upvalue,      // 7  — UPVALUE
+    71	    Proto,        // 8  — PROTO
+    72	    Function,     // 9  — FUNCTION
+    73	    Module,       // 10 — MODULE
+    74	    Shape,        // 11 - SHAPE
+    75	
+    76	    TotalValueTypes
+    77	};
+    78	}
 
 
 
@@ -548,120 +549,103 @@
 //  FILE PATH: include/meow/core/array.h
 // =============================================================================
 
-     1	/**
-     2	 * @file array.h
-     3	 * @author LazyPaws
-     4	 * @brief Core definition of Array in TrangMeo
-     5	 */
-     6	
-     7	#pragma once
-     8	
-     9	#include <cstdint>
-    10	#include <vector>
-    11	#include <meow/core/meow_object.h>
-    12	#include <meow/value.h>
-    13	#include <meow/memory/gc_visitor.h>
-    14	#include <meow/memory/memory_manager.h>
-    15	
-    16	namespace meow {
-    17	class ObjArray : public ObjBase<ObjectType::ARRAY> {
-    18	public:
-    19	    using container_t = std::vector<value_t>;
-    20	    
-    21	private:
-    22	    using visitor_t = GCVisitor;
-    23	    container_t elements_;
-    24	
-    25	public:
-    26	    explicit ObjArray() = default;
-    27	
-    28	    ObjArray(const std::vector<value_t>& elements) 
-    29	        : elements_(elements) {}
-    30	
-    31	    ObjArray(container_t&& elements) noexcept 
-    32	        : elements_(std::move(elements)) {}
-    33	
-    34	    // --- Rule of 5 ---
-    35	    ObjArray(const ObjArray&) = delete;
-    36	    ObjArray(ObjArray&&) = default;
-    37	    ObjArray& operator=(const ObjArray&) = delete;
-    38	    ObjArray& operator=(ObjArray&&) = delete;
-    39	    ~ObjArray() override = default;
-    40	
-    41	    // --- Size Override ---
-    42	    size_t obj_size() const noexcept override { return sizeof(ObjArray); }
-    43	
-    44	    // --- Iterator types ---
-    45	    using iterator = container_t::iterator;
-    46	    using const_iterator = container_t::const_iterator;
-    47	    using reverse_iterator = container_t::reverse_iterator;
-    48	    using const_reverse_iterator = container_t::const_reverse_iterator;
+     1	#pragma once
+     2	
+     3	#include <meow/core/meow_object.h>
+     4	#include <meow/value.h>
+     5	#include <meow/memory/gc_visitor.h>
+     6	#include <meow/memory/memory_manager.h>
+     7	#include <cstdint>
+     8	#include <vector>
+     9	
+    10	namespace meow {
+    11	class ObjArray : public ObjBase<ObjectType::ARRAY> {
+    12	public:
+    13	    using container_t = std::vector<value_t>;
+    14	private:
+    15	    using visitor_t = GCVisitor;
+    16	    container_t elements_;
+    17	public:
+    18	    explicit ObjArray() = default;
+    19	
+    20	    ObjArray(const std::vector<value_t>& elements)  : elements_(elements) {}
+    21	
+    22	    ObjArray(container_t&& elements) noexcept : elements_(std::move(elements)) {}
+    23	
+    24	    ObjArray(const ObjArray&) = delete;
+    25	    ObjArray(ObjArray&&) = default;
+    26	    ObjArray& operator=(const ObjArray&) = delete;
+    27	    ObjArray& operator=(ObjArray&&) = delete;
+    28	    ~ObjArray() override = default;
+    29	
+    30	    using iterator = container_t::iterator;
+    31	    using const_iterator = container_t::const_iterator;
+    32	    using reverse_iterator = container_t::reverse_iterator;
+    33	    using const_reverse_iterator = container_t::const_reverse_iterator;
+    34	    
+    35	    template <typename Self>
+    36	    inline decltype(auto) get(this Self&& self, size_t index) noexcept {
+    37	        return std::forward<Self>(self).elements_[index]; 
+    38	    }
+    39	
+    40	    template <typename Self>
+    41	    inline decltype(auto) at(this Self&& self, size_t index) {
+    42	        return std::forward<Self>(self).elements_.at(index);
+    43	    }
+    44	
+    45	    template <typename Self>
+    46	    inline decltype(auto) operator[](this Self&& self, size_t index) noexcept {
+    47	        return std::forward<Self>(self).elements_[index];
+    48	    }
     49	
-    50	    // --- Accessors & Modifiers ---
-    51	    
-    52	    template <typename Self>
-    53	    inline decltype(auto) get(this Self&& self, size_t index) noexcept {
-    54	        return std::forward<Self>(self).elements_[index]; 
-    55	    }
-    56	
-    57	    template <typename Self>
-    58	    inline decltype(auto) at(this Self&& self, size_t index) {
-    59	        return std::forward<Self>(self).elements_.at(index);
-    60	    }
-    61	
-    62	    template <typename Self>
-    63	    inline decltype(auto) operator[](this Self&& self, size_t index) noexcept {
-    64	        return std::forward<Self>(self).elements_[index];
-    65	    }
-    66	
-    67	    template <typename Self>
-    68	    inline decltype(auto) front(this Self&& self) noexcept {
-    69	        return std::forward<Self>(self).elements_.front();
-    70	    }
-    71	
-    72	    template <typename Self>
-    73	    inline decltype(auto) back(this Self&& self) noexcept {
-    74	        return std::forward<Self>(self).elements_.back();
-    75	    }
-    76	
-    77	    template <typename T>
-    78	    inline void set(size_t index, T&& value) noexcept {
-    79	        elements_[index] = std::forward<T>(value);
-    80	    }
-    81	
-    82	    inline size_t size() const noexcept { return elements_.size(); }
-    83	    inline bool empty() const noexcept { return elements_.empty(); }
-    84	    inline size_t capacity() const noexcept { return elements_.capacity(); }
-    85	
-    86	    template <typename T>
-    87	    inline void push(T&& value) {
-    88	        elements_.emplace_back(std::forward<T>(value));
-    89	    }
-    90	    inline void pop() noexcept { elements_.pop_back(); }
-    91	    
-    92	    template <typename... Args>
-    93	    inline void emplace(Args&&... args) { elements_.emplace_back(std::forward<Args>(args)...); }
-    94	    
-    95	    inline void resize(size_t size) { elements_.resize(size); }
-    96	    inline void reserve(size_t capacity) { elements_.reserve(capacity); }
-    97	    inline void shrink() { elements_.shrink_to_fit(); }
-    98	    inline void clear() { elements_.clear(); }
-    99	
-   100	    template <typename Self>
-   101	    inline auto begin(this Self&& self) noexcept { return std::forward<Self>(self).elements_.begin(); }
-   102	    
-   103	    template <typename Self>
-   104	    inline auto end(this Self&& self) noexcept { return std::forward<Self>(self).elements_.end(); }
-   105	
-   106	    template <typename Self>
-   107	    inline auto rbegin(this Self&& self) noexcept { return std::forward<Self>(self).elements_.rbegin(); }
-   108	
-   109	    template <typename Self>
-   110	    inline auto rend(this Self&& self) noexcept { return std::forward<Self>(self).elements_.rend(); }
-   111	
-   112	    void trace(visitor_t& visitor) const noexcept override;
-   113	};
-   114	}
+    50	    template <typename Self>
+    51	    inline decltype(auto) front(this Self&& self) noexcept {
+    52	        return std::forward<Self>(self).elements_.front();
+    53	    }
+    54	
+    55	    template <typename Self>
+    56	    inline decltype(auto) back(this Self&& self) noexcept {
+    57	        return std::forward<Self>(self).elements_.back();
+    58	    }
+    59	
+    60	    template <typename T>
+    61	    inline void set(size_t index, T&& value) noexcept {
+    62	        elements_[index] = std::forward<T>(value);
+    63	    }
+    64	
+    65	    inline size_t size() const noexcept { return elements_.size(); }
+    66	    inline bool empty() const noexcept { return elements_.empty(); }
+    67	    inline size_t capacity() const noexcept { return elements_.capacity(); }
+    68	
+    69	    template <typename T>
+    70	    inline void push(T&& value) {
+    71	        elements_.emplace_back(std::forward<T>(value));
+    72	    }
+    73	    inline void pop() noexcept { elements_.pop_back(); }
+    74	    
+    75	    template <typename... Args>
+    76	    inline void emplace(Args&&... args) { elements_.emplace_back(std::forward<Args>(args)...); }
+    77	    
+    78	    inline void resize(size_t size) { elements_.resize(size); }
+    79	    inline void reserve(size_t capacity) { elements_.reserve(capacity); }
+    80	    inline void shrink() { elements_.shrink_to_fit(); }
+    81	    inline void clear() { elements_.clear(); }
+    82	
+    83	    template <typename Self>
+    84	    inline auto begin(this Self&& self) noexcept { return std::forward<Self>(self).elements_.begin(); }
+    85	    
+    86	    template <typename Self>
+    87	    inline auto end(this Self&& self) noexcept { return std::forward<Self>(self).elements_.end(); }
+    88	
+    89	    template <typename Self>
+    90	    inline auto rbegin(this Self&& self) noexcept { return std::forward<Self>(self).elements_.rbegin(); }
+    91	
+    92	    template <typename Self>
+    93	    inline auto rend(this Self&& self) noexcept { return std::forward<Self>(self).elements_.rend(); }
+    94	
+    95	    void trace(GCVisitor& visitor) const noexcept override;
+    96	};
+    97	}
 
 
 // =============================================================================
@@ -724,311 +708,290 @@
     54	        return index_;
     55	    }
     56	
-    57	    size_t obj_size() const noexcept override { return sizeof(ObjUpvalue); }
-    58	
-    59	    void trace(visitor_t& visitor) const noexcept override;
-    60	};
-    61	
-    62	class ObjFunctionProto : public ObjBase<ObjectType::PROTO> {
-    63	private:
-    64	    using chunk_t = Chunk;
-    65	    using string_t = string_t;
-    66	    using visitor_t = GCVisitor;
-    67	
-    68	    size_t num_registers_;
-    69	    size_t num_upvalues_;
-    70	    string_t name_;
-    71	    chunk_t chunk_;
-    72	    module_t module_ = nullptr;
-    73	    std::vector<UpvalueDesc> upvalue_descs_;
-    74	
-    75	public:
-    76	    explicit ObjFunctionProto(size_t registers, size_t upvalues, string_t name, chunk_t&& chunk) noexcept : num_registers_(registers), num_upvalues_(upvalues), name_(name), chunk_(std::move(chunk)) {
-    77	    }
-    78	    explicit ObjFunctionProto(size_t registers, size_t upvalues, string_t name, chunk_t&& chunk, std::vector<UpvalueDesc>&& descs) noexcept
-    79	        : num_registers_(registers), num_upvalues_(upvalues), name_(name), chunk_(std::move(chunk)), upvalue_descs_(std::move(descs)) {
-    80	    }
-    81	
-    82	    inline void set_module(module_t mod) noexcept { module_ = mod; }
-    83	    inline module_t get_module() const noexcept { return module_; }
-    84	
-    85	    /// @brief Unchecked upvalue desc access. For performance-critical code
-    86	    inline const UpvalueDesc& get_desc(size_t index) const noexcept {
-    87	        return upvalue_descs_[index];
-    88	    }
-    89	    /// @brief Checked upvalue desc access. For performence-critical code
-    90	    inline const UpvalueDesc& at_desc(size_t index) const {
-    91	        return upvalue_descs_.at(index);
-    92	    }
-    93	    inline size_t get_num_registers() const noexcept {
-    94	        return num_registers_;
-    95	    }
-    96	    inline size_t get_num_upvalues() const noexcept {
-    97	        return num_upvalues_;
-    98	    }
-    99	    inline string_t get_name() const noexcept {
-   100	        return name_;
-   101	    }
-   102	    inline const chunk_t& get_chunk() const noexcept {
-   103	        return chunk_;
-   104	    }
-   105	    inline size_t desc_size() const noexcept {
-   106	        return upvalue_descs_.size();
-   107	    }
-   108	
-   109	    size_t obj_size() const noexcept override { return sizeof(ObjFunctionProto); }
-   110	
-   111	    void trace(visitor_t& visitor) const noexcept override;
-   112	};
-   113	
-   114	class ObjClosure : public ObjBase<ObjectType::FUNCTION> {
-   115	   private:
-   116	    using proto_t = proto_t;
-   117	    using upvalue_t = upvalue_t;
-   118	    using visitor_t = GCVisitor;
-   119	
-   120	    proto_t proto_;
-   121	    std::vector<upvalue_t> upvalues_;
-   122	
-   123	   public:
-   124	    explicit ObjClosure(proto_t proto = nullptr) : proto_(proto), upvalues_(proto ? proto->get_num_upvalues() : 0) {}
-   125	
-   126	    inline proto_t get_proto() const noexcept {
-   127	        return proto_;
+    57	    void trace(visitor_t& visitor) const noexcept override;
+    58	};
+    59	
+    60	class ObjFunctionProto : public ObjBase<ObjectType::PROTO> {
+    61	private:
+    62	    using chunk_t = Chunk;
+    63	    using string_t = string_t;
+    64	    using visitor_t = GCVisitor;
+    65	
+    66	    size_t num_registers_;
+    67	    size_t num_upvalues_;
+    68	    string_t name_;
+    69	    chunk_t chunk_;
+    70	    module_t module_ = nullptr;
+    71	    std::vector<UpvalueDesc> upvalue_descs_;
+    72	
+    73	public:
+    74	    explicit ObjFunctionProto(size_t registers, size_t upvalues, string_t name, chunk_t&& chunk) noexcept : num_registers_(registers), num_upvalues_(upvalues), name_(name), chunk_(std::move(chunk)) {
+    75	    }
+    76	    explicit ObjFunctionProto(size_t registers, size_t upvalues, string_t name, chunk_t&& chunk, std::vector<UpvalueDesc>&& descs) noexcept
+    77	        : num_registers_(registers), num_upvalues_(upvalues), name_(name), chunk_(std::move(chunk)), upvalue_descs_(std::move(descs)) {
+    78	    }
+    79	
+    80	    inline void set_module(module_t mod) noexcept { module_ = mod; }
+    81	    inline module_t get_module() const noexcept { return module_; }
+    82	
+    83	    /// @brief Unchecked upvalue desc access. For performance-critical code
+    84	    inline const UpvalueDesc& get_desc(size_t index) const noexcept {
+    85	        return upvalue_descs_[index];
+    86	    }
+    87	    /// @brief Checked upvalue desc access. For performence-critical code
+    88	    inline const UpvalueDesc& at_desc(size_t index) const {
+    89	        return upvalue_descs_.at(index);
+    90	    }
+    91	    inline size_t get_num_registers() const noexcept {
+    92	        return num_registers_;
+    93	    }
+    94	    inline size_t get_num_upvalues() const noexcept {
+    95	        return num_upvalues_;
+    96	    }
+    97	    inline string_t get_name() const noexcept {
+    98	        return name_;
+    99	    }
+   100	    inline const chunk_t& get_chunk() const noexcept {
+   101	        return chunk_;
+   102	    }
+   103	    inline size_t desc_size() const noexcept {
+   104	        return upvalue_descs_.size();
+   105	    }
+   106	
+   107	    void trace(visitor_t& visitor) const noexcept override;
+   108	};
+   109	
+   110	class ObjClosure : public ObjBase<ObjectType::FUNCTION> {
+   111	   private:
+   112	    using proto_t = proto_t;
+   113	    using upvalue_t = upvalue_t;
+   114	    using visitor_t = GCVisitor;
+   115	
+   116	    proto_t proto_;
+   117	    std::vector<upvalue_t> upvalues_;
+   118	
+   119	   public:
+   120	    explicit ObjClosure(proto_t proto = nullptr) : proto_(proto), upvalues_(proto ? proto->get_num_upvalues() : 0) {}
+   121	
+   122	    inline proto_t get_proto() const noexcept {
+   123	        return proto_;
+   124	    }
+   125	    /// @brief Unchecked upvalue access. For performance-critical code
+   126	    inline upvalue_t get_upvalue(size_t index) const noexcept {
+   127	        return upvalues_[index];
    128	    }
-   129	    /// @brief Unchecked upvalue access. For performance-critical code
-   130	    inline upvalue_t get_upvalue(size_t index) const noexcept {
-   131	        return upvalues_[index];
+   129	    /// @brief Unchecked upvalue modification. For performance-critical code
+   130	    inline void set_upvalue(size_t index, upvalue_t upvalue) noexcept {
+   131	        upvalues_[index] = upvalue;
    132	    }
-   133	    /// @brief Unchecked upvalue modification. For performance-critical code
-   134	    inline void set_upvalue(size_t index, upvalue_t upvalue) noexcept {
-   135	        upvalues_[index] = upvalue;
+   133	    /// @brief Checked upvalue access. Throws if index is OOB
+   134	    inline upvalue_t at_upvalue(size_t index) const {
+   135	        return upvalues_.at(index);
    136	    }
-   137	    /// @brief Checked upvalue access. Throws if index is OOB
-   138	    inline upvalue_t at_upvalue(size_t index) const {
-   139	        return upvalues_.at(index);
-   140	    }
-   141	
-   142	    size_t obj_size() const noexcept override { return sizeof(ObjClosure); }
-   143	
-   144	    void trace(visitor_t& visitor) const noexcept override;
-   145	};
-   146	}
+   137	
+   138	    void trace(visitor_t& visitor) const noexcept override;
+   139	};
+   140	}
 
 
 // =============================================================================
 //  FILE PATH: include/meow/core/hash_table.h
 // =============================================================================
 
-     1	/**
-     2	 * @file hash_table.h
-     3	 * @brief Optimized Hash Table with State-ful Allocator (meow::allocator)
-     4	 * Compatible with std::map semantics (first/second)
-     5	 */
-     6	
-     7	#pragma once
-     8	
-     9	#include <cstdint>
-    10	#include <cstring>
-    11	#include <bit> 
-    12	#include <meow/common.h>
-    13	#include <meow/core/meow_object.h>
-    14	#include <meow/value.h>
-    15	#include <meow/memory/gc_visitor.h>
-    16	#include <meow/core/string.h>
-    17	#include <meow_allocator.h> 
-    18	
-    19	namespace meow {
-    20	
-    21	struct Entry {
-    22	    string_t first = nullptr;
-    23	    Value second;
-    24	};
-    25	
-    26	class ObjHashTable : public ObjBase<ObjectType::HASH_TABLE> {
-    27	public:
-    28	    using Allocator = meow::allocator<Entry>;
-    29	
-    30	private:
-    31	    Entry* entries_ = nullptr;
-    32	    uint32_t count_ = 0;
-    33	    uint32_t capacity_ = 0;
-    34	    uint32_t mask_ = 0;
-    35	    
-    36	    [[no_unique_address]] Allocator alloc_;
+     1	#pragma once
+     2	
+     3	#include <cstdint>
+     4	#include <cstring>
+     5	#include <bit> 
+     6	#include <meow/common.h>
+     7	#include <meow/core/meow_object.h>
+     8	#include <meow/value.h>
+     9	#include <meow/memory/gc_visitor.h>
+    10	#include <meow/core/string.h>
+    11	#include <meow_allocator.h> 
+    12	
+    13	namespace meow {
+    14	
+    15	struct Entry {
+    16	    string_t first = nullptr;
+    17	    Value second;
+    18	};
+    19	
+    20	class ObjHashTable : public ObjBase<ObjectType::HASH_TABLE> {
+    21	public:
+    22	    using Allocator = meow::allocator<Entry>;
+    23	private:
+    24	    Entry* entries_ = nullptr;
+    25	    uint32_t count_ = 0;
+    26	    uint32_t capacity_ = 0;
+    27	    uint32_t mask_ = 0;
+    28	    
+    29	    [[no_unique_address]] Allocator allocator_;
+    30	
+    31	    static constexpr double MAX_LOAD_FACTOR = 0.75;
+    32	    static constexpr uint32_t MIN_CAPACITY = 8;
+    33	public:
+    34	    explicit ObjHashTable(Allocator allocator, uint32_t capacity = 0) : allocator_(allocator) {
+    35	        if (capacity > 0) allocate(capacity);
+    36	    }
     37	
-    38	    static constexpr double MAX_LOAD_FACTOR = 0.75;
-    39	    static constexpr uint32_t MIN_CAPACITY = 8;
-    40	
-    41	public:
-    42	    explicit ObjHashTable(Allocator alloc, uint32_t cap = 0) 
-    43	        : alloc_(alloc) {
-    44	        if (cap > 0) allocate(cap);
-    45	    }
-    46	
-    47	    ~ObjHashTable() override {
-    48	        if (entries_) {
-    49	            alloc_.deallocate(entries_, capacity_);
-    50	        }
-    51	    }
-    52	
-    53	    // --- Core Operations ---
-    54	
-    55	    [[gnu::always_inline]] 
-    56	    inline Entry* find_entry(Entry* entries, uint32_t mask, string_t key) const {
-    57	        uint32_t index = key->hash() & mask;
-    58	        for (;;) {
-    59	            Entry* entry = &entries[index];
-    60	            if (entry->first == key || entry->first == nullptr) [[likely]] {
-    61	                return entry;
-    62	            }
-    63	            index = (index + 1) & mask;
-    64	        }
-    65	    }
-    66	
-    67	    [[gnu::always_inline]] 
-    68	    inline bool set(string_t key, Value value) {
-    69	        if (count_ + 1 > (capacity_ * MAX_LOAD_FACTOR)) [[unlikely]] {
-    70	            grow();
-    71	        }
+    38	    ~ObjHashTable() noexcept override {
+    39	        if (entries_) {
+    40	            allocator_.deallocate(entries_, capacity_);
+    41	        }
+    42	    }
+    43	
+    44	    [[gnu::always_inline]] 
+    45	    inline Entry* find_entry(Entry* entries, uint32_t mask, string_t key) const noexcept {
+    46	        uint32_t index = key->hash() & mask;
+    47	        for (;;) {
+    48	            Entry* entry = &entries[index];
+    49	            if (entry->first == key || entry->first == nullptr) [[likely]] {
+    50	                return entry;
+    51	            }
+    52	            index = (index + 1) & mask;
+    53	        }
+    54	    }
+    55	
+    56	    [[gnu::always_inline]] 
+    57	    inline bool set(string_t key, Value value) noexcept {
+    58	        if (count_ + 1 > (capacity_ * MAX_LOAD_FACTOR)) [[unlikely]] {
+    59	            grow();
+    60	        }
+    61	
+    62	        Entry* entry = find_entry(entries_, mask_, key);
+    63	        bool is_new = (entry->first == nullptr);
+    64	        
+    65	        if (is_new) [[likely]] {
+    66	            count_++;
+    67	            entry->first = key;
+    68	        }
+    69	        entry->second = value;
+    70	        return is_new;
+    71	    }
     72	
-    73	        Entry* entry = find_entry(entries_, mask_, key);
-    74	        bool is_new = (entry->first == nullptr);
-    75	        
-    76	        if (is_new) [[likely]] {
-    77	            count_++;
-    78	            entry->first = key;
-    79	        }
-    80	        entry->second = value;
-    81	        return is_new;
-    82	    }
-    83	
-    84	    [[gnu::always_inline]] 
-    85	    inline bool get(string_t key, Value* result) const {
-    86	        if (count_ == 0) [[unlikely]] return false;
-    87	        Entry* entry = find_entry(entries_, mask_, key);
-    88	        if (entry->first == nullptr) return false;
-    89	        *result = entry->second;
-    90	        return true;
-    91	    }
-    92	
-    93	    [[gnu::always_inline]]
-    94	    inline Value get(string_t key) const {
-    95	        if (count_ == 0) return Value(null_t{});
-    96	        Entry* entry = find_entry(entries_, mask_, key);
-    97	        if (entry->first == nullptr) return Value(null_t{});
-    98	        return entry->second;
-    99	    }
+    73	    [[gnu::always_inline]] 
+    74	    inline bool get(string_t key, Value* result) const noexcept {
+    75	        if (count_ == 0) [[unlikely]] return false;
+    76	        Entry* entry = find_entry(entries_, mask_, key);
+    77	        if (entry->first == nullptr) return false;
+    78	        *result = entry->second;
+    79	        return true;
+    80	    }
+    81	
+    82	    [[gnu::always_inline]]
+    83	    inline Value get(string_t key) const noexcept {
+    84	        if (count_ == 0) return Value(null_t{});
+    85	        Entry* entry = find_entry(entries_, mask_, key);
+    86	        if (entry->first == nullptr) return Value(null_t{});
+    87	        return entry->second;
+    88	    }
+    89	
+    90	    [[gnu::always_inline]] 
+    91	    inline bool has(string_t key) const noexcept {
+    92	        if (count_ == 0) return false;
+    93	        return find_entry(entries_, mask_, key)->first != nullptr;
+    94	    }
+    95	
+    96	    bool remove(string_t key) noexcept {
+    97	        if (count_ == 0) return false;
+    98	        Entry* entry = find_entry(entries_, mask_, key);
+    99	        if (entry->first == nullptr) return false;
    100	
-   101	    [[gnu::always_inline]] 
-   102	    inline bool has(string_t key) const {
-   103	        if (count_ == 0) return false;
-   104	        return find_entry(entries_, mask_, key)->first != nullptr;
-   105	    }
-   106	
-   107	    bool remove(string_t key) {
-   108	        if (count_ == 0) return false;
-   109	        Entry* entry = find_entry(entries_, mask_, key);
-   110	        if (entry->first == nullptr) return false;
-   111	
-   112	        entry->first = nullptr;
-   113	        entry->second = Value(null_t{});
-   114	        count_--;
-   115	
-   116	        uint32_t index = (uint32_t)(entry - entries_);
-   117	        uint32_t next_index = index;
-   118	
-   119	        for (;;) {
-   120	            next_index = (next_index + 1) & mask_;
-   121	            Entry* next = &entries_[next_index];
-   122	            if (next->first == nullptr) break;
-   123	
-   124	            uint32_t ideal = next->first->hash() & mask_;
-   125	            bool shift = false;
-   126	            if (index < next_index) {
-   127	                if (ideal <= index || ideal > next_index) shift = true;
-   128	            } else {
-   129	                if (ideal <= index && ideal > next_index) shift = true;
-   130	            }
-   131	
-   132	            if (shift) {
-   133	                entries_[index] = *next;
-   134	                entries_[next_index].first = nullptr;
-   135	                entries_[next_index].second = Value(null_t{});
-   136	                index = next_index;
-   137	            }
-   138	        }
-   139	        return true;
-   140	    }
-   141	
-   142	    // --- Capacity ---
-   143	    inline uint32_t size() const noexcept { return count_; }
-   144	    inline bool empty() const noexcept { return count_ == 0; }
-   145	    inline uint32_t capacity() const noexcept { return capacity_; }
-   146	
-   147	    class Iterator {
-   148	        Entry* ptr_; Entry* end_;
-   149	    public:
-   150	        Iterator(Entry* ptr, Entry* end) : ptr_(ptr), end_(end) {
-   151	            while (ptr_ < end_ && ptr_->first == nullptr) ptr_++;
-   152	        }
-   153	        Iterator& operator++() {
-   154	            do { ptr_++; } while (ptr_ < end_ && ptr_->first == nullptr);
-   155	            return *this;
-   156	        }
-   157	        bool operator!=(const Iterator& other) const { return ptr_ != other.ptr_; }
-   158	        
-   159	        Entry& operator*() const { return *ptr_; }
-   160	        Entry* operator->() const { return ptr_; }
-   161	    };
-   162	
-   163	    inline Iterator begin() { return Iterator(entries_, entries_ + capacity_); }
-   164	    inline Iterator end() { return Iterator(entries_ + capacity_, entries_ + capacity_); }
-   165	
-   166	    size_t obj_size() const noexcept override {
-   167	        return sizeof(ObjHashTable) + sizeof(Entry) * capacity_;
-   168	    }
-   169	
-   170	    void trace(GCVisitor& visitor) const noexcept override {
-   171	        for (uint32_t i = 0; i < capacity_; i++) {
-   172	            if (entries_[i].first) {
-   173	                visitor.visit_object(entries_[i].first);
-   174	                visitor.visit_value(entries_[i].second);
-   175	            }
-   176	        }
-   177	    }
-   178	
-   179	private:
-   180	    void allocate(uint32_t capacity) {
-   181	        capacity_ = (capacity < MIN_CAPACITY) ? MIN_CAPACITY : std::bit_ceil(capacity);
-   182	        mask_ = capacity_ - 1;
-   183	        
-   184	        entries_ = alloc_.allocate(capacity_);
-   185	        std::memset(static_cast<void*>(entries_), 0, sizeof(Entry) * capacity_);
-   186	    }
-   187	
-   188	    void grow() {
-   189	        uint32_t old_cap = capacity_;
-   190	        Entry* old_entries = entries_;
-   191	
-   192	        allocate(old_cap == 0 ? MIN_CAPACITY : old_cap * 2);
-   193	        count_ = 0;
-   194	
-   195	        if (old_entries) {
-   196	            for (uint32_t i = 0; i < old_cap; i++) {
-   197	                if (old_entries[i].first != nullptr) {
-   198	                    Entry* dest = find_entry(entries_, mask_, old_entries[i].first);
-   199	                    dest->first = old_entries[i].first;
-   200	                    dest->second = old_entries[i].second;
-   201	                    count_++;
-   202	                }
-   203	            }
-   204	            alloc_.deallocate(old_entries, old_cap);
-   205	        }
-   206	    }
-   207	};
-   208	
-   209	} // namespace meow
+   101	        entry->first = nullptr;
+   102	        entry->second = Value(null_t{});
+   103	        count_--;
+   104	
+   105	        uint32_t index = (uint32_t)(entry - entries_);
+   106	        uint32_t next_index = index;
+   107	
+   108	        for (;;) {
+   109	            next_index = (next_index + 1) & mask_;
+   110	            Entry* next = &entries_[next_index];
+   111	            if (next->first == nullptr) break;
+   112	
+   113	            uint32_t ideal = next->first->hash() & mask_;
+   114	            bool shift = false;
+   115	            if (index < next_index) {
+   116	                if (ideal <= index || ideal > next_index) shift = true;
+   117	            } else {
+   118	                if (ideal <= index && ideal > next_index) shift = true;
+   119	            }
+   120	
+   121	            if (shift) {
+   122	                entries_[index] = *next;
+   123	                entries_[next_index].first = nullptr;
+   124	                entries_[next_index].second = Value(null_t{});
+   125	                index = next_index;
+   126	            }
+   127	        }
+   128	        return true;
+   129	    }
+   130	
+   131	    // --- Capacity ---
+   132	    inline uint32_t size() const noexcept { return count_; }
+   133	    inline bool empty() const noexcept { return count_ == 0; }
+   134	    inline uint32_t capacity() const noexcept { return capacity_; }
+   135	
+   136	    class Iterator {
+   137	        Entry* ptr_; Entry* end_;
+   138	    public:
+   139	        Iterator(Entry* ptr, Entry* end) : ptr_(ptr), end_(end) {
+   140	            while (ptr_ < end_ && ptr_->first == nullptr) ptr_++;
+   141	        }
+   142	        Iterator& operator++() {
+   143	            do { ptr_++; } while (ptr_ < end_ && ptr_->first == nullptr);
+   144	            return *this;
+   145	        }
+   146	        bool operator!=(const Iterator& other) const { return ptr_ != other.ptr_; }
+   147	        
+   148	        Entry& operator*() const { return *ptr_; }
+   149	        Entry* operator->() const { return ptr_; }
+   150	    };
+   151	
+   152	    inline Iterator begin() { return Iterator(entries_, entries_ + capacity_); }
+   153	    inline Iterator end() { return Iterator(entries_ + capacity_, entries_ + capacity_); }
+   154	
+   155	    void trace(GCVisitor& visitor) const noexcept override {
+   156	        for (uint32_t i = 0; i < capacity_; i++) {
+   157	            if (entries_[i].first) {
+   158	                visitor.visit_object(entries_[i].first);
+   159	                visitor.visit_value(entries_[i].second);
+   160	            }
+   161	        }
+   162	    }
+   163	
+   164	private:
+   165	    void allocate(uint32_t capacity) {
+   166	        capacity_ = (capacity < MIN_CAPACITY) ? MIN_CAPACITY : std::bit_ceil(capacity);
+   167	        mask_ = capacity_ - 1;
+   168	        
+   169	        entries_ = allocator_.allocate(capacity_);
+   170	        std::memset(static_cast<void*>(entries_), 0, sizeof(Entry) * capacity_);
+   171	    }
+   172	
+   173	    void grow() {
+   174	        uint32_t old_cap = capacity_;
+   175	        Entry* old_entries = entries_;
+   176	
+   177	        allocate(old_cap == 0 ? MIN_CAPACITY : old_cap * 2);
+   178	        count_ = 0;
+   179	
+   180	        if (old_entries) {
+   181	            for (uint32_t i = 0; i < old_cap; i++) {
+   182	                if (old_entries[i].first != nullptr) {
+   183	                    Entry* dest = find_entry(entries_, mask_, old_entries[i].first);
+   184	                    dest->first = old_entries[i].first;
+   185	                    dest->second = old_entries[i].second;
+   186	                    count_++;
+   187	                }
+   188	            }
+   189	            allocator_.deallocate(old_entries, old_cap);
+   190	        }
+   191	    }
+   192	};
+   193	
+   194	} // namespace meow
 
 
 // =============================================================================
@@ -1048,32 +1011,31 @@
     11	};
     12	
     13	enum class ObjectType : uint8_t {
-    14	    ARRAY = base_t::index_of<object_t>() + 1, STRING, HASH_TABLE, INSTANCE, CLASS,
-    15	    BOUND_METHOD, UPVALUE, PROTO, FUNCTION, MODULE, SHAPE
-    16	};
-    17	
-    18	struct MeowObject {
-    19	    const ObjectType type;
-    20	    GCState gc_state = GCState::UNMARKED;
-    21	
-    22	    explicit MeowObject(ObjectType type_tag) noexcept : type(type_tag) {}
-    23	    virtual ~MeowObject() = default;
-    24	    
-    25	    virtual void trace(GCVisitor& visitor) const noexcept = 0;
-    26	    
-    27	    virtual size_t obj_size() const noexcept = 0;
-    28	
-    29	    inline ObjectType get_type() const noexcept { return type; }
-    30	    inline bool is_marked() const noexcept { return gc_state != GCState::UNMARKED; }
-    31	    inline void mark() noexcept { if (gc_state == GCState::UNMARKED) gc_state = GCState::MARKED; }
-    32	    inline void unmark() noexcept { if (gc_state != GCState::OLD) gc_state = GCState::UNMARKED; }
-    33	};
-    34	
-    35	template <ObjectType type_tag>
-    36	struct ObjBase : public MeowObject {
-    37	    ObjBase() noexcept : MeowObject(type_tag) {}
-    38	};
-    39	}
+    14	    ARRAY = base_t::index_of<object_t>() + 1,
+    15	    STRING, HASH_TABLE, INSTANCE, CLASS,
+    16	    BOUND_METHOD, UPVALUE, PROTO, FUNCTION, MODULE, SHAPE
+    17	};
+    18	
+    19	struct MeowObject {
+    20	    const ObjectType type;
+    21	    GCState gc_state = GCState::UNMARKED;
+    22	
+    23	    explicit MeowObject(ObjectType type_tag) noexcept : type(type_tag) {}
+    24	    virtual ~MeowObject() = default;
+    25	    
+    26	    virtual void trace(GCVisitor& visitor) const noexcept = 0;
+    27	    
+    28	    inline ObjectType get_type() const noexcept { return type; }
+    29	    inline bool is_marked() const noexcept { return gc_state != GCState::UNMARKED; }
+    30	    inline void mark() noexcept { if (gc_state == GCState::UNMARKED) gc_state = GCState::MARKED; }
+    31	    inline void unmark() noexcept { if (gc_state != GCState::OLD) gc_state = GCState::UNMARKED; }
+    32	};
+    33	
+    34	template <ObjectType type_tag>
+    35	struct ObjBase : public MeowObject {
+    36	    ObjBase() noexcept : MeowObject(type_tag) {}
+    37	};
+    38	}
 
 
 // =============================================================================
@@ -1208,10 +1170,8 @@
    126	    
    127	    const auto& get_global_names_raw() const { return global_names_; }
    128	    const auto& get_exports_raw() const { return exports_; }
-   129	
-   130	    size_t obj_size() const noexcept override { return sizeof(ObjModule); }
-   131	};
-   132	}
+   129	};
+   130	}
 
 
 // =============================================================================
@@ -1234,151 +1194,124 @@
 //  FILE PATH: include/meow/core/oop.h
 // =============================================================================
 
-     1	/**
-     2	 * @file oop.h
-     3	 * @author LazyPaws
-     4	 * @brief Core definition of Class, Instance, BoundMethod in TrangMeo
-     5	 * @copyright Copyright (c) 2025 LazyPaws
-     6	 * @license All rights reserved. Unauthorized copying of this file, in any form
-     7	 * or medium, is strictly prohibited
-     8	 */
-     9	
-    10	#pragma once
-    11	
-    12	#include <cstdint>
-    13	#include <vector>
-    14	#include <string>
-    15	#include <memory>
-    16	#include <meow/common.h>
-    17	#include <meow/core/meow_object.h>
-    18	#include <meow/common.h>
-    19	#include <meow/value.h>
-    20	#include <meow/memory/gc_visitor.h>
-    21	#include <meow/core/shape.h>
-    22	#include <meow_flat_map.h>
+     1	#pragma once
+     2	
+     3	#include <meow/common.h>
+     4	#include <meow/core/meow_object.h>
+     5	#include <meow/common.h>
+     6	#include <meow/value.h>
+     7	#include <meow/memory/gc_visitor.h>
+     8	#include <meow/core/shape.h>
+     9	#include <meow_flat_map.h>
+    10	#include <cstdint>
+    11	#include <vector>
+    12	#include <string>
+    13	#include <memory>
+    14	
+    15	namespace meow {
+    16	class ObjClass : public ObjBase<ObjectType::CLASS> {
+    17	private:
+    18	    using method_map = meow::flat_map<string_t, value_t>;
+    19	
+    20	    string_t name_;
+    21	    class_t superclass_;
+    22	    method_map methods_;
     23	
-    24	namespace meow {
-    25	class ObjClass : public ObjBase<ObjectType::CLASS> {
-    26	private:
-    27	    using string_t = string_t;
-    28	    using class_t = class_t;
-    29	    using method_map = meow::flat_map<string_t, value_t>;
-    30	    using visitor_t = GCVisitor;
-    31	
-    32	    string_t name_;
-    33	    class_t superclass_;
-    34	    method_map methods_;
-    35	
-    36	public:
-    37	    explicit ObjClass(string_t name = nullptr) noexcept : name_(name) {}
-    38	
-    39	    // --- Metadata ---
-    40	    inline string_t get_name() const noexcept {
-    41	        return name_;
-    42	    }
-    43	    inline class_t get_super() const noexcept {
-    44	        return superclass_;
-    45	    }
-    46	    inline void set_super(class_t super) noexcept {
-    47	        superclass_ = super;
-    48	    }
-    49	
-    50	    // --- Methods ---
-    51	    inline bool has_method(string_t name) const noexcept {
-    52	        return methods_.contains(name);
-    53	    }
-    54	    
-    55	    inline return_t get_method(string_t name) noexcept {
-    56	        if (auto* val_ptr = methods_.find(name)) {
-    57	            return *val_ptr;
-    58	        }
-    59	        return Value(null_t{});
-    60	    }
-    61	    
-    62	    inline void set_method(string_t name, param_t value) noexcept {
-    63	        methods_[name] = value;
-    64	    }
-    65	
-    66	    size_t obj_size() const noexcept override { return sizeof(ObjClass); }
+    24	public:
+    25	    explicit ObjClass(string_t name = nullptr) noexcept : name_(name) {}
+    26	
+    27	    inline string_t get_name() const noexcept {
+    28	        return name_;
+    29	    }
+    30	    inline class_t get_super() const noexcept {
+    31	        return superclass_;
+    32	    }
+    33	    inline void set_super(class_t super) noexcept {
+    34	        superclass_ = super;
+    35	    }
+    36	
+    37	    inline bool has_method(string_t name) const noexcept {
+    38	        return methods_.contains(name);
+    39	    }
+    40	    
+    41	    inline return_t get_method(string_t name) noexcept {
+    42	        if (auto* val_ptr = methods_.find(name)) {
+    43	            return *val_ptr;
+    44	        }
+    45	        return Value(null_t{});
+    46	    }
+    47	    
+    48	    inline void set_method(string_t name, param_t value) noexcept {
+    49	        methods_[name] = value;
+    50	    }
+    51	
+    52	    void trace(GCVisitor& visitor) const noexcept override;
+    53	};
+    54	
+    55	class ObjInstance : public ObjBase<ObjectType::INSTANCE> {
+    56	private:
+    57	    class_t klass_;
+    58	    Shape* shape_;              
+    59	    std::vector<Value> fields_; 
+    60	public:
+    61	    explicit ObjInstance(class_t k, Shape* empty_shape) noexcept 
+    62	        : klass_(k), shape_(empty_shape) {
+    63	    }
+    64	
+    65	    inline class_t get_class() const noexcept { return klass_; }
+    66	    inline void set_class(class_t klass) noexcept { klass_ = klass; }
     67	
-    68	    void trace(visitor_t& visitor) const noexcept override;
-    69	};
+    68	    inline Shape* get_shape() const noexcept { return shape_; }
+    69	    inline void set_shape(Shape* s) noexcept { shape_ = s; }
     70	
-    71	class ObjInstance : public ObjBase<ObjectType::INSTANCE> {
-    72	private:
-    73	    using string_t = string_t;
-    74	    using class_t = class_t;
-    75	    using visitor_t = GCVisitor;
-    76	
-    77	    class_t klass_;
-    78	    Shape* shape_;              
-    79	    std::vector<Value> fields_; 
-    80	public:
-    81	    explicit ObjInstance(class_t k, Shape* empty_shape) noexcept 
-    82	        : klass_(k), shape_(empty_shape) {
-    83	    }
-    84	
-    85	    // --- Metadata ---
-    86	    inline class_t get_class() const noexcept { return klass_; }
-    87	    inline void set_class(class_t klass) noexcept { klass_ = klass; }
-    88	
-    89	    inline Shape* get_shape() const noexcept { return shape_; }
-    90	    inline void set_shape(Shape* s) noexcept { shape_ = s; }
-    91	
-    92	    inline Value get_field_at(int offset) const noexcept {
-    93	        return fields_[offset];
-    94	    }
-    95	    
-    96	    inline void set_field_at(int offset, Value value) noexcept {
-    97	        fields_[offset] = value;
-    98	    }
-    99	    
-   100	    inline void add_field(param_t value) noexcept {
-   101	        fields_.push_back(value);
-   102	    }
-   103	
-   104	    inline bool has_field(string_t name) const {
-   105	        return shape_->get_offset(name) != -1;
-   106	    }
-   107	    
-   108	    inline Value get_field(string_t name) const {
-   109	        int offset = shape_->get_offset(name);
-   110	        if (offset != -1) return fields_[offset];
-   111	        return Value(null_t{});
-   112	    }
-   113	
-   114	    size_t obj_size() const noexcept override { return sizeof(ObjInstance); }
-   115	
-   116	    void trace(visitor_t& visitor) const noexcept override {
-   117	        visitor.visit_object(klass_);
-   118	        visitor.visit_object(shape_);
-   119	        for (const auto& val : fields_) {
-   120	            visitor.visit_value(val);
-   121	        }
-   122	    }
-   123	};
-   124	
-   125	class ObjBoundMethod : public ObjBase<ObjectType::BOUND_METHOD> {
-   126	private:
-   127	    Value receiver_; 
-   128	    Value method_;   
-   129	
-   130	    using visitor_t = GCVisitor;
-   131	public:
-   132	    explicit ObjBoundMethod(Value receiver, Value method) noexcept 
-   133	        : receiver_(receiver), method_(method) {}
-   134	
-   135	    inline Value get_receiver() const noexcept { return receiver_; }
-   136	    inline Value get_method() const noexcept { return method_; }
-   137	
-   138	    size_t obj_size() const noexcept override { return sizeof(ObjBoundMethod); }
-   139	
-   140	    void trace(visitor_t& visitor) const noexcept override {
-   141	        visitor.visit_value(receiver_);
-   142	        visitor.visit_value(method_);
-   143	    }
-   144	};
-   145	}
+    71	    inline Value get_field_at(int offset) const noexcept {
+    72	        return fields_[offset];
+    73	    }
+    74	    
+    75	    inline void set_field_at(int offset, Value value) noexcept {
+    76	        fields_[offset] = value;
+    77	    }
+    78	    
+    79	    inline void add_field(param_t value) noexcept {
+    80	        fields_.push_back(value);
+    81	    }
+    82	
+    83	    inline bool has_field(string_t name) const noexcept {
+    84	        return shape_->get_offset(name) != -1;
+    85	    }
+    86	    
+    87	    inline Value get_field(string_t name) const noexcept {
+    88	        int offset = shape_->get_offset(name);
+    89	        if (offset != -1) return fields_[offset];
+    90	        return Value(null_t{});
+    91	    }
+    92	
+    93	    inline void trace(GCVisitor& visitor) const noexcept override {
+    94	        visitor.visit_object(klass_);
+    95	        visitor.visit_object(shape_);
+    96	        for (const auto& val : fields_) {
+    97	            visitor.visit_value(val);
+    98	        }
+    99	    }
+   100	};
+   101	
+   102	class ObjBoundMethod : public ObjBase<ObjectType::BOUND_METHOD> {
+   103	private:
+   104	    Value receiver_; 
+   105	    Value method_;   
+   106	public:
+   107	    explicit ObjBoundMethod(Value receiver, Value method) noexcept 
+   108	        : receiver_(receiver), method_(method) {}
+   109	
+   110	    inline Value get_receiver() const noexcept { return receiver_; }
+   111	    inline Value get_method() const noexcept { return method_; }
+   112	
+   113	    inline void trace(GCVisitor& visitor) const noexcept override {
+   114	        visitor.visit_value(receiver_);
+   115	        visitor.visit_value(method_);
+   116	    }
+   117	};
+   118	}
 
 
 // =============================================================================
@@ -1405,38 +1338,34 @@
     18	public:
     19	    using TransitionMap = meow::flat_map<string_t, Shape*>;
     20	    using PropertyMap = meow::flat_map<string_t, uint32_t>;
-    21	
-    22	private:
-    23	    PropertyMap property_offsets_;
-    24	    TransitionMap transitions_;     
-    25	    uint32_t num_fields_ = 0;       
-    26	
-    27	public:
-    28	    explicit Shape() = default;
+    21	private:
+    22	    PropertyMap property_offsets_;
+    23	    TransitionMap transitions_;     
+    24	    uint32_t num_fields_ = 0;       
+    25	public:
+    26	    explicit Shape() = default;
+    27	
+    28	    int get_offset(string_t name) const;
     29	
-    30	    int get_offset(string_t name) const;
+    30	    Shape* get_transition(string_t name) const;
     31	
-    32	    Shape* get_transition(string_t name) const;
+    32	    Shape* add_transition(string_t name, MemoryManager* heap);
     33	
-    34	    Shape* add_transition(string_t name, MemoryManager* heap);
-    35	
-    36	    inline uint32_t count() const { return num_fields_; }
-    37	    
-    38	    void copy_from(const Shape* other) {
-    39	        property_offsets_ = other->property_offsets_;
-    40	        num_fields_ = other->num_fields_;
-    41	    }
-    42	    
-    43	    void add_property(string_t name) {
-    44	        property_offsets_[name] = num_fields_++;
-    45	    }
-    46	
-    47	    size_t obj_size() const noexcept override { return sizeof(Shape); }
-    48	
-    49	    void trace(GCVisitor& visitor) const noexcept override;
-    50	};
-    51	
-    52	}
+    34	    inline uint32_t count() const { return num_fields_; }
+    35	    
+    36	    void copy_from(const Shape* other) {
+    37	        property_offsets_ = other->property_offsets_;
+    38	        num_fields_ = other->num_fields_;
+    39	    }
+    40	    
+    41	    void add_property(string_t name) {
+    42	        property_offsets_[name] = num_fields_++;
+    43	    }
+    44	
+    45	    void trace(GCVisitor& visitor) const noexcept override;
+    46	};
+    47	
+    48	}
 
 
 // =============================================================================
@@ -1453,46 +1382,40 @@
      8	
      9	class ObjString : public ObjBase<ObjectType::STRING> {
     10	private:
-    11	    using visitor_t = GCVisitor;
-    12	    
-    13	    size_t length_;
-    14	    size_t hash_;
-    15	    char chars_[1]; 
-    16	
-    17	    friend class MemoryManager;
-    18	    friend class heap; 
-    19	    
-    20	    ObjString(const char* chars, size_t length, size_t hash) 
-    21	        : length_(length), hash_(hash) {
-    22	        std::memcpy(chars_, chars, length);
-    23	        chars_[length] = '\0'; 
-    24	    }
-    25	
-    26	public:
-    27	    ObjString() = delete; 
-    28	    ObjString(const ObjString&) = delete;
-    29	    
-    30	    // --- Accessors ---
-    31	    inline const char* c_str() const noexcept { return chars_; }
-    32	    inline size_t size() const noexcept { return length_; }
-    33	    inline bool empty() const noexcept { return length_ == 0; }
-    34	    inline size_t hash() const noexcept { return hash_; }
+    11	    size_t length_;
+    12	    size_t hash_;
+    13	    char chars_[1]; 
+    14	
+    15	    friend class MemoryManager;
+    16	    friend class heap; 
+    17	    
+    18	    ObjString(const char* chars, size_t length, size_t hash) 
+    19	        : length_(length), hash_(hash) {
+    20	        std::memcpy(chars_, chars, length);
+    21	        chars_[length] = '\0'; 
+    22	    }
+    23	
+    24	public:
+    25	    ObjString() = delete; 
+    26	    ObjString(const ObjString&) = delete;
+    27	    
+    28	    // --- Accessors ---
+    29	    inline const char* c_str() const noexcept { return chars_; }
+    30	    inline size_t size() const noexcept { return length_; }
+    31	    inline bool empty() const noexcept { return length_ == 0; }
+    32	    inline size_t hash() const noexcept { return hash_; }
+    33	
+    34	    inline char get(size_t index) const noexcept { return chars_[index]; }
     35	
-    36	    inline char get(size_t index) const noexcept { return chars_[index]; }
-    37	
-    38	    inline void trace(visitor_t&) const noexcept override {}
-    39	    
-    40	    size_t obj_size() const noexcept override { 
-    41	        return sizeof(ObjString) + length_; 
+    36	    inline void trace(GCVisitor&) const noexcept override {}
+    37	};
+    38	
+    39	struct ObjStringHasher {
+    40	    inline size_t operator()(string_t s) const noexcept {
+    41	        return s->hash();
     42	    }
     43	};
-    44	
-    45	struct ObjStringHasher {
-    46	    inline size_t operator()(string_t s) const noexcept {
-    47	        return s->hash();
-    48	    }
-    49	};
-    50	}
+    44	}
 
 
 // =============================================================================
@@ -1884,340 +1807,169 @@
      3	#include <utility>
      4	#include <cstdint>
      5	#include <cstddef>
-     6	#include <meow/common.h>
-     7	#include "meow_variant.h"
-     8	#include <meow/core/meow_object.h>
-     9	
-    10	namespace meow {
-    11	
-    12	class Value {
-    13	private:
-    14	    base_t data_;
-    15	
-    16	    template <typename Self>
-    17	    inline auto get_object_ptr(this Self&& self) noexcept -> object_t {
-    18	        if (auto* val_ptr = self.data_.template get_if<object_t>()) {
-    19	            return *val_ptr;
-    20	        }
-    21	        return nullptr;
-    22	    }
-    23	
-    24	public:
-    25	    using layout_traits = base_t::layout_traits;
+     6	#include <type_traits>
+     7	#include <meow/common.h>
+     8	#include "meow_variant.h"
+     9	#include <meow/core/meow_object.h>
+    10	
+    11	namespace meow {
+    12	
+    13	class Value {
+    14	private:
+    15	    base_t data_;
+    16	
+    17	    // --- Private Helpers ---
+    18	
+    19	    template <typename Self>
+    20	    inline auto get_object_ptr(this Self&& self) noexcept -> object_t {
+    21	        if (auto* val_ptr = self.data_.template get_if<object_t>()) {
+    22	            return *val_ptr;
+    23	        }
+    24	        return nullptr;
+    25	    }
     26	
-    27	    // --- Constructors ---
-    28	    inline Value() noexcept : data_(null_t{}) {}
-    29	    inline Value(null_t v) noexcept : data_(std::move(v)) {}
-    30	    inline Value(bool_t v) noexcept : data_(v) {}
-    31	    inline Value(int_t v) noexcept : data_(v) {}
-    32	    inline Value(float_t v) noexcept : data_(v) {}
-    33	    inline Value(native_t v) noexcept : data_(v) {}
-    34	    inline Value(object_t v) noexcept : data_(v) {}
-    35	
-    36	    // --- Rule of five ---
-    37	    inline Value(const Value& other) noexcept : data_(other.data_) {}
-    38	    inline Value(Value&& other) noexcept : data_(std::move(other.data_)) {}
-    39	
-    40	    inline Value& operator=(const Value& other) noexcept {
-    41	        if (this == &other) return *this;
-    42	        data_ = other.data_;
-    43	        return *this;
-    44	    }
-    45	    inline Value& operator=(Value&& other) noexcept {
-    46	        if (this == &other) return *this;
-    47	        data_ = std::move(other.data_);
-    48	        return *this;
-    49	    }
-    50	    inline ~Value() noexcept = default;
-    51	
-    52	    // --- Assignment operators ---
-    53	    inline Value& operator=(null_t v) noexcept { data_ = std::move(v); return *this; }
-    54	    inline Value& operator=(bool_t v) noexcept { data_ = v; return *this; }
-    55	    inline Value& operator=(int_t v) noexcept { data_ = v; return *this; }
-    56	    inline Value& operator=(float_t v) noexcept { data_ = v; return *this; }
-    57	    inline Value& operator=(native_t v) noexcept { data_ = v; return *this; }
-    58	    inline Value& operator=(object_t v) noexcept { data_ = v; return *this; }
-    59	
-    60	    inline bool operator==(const Value& other) const noexcept {
-    61	        return data_ == other.data_;
-    62	    }
-    63	    inline bool operator!=(const Value& other) const noexcept {
-    64	        return data_ != other.data_;
-    65	    }
-    66	
-    67	    inline constexpr size_t index() const noexcept { return data_.index(); }
-    68	    inline uint64_t raw_tag() const noexcept { return data_.raw_tag(); }
-    69	    inline void set_raw(uint64_t bits) noexcept { data_.set_raw(bits); }
-    70	    
-    71	    template <typename T>
-    72	    inline bool holds_both(const Value& other) const noexcept {
-    73	        return data_.template holds_both<T>(other.data_);
-    74	    }
-    75	
-    76	    inline uint64_t raw() const noexcept { 
-    77	        return data_.raw(); 
-    78	    }
-    79	
-    80	    static inline Value from_raw(uint64_t bits) noexcept {
-    81	        Value v;
-    82	        v.set_raw(bits);
-    83	        return v;
-    84	    }
-    85	
-    86	    // === Type Checkers ===
-    87	
-    88	    // --- Primary type ---
-    89	    inline bool is_null() const noexcept { return data_.holds<null_t>(); }
-    90	    inline bool is_bool() const noexcept { return data_.holds<bool_t>(); }
-    91	    inline bool is_int() const noexcept { return data_.holds<int_t>(); }
-    92	    inline bool is_float() const noexcept { return data_.holds<float_t>(); }
-    93	    inline bool is_native() const noexcept { return data_.holds<native_t>(); }
-    94	
-    95	    // --- Object type (generic) ---
-    96	    inline bool is_object() const noexcept {
-    97	        return get_object_ptr() != nullptr;
-    98	    }
+    27	    inline bool check_obj_type(ObjectType type) const noexcept {
+    28	        auto obj = get_object_ptr();
+    29	        return (obj && obj->get_type() == type);
+    30	    }
+    31	
+    32	    template <typename TargetType, ObjectType Type, typename Self>
+    33	    inline auto get_obj_if(this Self&& self) noexcept {
+    34	        if (auto obj = self.get_object_ptr()) {
+    35	            if (obj->get_type() == Type) {
+    36	                return reinterpret_cast<TargetType>(obj);
+    37	            }
+    38	        }
+    39	        return static_cast<TargetType>(nullptr);
+    40	    }
+    41	
+    42	public:
+    43	    using layout_traits = base_t::layout_traits;
+    44	
+    45	    // --- Constructors & Assignments ---
+    46	    
+    47	    inline Value() noexcept : data_(null_t{}) {}
+    48	    
+    49	    inline Value(const Value&) noexcept = default;
+    50	    inline Value(Value&&) noexcept = default;
+    51	    inline Value& operator=(const Value&) noexcept = default;
+    52	    inline Value& operator=(Value&&) noexcept = default;
+    53	    inline ~Value() noexcept = default;
+    54	
+    55	    template <typename T>
+    56	    requires (std::is_convertible_v<T, MeowObject*> && !std::is_same_v<std::decay_t<T>, Value>)
+    57	    inline Value(T&& v) noexcept : data_(static_cast<MeowObject*>(v)) {}
+    58	
+    59	    template <typename T>
+    60	    requires (std::is_convertible_v<T, MeowObject*> && !std::is_same_v<std::decay_t<T>, Value>)
+    61	    inline Value& operator=(T&& v) noexcept {
+    62	        data_ = static_cast<MeowObject*>(v);
+    63	        return *this;
+    64	    }
+    65	
+    66	    template <typename T>
+    67	    requires (!std::is_convertible_v<T, MeowObject*> && !std::is_same_v<std::decay_t<T>, Value>)
+    68	    inline Value(T&& v) noexcept : data_(std::forward<T>(v)) {}
+    69	
+    70	    template <typename T>
+    71	    requires (!std::is_convertible_v<T, MeowObject*> && !std::is_same_v<std::decay_t<T>, Value>)
+    72	    inline Value& operator=(T&& v) noexcept {
+    73	        data_ = std::forward<T>(v);
+    74	        return *this;
+    75	    }
+    76	
+    77	    // --- Operators ---
+    78	
+    79	    inline bool operator==(const Value& other) const noexcept { return data_ == other.data_; }
+    80	    inline bool operator!=(const Value& other) const noexcept { return data_ != other.data_; }
+    81	
+    82	    // --- Core Access ---
+    83	
+    84	    inline constexpr size_t index() const noexcept { return data_.index(); }
+    85	    inline uint64_t raw_tag() const noexcept { return data_.raw_tag(); }
+    86	    inline void set_raw(uint64_t bits) noexcept { data_.set_raw(bits); }
+    87	    inline uint64_t raw() const noexcept { return data_.raw(); }
+    88	
+    89	    template <typename T>
+    90	    inline bool holds_both(const Value& other) const noexcept {
+    91	        return data_.template holds_both<T>(other.data_);
+    92	    }
+    93	
+    94	    static inline Value from_raw(uint64_t bits) noexcept {
+    95	        Value v; v.set_raw(bits); return v;
+    96	    }
+    97	
+    98	    // === Type Checkers ===
     99	
-   100	    // --- Specific object type ---
-   101	    inline bool is_array() const noexcept {
-   102	        auto obj = get_object_ptr();
-   103	        return (obj && obj->get_type() == ObjectType::ARRAY);
-   104	    }
-   105	    inline bool is_string() const noexcept {
-   106	        auto obj = get_object_ptr();
-   107	        return (obj && obj->get_type() == ObjectType::STRING);
-   108	    }
-   109	    inline bool is_hash_table() const noexcept {
-   110	        auto obj = get_object_ptr();
-   111	        return (obj && obj->get_type() == ObjectType::HASH_TABLE);
-   112	    }
-   113	    inline bool is_upvalue() const noexcept {
-   114	        auto obj = get_object_ptr();
-   115	        return (obj && obj->get_type() == ObjectType::UPVALUE);
-   116	    }
-   117	    inline bool is_proto() const noexcept {
-   118	        auto obj = get_object_ptr();
-   119	        return (obj && obj->get_type() == ObjectType::PROTO);
-   120	    }
-   121	    inline bool is_function() const noexcept {
-   122	        auto obj = get_object_ptr();
-   123	        return (obj && obj->get_type() == ObjectType::FUNCTION);
-   124	    }
-   125	    inline bool is_class() const noexcept {
-   126	        auto obj = get_object_ptr();
-   127	        return (obj && obj->get_type() == ObjectType::CLASS);
-   128	    }
-   129	    inline bool is_instance() const noexcept {
-   130	        auto obj = get_object_ptr();
-   131	        return (obj && obj->get_type() == ObjectType::INSTANCE);
-   132	    }
-   133	    inline bool is_bound_method() const noexcept {
-   134	        auto obj = get_object_ptr();
-   135	        return (obj && obj->get_type() == ObjectType::BOUND_METHOD);
-   136	    }
-   137	    inline bool is_module() const noexcept {
-   138	        auto obj = get_object_ptr();
-   139	        return (obj && obj->get_type() == ObjectType::MODULE);
-   140	    }
-   141	
-   142	    // === Accessors (Unsafe / By Value) ===
-   143	    inline bool as_bool() const noexcept { return data_.get<bool_t>(); }
-   144	    inline int64_t as_int() const noexcept { return data_.get<int_t>(); }
-   145	    inline double as_float() const noexcept { return data_.get<float_t>(); }
-   146	    inline native_t as_native() const noexcept { return data_.get<native_t>(); }
-   147	    
-   148	    inline MeowObject* as_object() const noexcept {
-   149	        return data_.get<object_t>();
-   150	    }
-   151	    inline array_t as_array() const noexcept {
-   152	        return reinterpret_cast<array_t>(as_object());
-   153	    }
-   154	    inline string_t as_string() const noexcept {
-   155	        return reinterpret_cast<string_t>(as_object());
-   156	    }
-   157	    inline hash_table_t as_hash_table() const noexcept {
-   158	        return reinterpret_cast<hash_table_t>(as_object());
-   159	    }
-   160	    inline upvalue_t as_upvalue() const noexcept {
-   161	        return reinterpret_cast<upvalue_t>(as_object());
-   162	    }
-   163	    inline proto_t as_proto() const noexcept {
-   164	        return reinterpret_cast<proto_t>(as_object());
-   165	    }
-   166	    inline function_t as_function() const noexcept {
-   167	        return reinterpret_cast<function_t>(as_object());
-   168	    }
-   169	    inline class_t as_class() const noexcept {
-   170	        return reinterpret_cast<class_t>(as_object());
-   171	    }
-   172	    inline instance_t as_instance() const noexcept {
-   173	        return reinterpret_cast<instance_t>(as_object());
-   174	    }
-   175	    inline bound_method_t as_bound_method() const noexcept {
-   176	        return reinterpret_cast<bound_method_t>(as_object());
-   177	    }
-   178	    inline module_t as_module() const noexcept {
-   179	        return reinterpret_cast<module_t>(as_object());
-   180	    }
-   181	
-   182	    // === Safe Getters (Deducing 'this' - C++23) ===
-   183	    
-   184	    // --- Primitive Types ---
-   185	    template <typename Self>
-   186	    inline auto as_if_bool(this Self&& self) noexcept {
-   187	        return self.data_.template get_if<bool_t>();
-   188	    }
-   189	
-   190	    template <typename Self>
-   191	    inline auto as_if_int(this Self&& self) noexcept {
-   192	        return self.data_.template get_if<int_t>();
-   193	    }
-   194	
-   195	    template <typename Self>
-   196	    inline auto as_if_float(this Self&& self) noexcept {
-   197	        return self.data_.template get_if<float_t>();
-   198	    }
-   199	
-   200	    template <typename Self>
-   201	    inline auto as_if_native(this Self&& self) noexcept {
-   202	        return self.data_.template get_if<native_t>();
-   203	    }
-   204	
-   205	    // --- Object Types ---
-   206	    
-   207	    // Array
-   208	    template <typename Self>
-   209	    inline auto as_if_array(this Self&& self) noexcept {
-   210	        if (auto obj = self.get_object_ptr()) {
-   211	            if (obj->get_type() == ObjectType::ARRAY) {
-   212	                return reinterpret_cast<array_t>(obj);
-   213	            }
-   214	        }
-   215	        return static_cast<array_t>(nullptr);
-   216	    }
-   217	
-   218	    // String
-   219	    template <typename Self>
-   220	    inline auto as_if_string(this Self&& self) noexcept {
-   221	        if (auto obj = self.get_object_ptr()) {
-   222	            if (obj->get_type() == ObjectType::STRING) {
-   223	                return reinterpret_cast<string_t>(obj);
-   224	            }
-   225	        }
-   226	        return static_cast<string_t>(nullptr);
-   227	    }
-   228	
-   229	    // Hash table
-   230	    template <typename Self>
-   231	    inline auto as_if_hash_table(this Self&& self) noexcept {
-   232	        if (auto obj = self.get_object_ptr()) {
-   233	            if (obj->get_type() == ObjectType::HASH_TABLE) {
-   234	                return reinterpret_cast<hash_table_t>(obj);
-   235	            }
-   236	        }
-   237	        return static_cast<hash_table_t>(nullptr);
-   238	    }
-   239	
-   240	    // Upvalue
-   241	    template <typename Self>
-   242	    inline auto as_if_upvalue(this Self&& self) noexcept {
-   243	        if (auto obj = self.get_object_ptr()) {
-   244	            if (obj->get_type() == ObjectType::UPVALUE) {
-   245	                return reinterpret_cast<upvalue_t>(obj);
-   246	            }
-   247	        }
-   248	        return static_cast<upvalue_t>(nullptr);
-   249	    }
-   250	
-   251	    // Proto
-   252	    template <typename Self>
-   253	    inline auto as_if_proto(this Self&& self) noexcept {
-   254	        if (auto obj = self.get_object_ptr()) {
-   255	            if (obj->get_type() == ObjectType::PROTO) {
-   256	                return reinterpret_cast<proto_t>(obj);
-   257	            }
-   258	        }
-   259	        return static_cast<proto_t>(nullptr);
-   260	    }
-   261	
-   262	    // Function
-   263	    template <typename Self>
-   264	    inline auto as_if_function(this Self&& self) noexcept {
-   265	        if (auto obj = self.get_object_ptr()) {
-   266	            if (obj->get_type() == ObjectType::FUNCTION) {
-   267	                return reinterpret_cast<function_t>(obj);
-   268	            }
-   269	        }
-   270	        return static_cast<function_t>(nullptr);
-   271	    }
-   272	
-   273	    // Class
-   274	    template <typename Self>
-   275	    inline auto as_if_class(this Self&& self) noexcept {
-   276	        if (auto obj = self.get_object_ptr()) {
-   277	            if (obj->get_type() == ObjectType::CLASS) {
-   278	                return reinterpret_cast<class_t>(obj);
-   279	            }
-   280	        }
-   281	        return static_cast<class_t>(nullptr);
-   282	    }
-   283	
-   284	    // Instance
-   285	    template <typename Self>
-   286	    inline auto as_if_instance(this Self&& self) noexcept {
-   287	        if (auto obj = self.get_object_ptr()) {
-   288	            if (obj->get_type() == ObjectType::INSTANCE) {
-   289	                return reinterpret_cast<instance_t>(obj);
-   290	            }
-   291	        }
-   292	        return static_cast<instance_t>(nullptr);
-   293	    }
-   294	
-   295	    // Bound method
-   296	    template <typename Self>
-   297	    inline auto as_if_bound_method(this Self&& self) noexcept {
-   298	        if (auto obj = self.get_object_ptr()) {
-   299	            if (obj->get_type() == ObjectType::BOUND_METHOD) {
-   300	                return reinterpret_cast<bound_method_t>(obj);
-   301	            }
-   302	        }
-   303	        return static_cast<bound_method_t>(nullptr);
-   304	    }
-   305	
-   306	    // Module
-   307	    template <typename Self>
-   308	    inline auto as_if_module(this Self&& self) noexcept {
-   309	        if (auto obj = self.get_object_ptr()) {
-   310	            if (obj->get_type() == ObjectType::MODULE) {
-   311	                return reinterpret_cast<module_t>(obj);
-   312	            }
-   313	        }
-   314	        return static_cast<module_t>(nullptr);
-   315	    }
-   316	
-   317	    // === Visitor ===
-   318	    template <typename Visitor>
-   319	    decltype(auto) visit(Visitor&& vis) {
-   320	        return data_.visit(vis);
-   321	    }
-   322	    
-   323	    template <typename Visitor>
-   324	    decltype(auto) visit(Visitor&& vis) const {
-   325	        return data_.visit(vis);
-   326	    }
-   327	
-   328	    template <typename... Fs>
-   329	    decltype(auto) visit(Fs&&... fs) {
-   330	        return data_.visit(std::forward<Fs>(fs)...);
-   331	    }
-   332	
-   333	    template <typename... Fs>
-   334	    decltype(auto) visit(Fs&&... fs) const {
-   335	        return data_.visit(std::forward<Fs>(fs)...);
-   336	    }
-   337	};
-   338	
-   339	}
+   100	    inline bool is_null() const noexcept { return data_.holds<null_t>(); }
+   101	    inline bool is_bool() const noexcept { return data_.holds<bool_t>(); }
+   102	    inline bool is_int() const noexcept { return data_.holds<int_t>(); }
+   103	    inline bool is_float() const noexcept { return data_.holds<float_t>(); }
+   104	    inline bool is_native() const noexcept { return data_.holds<native_t>(); }
+   105	    inline bool is_object() const noexcept { return get_object_ptr() != nullptr; }
+   106	
+   107	    inline bool is_array() const noexcept        { return check_obj_type(ObjectType::ARRAY); }
+   108	    inline bool is_string() const noexcept       { return check_obj_type(ObjectType::STRING); }
+   109	    inline bool is_hash_table() const noexcept   { return check_obj_type(ObjectType::HASH_TABLE); }
+   110	    inline bool is_upvalue() const noexcept      { return check_obj_type(ObjectType::UPVALUE); }
+   111	    inline bool is_proto() const noexcept        { return check_obj_type(ObjectType::PROTO); }
+   112	    inline bool is_function() const noexcept     { return check_obj_type(ObjectType::FUNCTION); }
+   113	    inline bool is_class() const noexcept        { return check_obj_type(ObjectType::CLASS); }
+   114	    inline bool is_instance() const noexcept     { return check_obj_type(ObjectType::INSTANCE); }
+   115	    inline bool is_bound_method() const noexcept { return check_obj_type(ObjectType::BOUND_METHOD); }
+   116	    inline bool is_module() const noexcept       { return check_obj_type(ObjectType::MODULE); }
+   117	
+   118	    // === Unsafe Accessors ===
+   119	
+   120	    inline bool as_bool() const noexcept       { return data_.get<bool_t>(); }
+   121	    inline int64_t as_int() const noexcept     { return data_.get<int_t>(); }
+   122	    inline double as_float() const noexcept    { return data_.get<float_t>(); }
+   123	    inline native_t as_native() const noexcept { return data_.get<native_t>(); }
+   124	    
+   125	    inline MeowObject* as_object() const noexcept { return data_.get<object_t>(); }
+   126	
+   127	    template <typename T>
+   128	    inline T as_obj_unsafe() const noexcept { return reinterpret_cast<T>(as_object()); }
+   129	
+   130	    inline array_t as_array() const noexcept               { return as_obj_unsafe<array_t>(); }
+   131	    inline string_t as_string() const noexcept             { return as_obj_unsafe<string_t>(); }
+   132	    inline hash_table_t as_hash_table() const noexcept     { return as_obj_unsafe<hash_table_t>(); }
+   133	    inline upvalue_t as_upvalue() const noexcept           { return as_obj_unsafe<upvalue_t>(); }
+   134	    inline proto_t as_proto() const noexcept               { return as_obj_unsafe<proto_t>(); }
+   135	    inline function_t as_function() const noexcept         { return as_obj_unsafe<function_t>(); }
+   136	    inline class_t as_class() const noexcept               { return as_obj_unsafe<class_t>(); }
+   137	    inline instance_t as_instance() const noexcept         { return as_obj_unsafe<instance_t>(); }
+   138	    inline bound_method_t as_bound_method() const noexcept { return as_obj_unsafe<bound_method_t>(); }
+   139	    inline module_t as_module() const noexcept             { return as_obj_unsafe<module_t>(); }
+   140	
+   141	    // === Safe Getters (Deducing 'this') ===
+   142	
+   143	    template <typename Self> auto as_if_bool(this Self&& self) noexcept   { return self.data_.template get_if<bool_t>(); }
+   144	    template <typename Self> auto as_if_int(this Self&& self) noexcept    { return self.data_.template get_if<int_t>(); }
+   145	    template <typename Self> auto as_if_float(this Self&& self) noexcept  { return self.data_.template get_if<float_t>(); }
+   146	    template <typename Self> auto as_if_native(this Self&& self) noexcept { return self.data_.template get_if<native_t>(); }
+   147	
+   148	    // Objects
+   149	    template <typename Self> auto as_if_array(this Self&& self) noexcept        { return self.template get_obj_if<array_t, ObjectType::ARRAY>(); }
+   150	    template <typename Self> auto as_if_string(this Self&& self) noexcept       { return self.template get_obj_if<string_t, ObjectType::STRING>(); }
+   151	    template <typename Self> auto as_if_hash_table(this Self&& self) noexcept   { return self.template get_obj_if<hash_table_t, ObjectType::HASH_TABLE>(); }
+   152	    template <typename Self> auto as_if_upvalue(this Self&& self) noexcept      { return self.template get_obj_if<upvalue_t, ObjectType::UPVALUE>(); }
+   153	    template <typename Self> auto as_if_proto(this Self&& self) noexcept        { return self.template get_obj_if<proto_t, ObjectType::PROTO>(); }
+   154	    template <typename Self> auto as_if_function(this Self&& self) noexcept     { return self.template get_obj_if<function_t, ObjectType::FUNCTION>(); }
+   155	    template <typename Self> auto as_if_class(this Self&& self) noexcept        { return self.template get_obj_if<class_t, ObjectType::CLASS>(); }
+   156	    template <typename Self> auto as_if_instance(this Self&& self) noexcept     { return self.template get_obj_if<instance_t, ObjectType::INSTANCE>(); }
+   157	    template <typename Self> auto as_if_bound_method(this Self&& self) noexcept { return self.template get_obj_if<bound_method_t, ObjectType::BOUND_METHOD>(); }
+   158	    template <typename Self> auto as_if_module(this Self&& self) noexcept       { return self.template get_obj_if<module_t, ObjectType::MODULE>(); }
+   159	
+   160	    // === Visitor ===
+   161	    template <typename... Fs>
+   162	    decltype(auto) visit(Fs&&... fs) const { return data_.visit(std::forward<Fs>(fs)...); }
+   163	    
+   164	    template <typename... Fs>
+   165	    decltype(auto) visit(Fs&&... fs) { return data_.visit(std::forward<Fs>(fs)...); }
+   166	};
+   167	
+   168	}
 
 
 // =============================================================================
@@ -4739,95 +4491,93 @@
     77	        perm = perm->next_gc;
     78	    }
     79	
-    80	    // [FIX] Quét Remembered Set để đánh dấu các đối tượng con (Young Gen)
-    81	    // được tham chiếu bởi đối tượng già (Old Gen).
-    82	    for (auto* obj : remembered_set_) {
-    83	        mark_object(obj);
-    84	    }
-    85	
-    86	    if (old_count_ > old_gen_threshold_) {
-    87	        sweep_full();
-    88	        old_gen_threshold_ = std::max((size_t)100, old_count_ * 2);
-    89	    } else {
-    90	        sweep_young();
-    91	    }
-    92	
-    93	    remembered_set_.clear();
-    94	    return young_count_ + old_count_;
-    95	}
-    96	
-    97	void GenerationalGC::destroy_object(ObjectMeta* meta) {
-    98	    MeowObject* obj = static_cast<MeowObject*>(heap::get_data(meta));
-    99	    std::destroy_at(obj);
-   100	    heap_->deallocate_raw(meta, sizeof(ObjectMeta) + meta->size);
-   101	}
-   102	
-   103	void GenerationalGC::sweep_young() {
-   104	    ObjectMeta** curr = &young_head_;
-   105	    size_t survived = 0;
-   106	
-   107	    while (*curr) {
-   108	        ObjectMeta* meta = *curr;
-   109	        
-   110	        if (meta->flags & MARKED) {
-   111	            *curr = meta->next_gc; 
-   112	            meta->next_gc = old_head_;
-   113	            old_head_ = meta;
-   114	            meta->flags = GEN_OLD; 
-   115	            
-   116	            old_count_++;
-   117	            young_count_--;
-   118	        } else {
-   119	            ObjectMeta* dead = meta;
-   120	            *curr = dead->next_gc;
-   121	            
-   122	            destroy_object(dead);
-   123	            young_count_--;
-   124	        }
-   125	    }
-   126	}
-   127	
-   128	void GenerationalGC::sweep_full() {
-   129	    ObjectMeta** curr_old = &old_head_;
-   130	    size_t old_survived = 0;
-   131	    while (*curr_old) {
-   132	        ObjectMeta* meta = *curr_old;
-   133	        if (meta->flags & MARKED) {
-   134	            meta->flags &= ~MARKED;
-   135	            curr_old = &meta->next_gc;
-   136	            old_survived++;
-   137	        } else {
-   138	            ObjectMeta* dead = meta;
-   139	            *curr_old = dead->next_gc;
-   140	            destroy_object(dead);
-   141	        }
-   142	    }
-   143	    old_count_ = old_survived;
-   144	
-   145	    sweep_young(); 
-   146	}
-   147	
-   148	void GenerationalGC::visit_value(param_t value) noexcept {
-   149	    if (value.is_object()) mark_object(value.as_object());
-   150	}
-   151	
-   152	void GenerationalGC::visit_object(const MeowObject* object) noexcept {
-   153	    mark_object(const_cast<MeowObject*>(object));
-   154	}
-   155	
-   156	void GenerationalGC::mark_object(MeowObject* object) {
-   157	    if (object == nullptr) return;
+    80	    for (auto* obj : remembered_set_) {
+    81	        mark_object(obj);
+    82	    }
+    83	
+    84	    if (old_count_ > old_gen_threshold_) {
+    85	        sweep_full();
+    86	        old_gen_threshold_ = std::max((size_t)100, old_count_ * 2);
+    87	    } else {
+    88	        sweep_young();
+    89	    }
+    90	
+    91	    remembered_set_.clear();
+    92	    return young_count_ + old_count_;
+    93	}
+    94	
+    95	void GenerationalGC::destroy_object(ObjectMeta* meta) {
+    96	    MeowObject* obj = static_cast<MeowObject*>(heap::get_data(meta));
+    97	    std::destroy_at(obj);
+    98	    heap_->deallocate_raw(meta, sizeof(ObjectMeta) + meta->size);
+    99	}
+   100	
+   101	void GenerationalGC::sweep_young() {
+   102	    ObjectMeta** curr = &young_head_;
+   103	    size_t survived = 0;
+   104	
+   105	    while (*curr) {
+   106	        ObjectMeta* meta = *curr;
+   107	        
+   108	        if (meta->flags & MARKED) {
+   109	            *curr = meta->next_gc; 
+   110	            meta->next_gc = old_head_;
+   111	            old_head_ = meta;
+   112	            meta->flags = GEN_OLD; 
+   113	            
+   114	            old_count_++;
+   115	            young_count_--;
+   116	        } else {
+   117	            ObjectMeta* dead = meta;
+   118	            *curr = dead->next_gc;
+   119	            
+   120	            destroy_object(dead);
+   121	            young_count_--;
+   122	        }
+   123	    }
+   124	}
+   125	
+   126	void GenerationalGC::sweep_full() {
+   127	    ObjectMeta** curr_old = &old_head_;
+   128	    size_t old_survived = 0;
+   129	    while (*curr_old) {
+   130	        ObjectMeta* meta = *curr_old;
+   131	        if (meta->flags & MARKED) {
+   132	            meta->flags &= ~MARKED;
+   133	            curr_old = &meta->next_gc;
+   134	            old_survived++;
+   135	        } else {
+   136	            ObjectMeta* dead = meta;
+   137	            *curr_old = dead->next_gc;
+   138	            destroy_object(dead);
+   139	        }
+   140	    }
+   141	    old_count_ = old_survived;
+   142	
+   143	    sweep_young(); 
+   144	}
+   145	
+   146	void GenerationalGC::visit_value(param_t value) noexcept {
+   147	    if (value.is_object()) mark_object(value.as_object());
+   148	}
+   149	
+   150	void GenerationalGC::visit_object(const MeowObject* object) noexcept {
+   151	    mark_object(const_cast<MeowObject*>(object));
+   152	}
+   153	
+   154	void GenerationalGC::mark_object(MeowObject* object) {
+   155	    if (object == nullptr) return;
+   156	    
+   157	    auto* meta = heap::get_meta(object);
    158	    
-   159	    auto* meta = heap::get_meta(object);
+   159	    if (meta->flags & MARKED) return;
    160	    
-   161	    if (meta->flags & MARKED) return;
+   161	    meta->flags |= MARKED;
    162	    
-   163	    meta->flags |= MARKED;
-   164	    
-   165	    object->trace(*this);
+   163	    object->trace(*this);
+   164	}
+   165	
    166	}
-   167	
-   168	}
 
 
 // =============================================================================
@@ -5372,301 +5122,302 @@
 
      1	#include "module/module_utils.h"
      2	#include "pch.h"
-     3	
-     4	#if defined(_WIN32)
-     5	#define WIN32_LEAN_AND_MEAN
-     6	#include <windows.h>
-     7	#else
-     8	#include <dlfcn.h>
-     9	#if defined(__APPLE__)
-    10	#include <mach-o/dyld.h>
-    11	#else
-    12	#include <limits.h>
-    13	#include <unistd.h>
-    14	#endif
+     3	#include <mutex>
+     4	
+     5	#if defined(_WIN32)
+     6	#define WIN32_LEAN_AND_MEAN
+     7	#include <windows.h>
+     8	#else
+     9	#include <dlfcn.h>
+    10	#if defined(__APPLE__)
+    11	#include <mach-o/dyld.h>
+    12	#else
+    13	#include <limits.h>
+    14	#include <unistd.h>
     15	#endif
-    16	
-    17	namespace meow {
-    18	
-    19	static inline std::string to_lower_copy(std::string s) noexcept {
-    20	    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    21	    return s;
-    22	}
-    23	
-    24	std::filesystem::path get_executable_dir() noexcept {
-    25	    try {
-    26	#if defined(_WIN32)
-    27	        char buf[MAX_PATH];
-    28	        DWORD len = GetModuleFileNameA(NULL, buf, MAX_PATH);
-    29	        if (len == 0) return std::filesystem::current_path();
-    30	        return std::filesystem::path(std::string(buf, static_cast<size_t>(len))).parent_path();
-    31	#elif defined(__APPLE__)
-    32	        uint32_t size = 0;
-    33	        if (_NSGetExecutablePath(nullptr, &size) != 0 && size == 0) return std::filesystem::current_path();
-    34	        std::vector<char> buf(size ? size : 1);
-    35	        if (_NSGetExecutablePath(buf.data(), &size) != 0) return std::filesystem::current_path();
-    36	        return std::filesystem::absolute(std::filesystem::path(buf.data())).parent_path();
-    37	#else
-    38	        char buf[PATH_MAX];
-    39	        ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
-    40	        if (len == -1) return std::filesystem::current_path();
-    41	        buf[len] = '\0';
-    42	        return std::filesystem::path(std::string(buf, static_cast<size_t>(len))).parent_path();
-    43	#endif
-    44	    } catch (...) {
-    45	        return std::filesystem::current_path();
-    46	    }
-    47	}
-    48	
-    49	std::filesystem::path normalize_path(const std::filesystem::path& p) noexcept {
-    50	    try {
-    51	        if (p.empty()) return p;
-    52	        return std::filesystem::absolute(p).lexically_normal();
-    53	    } catch (...) {
-    54	        return p;
-    55	    }
-    56	}
-    57	
-    58	bool file_exists(const std::filesystem::path& p) noexcept {
-    59	    try {
-    60	        return std::filesystem::exists(p);
-    61	    } catch (...) {
-    62	        return false;
-    63	    }
-    64	}
-    65	
-    66	std::string read_first_non_empty_line_trimmed(const std::filesystem::path& path) noexcept {
-    67	    try {
-    68	        std::ifstream in(path);
-    69	        if (!in) return std::string();
-    70	        std::string line;
-    71	        while (std::getline(in, line)) {
-    72	            // trim both ends
-    73	            auto ltrim = [](std::string& s) { s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); })); };
-    74	            auto rtrim = [](std::string& s) { s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end()); };
-    75	            rtrim(line);
-    76	            ltrim(line);
-    77	            if (!line.empty()) return line;
-    78	        }
-    79	    } catch (...) {
-    80	    }
-    81	    return std::string();
-    82	}
-    83	
-    84	std::string expand_token(const std::string& raw, const std::string& token, const std::filesystem::path& replacement) noexcept {
-    85	    if (token.empty() || !raw.contains(token)) return raw;
-    86	    std::string out;
-    87	    out.reserve(raw.size() + replacement.string().size());
-    88	    size_t pos = 0;
-    89	    while (true) {
-    90	        size_t p = raw.find(token, pos);
-    91	        if (p == std::string::npos) {
-    92	            out.append(raw.substr(pos));
-    93	            break;
-    94	        }
-    95	        out.append(raw.substr(pos, p - pos));
-    96	        out.append(replacement.string());
-    97	        pos = p + token.size();
-    98	    }
-    99	    return out;
-   100	}
-   101	
-   102	// -------------------- root detection with caching (thread-safe, keyed)
-   103	// --------------------
-   104	struct cache_key {
-   105	    std::string config_filename;
-   106	    std::string token;
-   107	    bool treat_bin_as_parent;
-   108	    bool operator==(const cache_key& o) const noexcept {
-   109	        return config_filename == o.config_filename && token == o.token && treat_bin_as_parent == o.treat_bin_as_parent;
-   110	    }
-   111	};
-   112	namespace {
-   113	struct key_hash {
-   114	    size_t operator()(cache_key const& k) const noexcept {
-   115	        std::hash<std::string> h;
-   116	        size_t r = h(k.config_filename);
-   117	        r = r * 1315423911u + h(k.token);
-   118	        r ^= static_cast<size_t>(k.treat_bin_as_parent) + 0x9e3779b97f4a7c15ULL + (r << 6) + (r >> 2);
-   119	        return r;
-   120	    }
-   121	};
-   122	static std::mutex s_cache_mutex;
-   123	static std::unordered_map<cache_key, std::filesystem::path, key_hash> s_root_cache;
-   124	}
-   125	
-   126	std::filesystem::path detect_root_cached(const std::string& config_filename, const std::string& token, bool treat_bin_as_parent, std::function<std::filesystem::path()> exe_dir_provider) noexcept {
-   127	    try {
-   128	        cache_key k{config_filename, token, treat_bin_as_parent};
-   129	        {
-   130	            std::lock_guard<std::mutex> lk(s_cache_mutex);
-   131	            auto it = s_root_cache.find(k);
-   132	            if (it != s_root_cache.end()) return it->second;
-   133	        }
-   134	
-   135	        std::filesystem::path exe_dir = exe_dir_provider();
-   136	        if (!config_filename.empty()) {
-   137	            std::filesystem::path config_path = exe_dir / config_filename;
-   138	            if (file_exists(config_path)) {
-   139	                std::string line = read_first_non_empty_line_trimmed(config_path);
-   140	                if (!line.empty()) {
-   141	                    std::string expanded = token.empty() ? line : expand_token(line, token, exe_dir);
-   142	                    std::filesystem::path result = normalize_path(std::filesystem::path(expanded));
-   143	                    {
-   144	                        std::lock_guard<std::mutex> lk(s_cache_mutex);
-   145	                        s_root_cache.emplace(k, result);
-   146	                    }
-   147	                    return result;
-   148	                }
-   149	            }
-   150	        }
-   151	
-   152	        std::filesystem::path fallback = exe_dir;
-   153	        if (treat_bin_as_parent && exe_dir.filename() == "bin") fallback = exe_dir.parent_path();
-   154	        std::filesystem::path result = normalize_path(fallback);
-   155	        {
-   156	            std::lock_guard<std::mutex> lk(s_cache_mutex);
-   157	            s_root_cache.emplace(k, result);
-   158	        }
-   159	        return result;
-   160	    } catch (...) {
-   161	        return std::filesystem::current_path();
-   162	    }
-   163	}
-   164	
-   165	// -------------------- default search roots helper --------------------
-   166	std::vector<std::filesystem::path> make_default_search_roots(const std::filesystem::path& root) noexcept {
-   167	    std::vector<std::filesystem::path> v;
-   168	    try {
-   169	        v.reserve(5);
-   170	        v.push_back(normalize_path(root));
-   171	        v.push_back(normalize_path(root / "lib"));
-   172	        v.push_back(normalize_path(root / "stdlib"));
-   173	        v.push_back(normalize_path(root / "bin" / "stdlib"));
-   174	        v.push_back(normalize_path(root / "bin"));
-   175	    } catch (...) {
-   176	    }
-   177	    return v;
-   178	}
-   179	
-   180	std::string resolve_library_path_generic(const std::string& module_path, const std::string& importer, const std::string& entry_path, const std::vector<std::string>& forbidden_extensions,
-   181	                                         const std::vector<std::string>& candidate_extensions, const std::vector<std::filesystem::path>& search_roots, bool extra_relative_search) noexcept {
-   182	    try {
-   183	        std::filesystem::path candidate(module_path);
-   184	        std::string ext = candidate.extension().string();
-   185	        if (!ext.empty()) {
-   186	            std::string ext_l = to_lower_copy(ext);
-   187	            for (const auto& f : forbidden_extensions) {
-   188	                if (ext_l == to_lower_copy(f)) return "";
-   189	            }
-   190	            if (candidate.is_absolute() && file_exists(candidate)) return normalize_path(candidate).string();
-   191	        }
-   192	
-   193	        std::vector<std::filesystem::path> to_try;
-   194	        to_try.reserve(8);
-   195	
-   196	        if (candidate.extension().empty() && !candidate_extensions.empty()) {
-   197	            for (const auto& ce : candidate_extensions) {
-   198	                std::filesystem::path p = candidate;
-   199	                p.replace_extension(ce);
-   200	                to_try.push_back(p);
-   201	            }
-   202	        } else {
-   203	            to_try.push_back(candidate);
-   204	        }
-   205	
-   206	        for (const auto& root : search_roots) {
-   207	            for (const auto& t : to_try) {
-   208	                std::filesystem::path p = root / t;
-   209	                if (file_exists(p)) return normalize_path(p).string();
-   210	            }
-   211	        }
-   212	
-   213	        for (const auto& t : to_try) {
-   214	            if (file_exists(t)) return normalize_path(t).string();
-   215	        }
-   216	
-   217	        if (extra_relative_search) {
-   218	            std::filesystem::path base_dir;
-   219	            if (importer == entry_path)
-   220	                base_dir = std::filesystem::path(entry_path);
-   221	            else
-   222	                base_dir = std::filesystem::path(importer).parent_path();
-   223	
-   224	            for (const auto& t : to_try) {
-   225	                std::filesystem::path p = normalize_path(base_dir / t);
-   226	                if (file_exists(p)) return p.string();
-   227	            }
-   228	        }
-   229	
-   230	        return "";
-   231	    } catch (...) {
-   232	        return "";
-   233	    }
-   234	}
-   235	
-   236	std::string get_platform_library_extension() noexcept {
-   237	#if defined(_WIN32)
-   238	    return ".dll";
-   239	#elif defined(__APPLE__)
-   240	    return ".dylib";
-   241	#else
-   242	    return ".so";
-   243	#endif
-   244	}
-   245	
-   246	std::string platform_last_error() noexcept {
-   247	#if defined(_WIN32)
-   248	    DWORD err = GetLastError();
-   249	    if (err == 0) return std::string();
-   250	    LPSTR buf = nullptr;
-   251	    FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&buf, 0, nullptr);
-   252	    std::string s = buf ? std::string(buf) : std::string();
-   253	    if (buf) LocalFree(buf);
-   254	    while (!s.empty() && (s.back() == '\n' || s.back() == '\r' || s.back() == ' ' || s.back() == '\t')) s.pop_back();
-   255	    return s;
-   256	#else
-   257	    const char* e = dlerror();
-   258	    return e ? std::string(e) : std::string();
-   259	#endif
-   260	}
-   261	
-   262	void* open_native_library(const std::string& path) noexcept {
-   263	#if defined(_WIN32)
-   264	    HMODULE h = LoadLibraryA(path.c_str());
-   265	    return reinterpret_cast<void*>(h);
-   266	#else
-   267	    // clear previous errors
-   268	    dlerror();
-   269	    void* h = dlopen(path.c_str(), RTLD_LAZY | RTLD_LOCAL);
-   270	    return h;
-   271	#endif
-   272	}
-   273	
-   274	void* get_native_symbol(void* handle, const char* symbol_name) noexcept {
-   275	    if (!handle || !symbol_name) return nullptr;
-   276	#if defined(_WIN32)
-   277	    FARPROC p = GetProcAddress(reinterpret_cast<HMODULE>(handle), symbol_name);
-   278	    return reinterpret_cast<void*>(p);
-   279	#else
-   280	    dlerror();
-   281	    void* p = dlsym(handle, symbol_name);
-   282	    const char* err = dlerror();
-   283	    (void)err;
-   284	    return p;
-   285	#endif
-   286	}
-   287	
-   288	void close_native_library(void* handle) noexcept {
-   289	    if (!handle) return;
-   290	#if defined(_WIN32)
-   291	    FreeLibrary(reinterpret_cast<HMODULE>(handle));
-   292	#else
-   293	    dlclose(handle);
-   294	#endif
-   295	}
-   296	
-   297	}
+    16	#endif
+    17	
+    18	namespace meow {
+    19	
+    20	static inline std::string to_lower_copy(std::string s) noexcept {
+    21	    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    22	    return s;
+    23	}
+    24	
+    25	std::filesystem::path get_executable_dir() noexcept {
+    26	    try {
+    27	#if defined(_WIN32)
+    28	        char buf[MAX_PATH];
+    29	        DWORD len = GetModuleFileNameA(NULL, buf, MAX_PATH);
+    30	        if (len == 0) return std::filesystem::current_path();
+    31	        return std::filesystem::path(std::string(buf, static_cast<size_t>(len))).parent_path();
+    32	#elif defined(__APPLE__)
+    33	        uint32_t size = 0;
+    34	        if (_NSGetExecutablePath(nullptr, &size) != 0 && size == 0) return std::filesystem::current_path();
+    35	        std::vector<char> buf(size ? size : 1);
+    36	        if (_NSGetExecutablePath(buf.data(), &size) != 0) return std::filesystem::current_path();
+    37	        return std::filesystem::absolute(std::filesystem::path(buf.data())).parent_path();
+    38	#else
+    39	        char buf[PATH_MAX];
+    40	        ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+    41	        if (len == -1) return std::filesystem::current_path();
+    42	        buf[len] = '\0';
+    43	        return std::filesystem::path(std::string(buf, static_cast<size_t>(len))).parent_path();
+    44	#endif
+    45	    } catch (...) {
+    46	        return std::filesystem::current_path();
+    47	    }
+    48	}
+    49	
+    50	std::filesystem::path normalize_path(const std::filesystem::path& p) noexcept {
+    51	    try {
+    52	        if (p.empty()) return p;
+    53	        return std::filesystem::absolute(p).lexically_normal();
+    54	    } catch (...) {
+    55	        return p;
+    56	    }
+    57	}
+    58	
+    59	bool file_exists(const std::filesystem::path& p) noexcept {
+    60	    try {
+    61	        return std::filesystem::exists(p);
+    62	    } catch (...) {
+    63	        return false;
+    64	    }
+    65	}
+    66	
+    67	std::string read_first_non_empty_line_trimmed(const std::filesystem::path& path) noexcept {
+    68	    try {
+    69	        std::ifstream in(path);
+    70	        if (!in) return std::string();
+    71	        std::string line;
+    72	        while (std::getline(in, line)) {
+    73	            // trim both ends
+    74	            auto ltrim = [](std::string& s) { s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); })); };
+    75	            auto rtrim = [](std::string& s) { s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end()); };
+    76	            rtrim(line);
+    77	            ltrim(line);
+    78	            if (!line.empty()) return line;
+    79	        }
+    80	    } catch (...) {
+    81	    }
+    82	    return std::string();
+    83	}
+    84	
+    85	std::string expand_token(const std::string& raw, const std::string& token, const std::filesystem::path& replacement) noexcept {
+    86	    if (token.empty() || !raw.contains(token)) return raw;
+    87	    std::string out;
+    88	    out.reserve(raw.size() + replacement.string().size());
+    89	    size_t pos = 0;
+    90	    while (true) {
+    91	        size_t p = raw.find(token, pos);
+    92	        if (p == std::string::npos) {
+    93	            out.append(raw.substr(pos));
+    94	            break;
+    95	        }
+    96	        out.append(raw.substr(pos, p - pos));
+    97	        out.append(replacement.string());
+    98	        pos = p + token.size();
+    99	    }
+   100	    return out;
+   101	}
+   102	
+   103	// -------------------- root detection with caching (thread-safe, keyed)
+   104	// --------------------
+   105	struct cache_key {
+   106	    std::string config_filename;
+   107	    std::string token;
+   108	    bool treat_bin_as_parent;
+   109	    bool operator==(const cache_key& o) const noexcept {
+   110	        return config_filename == o.config_filename && token == o.token && treat_bin_as_parent == o.treat_bin_as_parent;
+   111	    }
+   112	};
+   113	namespace {
+   114	struct key_hash {
+   115	    size_t operator()(cache_key const& k) const noexcept {
+   116	        std::hash<std::string> h;
+   117	        size_t r = h(k.config_filename);
+   118	        r = r * 1315423911u + h(k.token);
+   119	        r ^= static_cast<size_t>(k.treat_bin_as_parent) + 0x9e3779b97f4a7c15ULL + (r << 6) + (r >> 2);
+   120	        return r;
+   121	    }
+   122	};
+   123	static std::mutex s_cache_mutex;
+   124	static std::unordered_map<cache_key, std::filesystem::path, key_hash> s_root_cache;
+   125	}
+   126	
+   127	std::filesystem::path detect_root_cached(const std::string& config_filename, const std::string& token, bool treat_bin_as_parent, std::function<std::filesystem::path()> exe_dir_provider) noexcept {
+   128	    try {
+   129	        cache_key k{config_filename, token, treat_bin_as_parent};
+   130	        {
+   131	            std::lock_guard<std::mutex> lk(s_cache_mutex);
+   132	            auto it = s_root_cache.find(k);
+   133	            if (it != s_root_cache.end()) return it->second;
+   134	        }
+   135	
+   136	        std::filesystem::path exe_dir = exe_dir_provider();
+   137	        if (!config_filename.empty()) {
+   138	            std::filesystem::path config_path = exe_dir / config_filename;
+   139	            if (file_exists(config_path)) {
+   140	                std::string line = read_first_non_empty_line_trimmed(config_path);
+   141	                if (!line.empty()) {
+   142	                    std::string expanded = token.empty() ? line : expand_token(line, token, exe_dir);
+   143	                    std::filesystem::path result = normalize_path(std::filesystem::path(expanded));
+   144	                    {
+   145	                        std::lock_guard<std::mutex> lk(s_cache_mutex);
+   146	                        s_root_cache.emplace(k, result);
+   147	                    }
+   148	                    return result;
+   149	                }
+   150	            }
+   151	        }
+   152	
+   153	        std::filesystem::path fallback = exe_dir;
+   154	        if (treat_bin_as_parent && exe_dir.filename() == "bin") fallback = exe_dir.parent_path();
+   155	        std::filesystem::path result = normalize_path(fallback);
+   156	        {
+   157	            std::lock_guard<std::mutex> lk(s_cache_mutex);
+   158	            s_root_cache.emplace(k, result);
+   159	        }
+   160	        return result;
+   161	    } catch (...) {
+   162	        return std::filesystem::current_path();
+   163	    }
+   164	}
+   165	
+   166	// -------------------- default search roots helper --------------------
+   167	std::vector<std::filesystem::path> make_default_search_roots(const std::filesystem::path& root) noexcept {
+   168	    std::vector<std::filesystem::path> v;
+   169	    try {
+   170	        v.reserve(5);
+   171	        v.push_back(normalize_path(root));
+   172	        v.push_back(normalize_path(root / "lib"));
+   173	        v.push_back(normalize_path(root / "stdlib"));
+   174	        v.push_back(normalize_path(root / "bin" / "stdlib"));
+   175	        v.push_back(normalize_path(root / "bin"));
+   176	    } catch (...) {
+   177	    }
+   178	    return v;
+   179	}
+   180	
+   181	std::string resolve_library_path_generic(const std::string& module_path, const std::string& importer, const std::string& entry_path, const std::vector<std::string>& forbidden_extensions,
+   182	                                         const std::vector<std::string>& candidate_extensions, const std::vector<std::filesystem::path>& search_roots, bool extra_relative_search) noexcept {
+   183	    try {
+   184	        std::filesystem::path candidate(module_path);
+   185	        std::string ext = candidate.extension().string();
+   186	        if (!ext.empty()) {
+   187	            std::string ext_l = to_lower_copy(ext);
+   188	            for (const auto& f : forbidden_extensions) {
+   189	                if (ext_l == to_lower_copy(f)) return "";
+   190	            }
+   191	            if (candidate.is_absolute() && file_exists(candidate)) return normalize_path(candidate).string();
+   192	        }
+   193	
+   194	        std::vector<std::filesystem::path> to_try;
+   195	        to_try.reserve(8);
+   196	
+   197	        if (candidate.extension().empty() && !candidate_extensions.empty()) {
+   198	            for (const auto& ce : candidate_extensions) {
+   199	                std::filesystem::path p = candidate;
+   200	                p.replace_extension(ce);
+   201	                to_try.push_back(p);
+   202	            }
+   203	        } else {
+   204	            to_try.push_back(candidate);
+   205	        }
+   206	
+   207	        for (const auto& root : search_roots) {
+   208	            for (const auto& t : to_try) {
+   209	                std::filesystem::path p = root / t;
+   210	                if (file_exists(p)) return normalize_path(p).string();
+   211	            }
+   212	        }
+   213	
+   214	        for (const auto& t : to_try) {
+   215	            if (file_exists(t)) return normalize_path(t).string();
+   216	        }
+   217	
+   218	        if (extra_relative_search) {
+   219	            std::filesystem::path base_dir;
+   220	            if (importer == entry_path)
+   221	                base_dir = std::filesystem::path(entry_path);
+   222	            else
+   223	                base_dir = std::filesystem::path(importer).parent_path();
+   224	
+   225	            for (const auto& t : to_try) {
+   226	                std::filesystem::path p = normalize_path(base_dir / t);
+   227	                if (file_exists(p)) return p.string();
+   228	            }
+   229	        }
+   230	
+   231	        return "";
+   232	    } catch (...) {
+   233	        return "";
+   234	    }
+   235	}
+   236	
+   237	std::string get_platform_library_extension() noexcept {
+   238	#if defined(_WIN32)
+   239	    return ".dll";
+   240	#elif defined(__APPLE__)
+   241	    return ".dylib";
+   242	#else
+   243	    return ".so";
+   244	#endif
+   245	}
+   246	
+   247	std::string platform_last_error() noexcept {
+   248	#if defined(_WIN32)
+   249	    DWORD err = GetLastError();
+   250	    if (err == 0) return std::string();
+   251	    LPSTR buf = nullptr;
+   252	    FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&buf, 0, nullptr);
+   253	    std::string s = buf ? std::string(buf) : std::string();
+   254	    if (buf) LocalFree(buf);
+   255	    while (!s.empty() && (s.back() == '\n' || s.back() == '\r' || s.back() == ' ' || s.back() == '\t')) s.pop_back();
+   256	    return s;
+   257	#else
+   258	    const char* e = dlerror();
+   259	    return e ? std::string(e) : std::string();
+   260	#endif
+   261	}
+   262	
+   263	void* open_native_library(const std::string& path) noexcept {
+   264	#if defined(_WIN32)
+   265	    HMODULE h = LoadLibraryA(path.c_str());
+   266	    return reinterpret_cast<void*>(h);
+   267	#else
+   268	    // clear previous errors
+   269	    dlerror();
+   270	    void* h = dlopen(path.c_str(), RTLD_LAZY | RTLD_LOCAL);
+   271	    return h;
+   272	#endif
+   273	}
+   274	
+   275	void* get_native_symbol(void* handle, const char* symbol_name) noexcept {
+   276	    if (!handle || !symbol_name) return nullptr;
+   277	#if defined(_WIN32)
+   278	    FARPROC p = GetProcAddress(reinterpret_cast<HMODULE>(handle), symbol_name);
+   279	    return reinterpret_cast<void*>(p);
+   280	#else
+   281	    dlerror();
+   282	    void* p = dlsym(handle, symbol_name);
+   283	    const char* err = dlerror();
+   284	    (void)err;
+   285	    return p;
+   286	#endif
+   287	}
+   288	
+   289	void close_native_library(void* handle) noexcept {
+   290	    if (!handle) return;
+   291	#if defined(_WIN32)
+   292	    FreeLibrary(reinterpret_cast<HMODULE>(handle));
+   293	#else
+   294	    dlclose(handle);
+   295	#endif
+   296	}
+   297	
+   298	}
 
 
 
