@@ -5175,9 +5175,11 @@
    188	    mod_manager_->add_cache(heap_->new_string("string"), stdlib::create_string_module(this, heap_.get()));
    189	    mod_manager_->add_cache(heap_->new_string("object"), stdlib::create_object_module(this, heap_.get()));
    190	    mod_manager_->add_cache(heap_->new_string("json"), stdlib::create_json_module(this, heap_.get()));
-   191	}
+   191	    mod_manager_->add_cache(heap_->new_string("memory"), stdlib::create_memory_module(this, heap_.get()));
    192	
-   193	} // namespace meow
+   193	}
+   194	
+   195	} // namespace meow
 
 
 // =============================================================================
@@ -8377,6 +8379,59 @@
 
 
 // =============================================================================
+//  FILE PATH: src/vm/stdlib/memory_lib.cpp
+// =============================================================================
+
+     1	#include "pch.h"
+     2	#include "vm/stdlib/stdlib.h"
+     3	#include <cstdlib>
+     4	#include <meow/machine.h>
+     5	#include <meow/value.h>
+     6	#include <meow/memory/memory_manager.h>
+     7	
+     8	namespace meow::stdlib {
+     9	
+    10	// malloc(size: int) -> pointer
+    11	static Value malloc(Machine* vm, int argc, Value* argv) {
+    12	    if (argc < 1 || !argv[0].is_int()) [[unlikely]] {
+    13	        return Value(); 
+    14	    }
+    15	
+    16	    size_t size = static_cast<size_t>(argv[0].as_int());
+    17	    
+    18	    if (size == 0) return Value();
+    19	
+    20	    void* buffer = std::malloc(size);
+    21	    return Value(buffer);
+    22	} 
+    23	
+    24	// free(ptr: pointer) -> null
+    25	static Value free(Machine* vm, int argc, Value* argv) {
+    26	    if (argc >= 1 && argv[0].is_pointer()) [[likely]] {
+    27	        void* ptr = argv[0].as_pointer();
+    28	        if (ptr) std::free(ptr);
+    29	    }
+    30	    return Value();
+    31	}
+    32	    
+    33	module_t create_memory_module(Machine* vm, MemoryManager* heap) noexcept {
+    34	    auto name = heap->new_string("memory");
+    35	    auto mod = heap->new_module(name, name);
+    36	    
+    37	    auto reg = [&](const char* n, native_t fn) { 
+    38	        mod->set_export(heap->new_string(n), Value(fn)); 
+    39	    };
+    40	
+    41	    reg("malloc", malloc);
+    42	    reg("free", free);
+    43	
+    44	    return mod;
+    45	}
+    46	
+    47	}
+
+
+// =============================================================================
 //  FILE PATH: src/vm/stdlib/object_lib.cpp
 // =============================================================================
 
@@ -8504,7 +8559,8 @@
     20	    [[nodiscard]] module_t create_string_module(Machine* vm, MemoryManager* heap) noexcept;
     21	    [[nodiscard]] module_t create_object_module(Machine* vm, MemoryManager* heap) noexcept;
     22	    [[nodiscard]] module_t create_json_module(Machine* vm, MemoryManager* heap) noexcept;
-    23	}
+    23	    [[nodiscard]] module_t create_memory_module(Machine* vm, MemoryManager* heap) noexcept;
+    24	}
 
 
 

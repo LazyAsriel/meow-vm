@@ -1,5 +1,5 @@
 // MEOW-VM FULL CONTEXT FILE
-// Generated at: Tue Dec 23 12:59:36 PM +07 2025
+// Generated at: Tue Dec 23 09:22:33 PM +07 2025
 // Structure: ALL HEADERS (include/) + ALL SOURCES (src/)
 
 
@@ -1906,70 +1906,78 @@
    102	    inline bool is_int() const noexcept { return data_.holds<int_t>(); }
    103	    inline bool is_float() const noexcept { return data_.holds<float_t>(); }
    104	    inline bool is_native() const noexcept { return data_.holds<native_t>(); }
-   105	    inline bool is_object() const noexcept { return get_object_ptr() != nullptr; }
-   106	
-   107	    inline bool is_array() const noexcept        { return check_obj_type(ObjectType::ARRAY); }
-   108	    inline bool is_string() const noexcept       { return check_obj_type(ObjectType::STRING); }
-   109	    inline bool is_hash_table() const noexcept   { return check_obj_type(ObjectType::HASH_TABLE); }
-   110	    inline bool is_upvalue() const noexcept      { return check_obj_type(ObjectType::UPVALUE); }
-   111	    inline bool is_proto() const noexcept        { return check_obj_type(ObjectType::PROTO); }
-   112	    inline bool is_function() const noexcept     { return check_obj_type(ObjectType::FUNCTION); }
-   113	    inline bool is_class() const noexcept        { return check_obj_type(ObjectType::CLASS); }
-   114	    inline bool is_instance() const noexcept     { return check_obj_type(ObjectType::INSTANCE); }
-   115	    inline bool is_bound_method() const noexcept { return check_obj_type(ObjectType::BOUND_METHOD); }
-   116	    inline bool is_module() const noexcept       { return check_obj_type(ObjectType::MODULE); }
-   117	
-   118	    // === Unsafe Accessors ===
-   119	
-   120	    inline bool as_bool() const noexcept       { return data_.get<bool_t>(); }
-   121	    inline int64_t as_int() const noexcept     { return data_.get<int_t>(); }
-   122	    inline double as_float() const noexcept    { return data_.get<float_t>(); }
-   123	    inline native_t as_native() const noexcept { return data_.get<native_t>(); }
-   124	    
-   125	    inline MeowObject* as_object() const noexcept { return data_.get<object_t>(); }
-   126	
-   127	    template <typename T>
-   128	    inline T as_obj_unsafe() const noexcept { return reinterpret_cast<T>(as_object()); }
-   129	
-   130	    inline array_t as_array() const noexcept               { return as_obj_unsafe<array_t>(); }
-   131	    inline string_t as_string() const noexcept             { return as_obj_unsafe<string_t>(); }
-   132	    inline hash_table_t as_hash_table() const noexcept     { return as_obj_unsafe<hash_table_t>(); }
-   133	    inline upvalue_t as_upvalue() const noexcept           { return as_obj_unsafe<upvalue_t>(); }
-   134	    inline proto_t as_proto() const noexcept               { return as_obj_unsafe<proto_t>(); }
-   135	    inline function_t as_function() const noexcept         { return as_obj_unsafe<function_t>(); }
-   136	    inline class_t as_class() const noexcept               { return as_obj_unsafe<class_t>(); }
-   137	    inline instance_t as_instance() const noexcept         { return as_obj_unsafe<instance_t>(); }
-   138	    inline bound_method_t as_bound_method() const noexcept { return as_obj_unsafe<bound_method_t>(); }
-   139	    inline module_t as_module() const noexcept             { return as_obj_unsafe<module_t>(); }
-   140	
-   141	    // === Safe Getters (Deducing 'this') ===
+   105	    inline bool is_pointer() const noexcept { return data_.holds<pointer_t>(); }
+   106	    inline bool is_object() const noexcept { return get_object_ptr() != nullptr; }
+   107	
+   108	    inline bool is_array() const noexcept        { return check_obj_type(ObjectType::ARRAY); }
+   109	    inline bool is_string() const noexcept       { return check_obj_type(ObjectType::STRING); }
+   110	    inline bool is_hash_table() const noexcept   { return check_obj_type(ObjectType::HASH_TABLE); }
+   111	    inline bool is_upvalue() const noexcept      { return check_obj_type(ObjectType::UPVALUE); }
+   112	    inline bool is_proto() const noexcept        { return check_obj_type(ObjectType::PROTO); }
+   113	    inline bool is_function() const noexcept     { return check_obj_type(ObjectType::FUNCTION); }
+   114	    inline bool is_class() const noexcept        { return check_obj_type(ObjectType::CLASS); }
+   115	    inline bool is_instance() const noexcept     { return check_obj_type(ObjectType::INSTANCE); }
+   116	    inline bool is_bound_method() const noexcept { return check_obj_type(ObjectType::BOUND_METHOD); }
+   117	    inline bool is_module() const noexcept       { return check_obj_type(ObjectType::MODULE); }
+   118	
+   119	    // === Unsafe Accessors ===
+   120	
+   121	    inline bool as_bool() const noexcept       { return data_.get<bool_t>(); }
+   122	    inline int64_t as_int() const noexcept     { return data_.get<int_t>(); }
+   123	    inline double as_float() const noexcept    { return data_.get<float_t>(); }
+   124	    inline native_t as_native() const noexcept { return data_.get<native_t>(); }
+   125	    inline pointer_t as_pointer() const noexcept { return data_.get<pointer_t>(); }
+   126	    
+   127	    inline MeowObject* as_object() const noexcept { return data_.get<object_t>(); }
+   128	
+   129	    template <typename T>
+   130	    inline T as_obj_unsafe() const noexcept { return reinterpret_cast<T>(as_object()); }
+   131	
+   132	    inline array_t as_array() const noexcept               { return as_obj_unsafe<array_t>(); }
+   133	    inline string_t as_string() const noexcept             { return as_obj_unsafe<string_t>(); }
+   134	    inline hash_table_t as_hash_table() const noexcept     { return as_obj_unsafe<hash_table_t>(); }
+   135	    inline upvalue_t as_upvalue() const noexcept           { return as_obj_unsafe<upvalue_t>(); }
+   136	    inline proto_t as_proto() const noexcept               { return as_obj_unsafe<proto_t>(); }
+   137	    inline function_t as_function() const noexcept         { return as_obj_unsafe<function_t>(); }
+   138	    inline class_t as_class() const noexcept               { return as_obj_unsafe<class_t>(); }
+   139	    inline instance_t as_instance() const noexcept         { return as_obj_unsafe<instance_t>(); }
+   140	    inline bound_method_t as_bound_method() const noexcept { return as_obj_unsafe<bound_method_t>(); }
+   141	    inline module_t as_module() const noexcept             { return as_obj_unsafe<module_t>(); }
    142	
-   143	    template <typename Self> auto as_if_bool(this Self&& self) noexcept   { return self.data_.template get_if<bool_t>(); }
-   144	    template <typename Self> auto as_if_int(this Self&& self) noexcept    { return self.data_.template get_if<int_t>(); }
-   145	    template <typename Self> auto as_if_float(this Self&& self) noexcept  { return self.data_.template get_if<float_t>(); }
-   146	    template <typename Self> auto as_if_native(this Self&& self) noexcept { return self.data_.template get_if<native_t>(); }
-   147	
-   148	    // Objects
-   149	    template <typename Self> auto as_if_array(this Self&& self) noexcept        { return self.template get_obj_if<array_t, ObjectType::ARRAY>(); }
-   150	    template <typename Self> auto as_if_string(this Self&& self) noexcept       { return self.template get_obj_if<string_t, ObjectType::STRING>(); }
-   151	    template <typename Self> auto as_if_hash_table(this Self&& self) noexcept   { return self.template get_obj_if<hash_table_t, ObjectType::HASH_TABLE>(); }
-   152	    template <typename Self> auto as_if_upvalue(this Self&& self) noexcept      { return self.template get_obj_if<upvalue_t, ObjectType::UPVALUE>(); }
-   153	    template <typename Self> auto as_if_proto(this Self&& self) noexcept        { return self.template get_obj_if<proto_t, ObjectType::PROTO>(); }
-   154	    template <typename Self> auto as_if_function(this Self&& self) noexcept     { return self.template get_obj_if<function_t, ObjectType::FUNCTION>(); }
-   155	    template <typename Self> auto as_if_class(this Self&& self) noexcept        { return self.template get_obj_if<class_t, ObjectType::CLASS>(); }
-   156	    template <typename Self> auto as_if_instance(this Self&& self) noexcept     { return self.template get_obj_if<instance_t, ObjectType::INSTANCE>(); }
-   157	    template <typename Self> auto as_if_bound_method(this Self&& self) noexcept { return self.template get_obj_if<bound_method_t, ObjectType::BOUND_METHOD>(); }
-   158	    template <typename Self> auto as_if_module(this Self&& self) noexcept       { return self.template get_obj_if<module_t, ObjectType::MODULE>(); }
-   159	
-   160	    // === Visitor ===
-   161	    template <typename... Fs>
-   162	    decltype(auto) visit(Fs&&... fs) const { return data_.visit(std::forward<Fs>(fs)...); }
-   163	    
-   164	    template <typename... Fs>
-   165	    decltype(auto) visit(Fs&&... fs) { return data_.visit(std::forward<Fs>(fs)...); }
-   166	};
+   143	    // === Safe Getters (Deducing 'this') ===
+   144	
+   145	    template <typename Self>
+   146	    auto as_if_bool(this Self&& self) noexcept   { return self.data_.template get_if<bool_t>(); }
+   147	    template <typename Self>
+   148	    auto as_if_int(this Self&& self) noexcept    { return self.data_.template get_if<int_t>(); }
+   149	    template <typename Self>
+   150	    auto as_if_float(this Self&& self) noexcept  { return self.data_.template get_if<float_t>(); }
+   151	    template <typename Self>
+   152	    auto as_if_native(this Self&& self) noexcept { return self.data_.template get_if<native_t>(); }
+   153	    template <typename Self>
+   154	    auto as_if_pointer(this Self&& self) noexcept  { return self.data_.template get_if<pointer_t>(); }
+   155	
+   156	    // Objects
+   157	    template <typename Self> auto as_if_array(this Self&& self) noexcept        { return self.template get_obj_if<array_t, ObjectType::ARRAY>(); }
+   158	    template <typename Self> auto as_if_string(this Self&& self) noexcept       { return self.template get_obj_if<string_t, ObjectType::STRING>(); }
+   159	    template <typename Self> auto as_if_hash_table(this Self&& self) noexcept   { return self.template get_obj_if<hash_table_t, ObjectType::HASH_TABLE>(); }
+   160	    template <typename Self> auto as_if_upvalue(this Self&& self) noexcept      { return self.template get_obj_if<upvalue_t, ObjectType::UPVALUE>(); }
+   161	    template <typename Self> auto as_if_proto(this Self&& self) noexcept        { return self.template get_obj_if<proto_t, ObjectType::PROTO>(); }
+   162	    template <typename Self> auto as_if_function(this Self&& self) noexcept     { return self.template get_obj_if<function_t, ObjectType::FUNCTION>(); }
+   163	    template <typename Self> auto as_if_class(this Self&& self) noexcept        { return self.template get_obj_if<class_t, ObjectType::CLASS>(); }
+   164	    template <typename Self> auto as_if_instance(this Self&& self) noexcept     { return self.template get_obj_if<instance_t, ObjectType::INSTANCE>(); }
+   165	    template <typename Self> auto as_if_bound_method(this Self&& self) noexcept { return self.template get_obj_if<bound_method_t, ObjectType::BOUND_METHOD>(); }
+   166	    template <typename Self> auto as_if_module(this Self&& self) noexcept       { return self.template get_obj_if<module_t, ObjectType::MODULE>(); }
    167	
-   168	}
+   168	    // === Visitor ===
+   169	    template <typename... Fs>
+   170	    decltype(auto) visit(Fs&&... fs) const { return data_.visit(std::forward<Fs>(fs)...); }
+   171	    
+   172	    template <typename... Fs>
+   173	    decltype(auto) visit(Fs&&... fs) { return data_.visit(std::forward<Fs>(fs)...); }
+   174	};
+   175	
+   176	}
 
 
 // =============================================================================
@@ -7149,9 +7157,11 @@
    188	    mod_manager_->add_cache(heap_->new_string("string"), stdlib::create_string_module(this, heap_.get()));
    189	    mod_manager_->add_cache(heap_->new_string("object"), stdlib::create_object_module(this, heap_.get()));
    190	    mod_manager_->add_cache(heap_->new_string("json"), stdlib::create_json_module(this, heap_.get()));
-   191	}
+   191	    mod_manager_->add_cache(heap_->new_string("memory"), stdlib::create_memory_module(this, heap_.get()));
    192	
-   193	} // namespace meow
+   193	}
+   194	
+   195	} // namespace meow
 
 
 // =============================================================================
@@ -10351,6 +10361,59 @@
 
 
 // =============================================================================
+//  FILE PATH: src/vm/stdlib/memory_lib.cpp
+// =============================================================================
+
+     1	#include "pch.h"
+     2	#include "vm/stdlib/stdlib.h"
+     3	#include <cstdlib>
+     4	#include <meow/machine.h>
+     5	#include <meow/value.h>
+     6	#include <meow/memory/memory_manager.h>
+     7	
+     8	namespace meow::stdlib {
+     9	
+    10	// malloc(size: int) -> pointer
+    11	static Value malloc(Machine* vm, int argc, Value* argv) {
+    12	    if (argc < 1 || !argv[0].is_int()) [[unlikely]] {
+    13	        return Value(); 
+    14	    }
+    15	
+    16	    size_t size = static_cast<size_t>(argv[0].as_int());
+    17	    
+    18	    if (size == 0) return Value();
+    19	
+    20	    void* buffer = std::malloc(size);
+    21	    return Value(buffer);
+    22	} 
+    23	
+    24	// free(ptr: pointer) -> null
+    25	static Value free(Machine* vm, int argc, Value* argv) {
+    26	    if (argc >= 1 && argv[0].is_pointer()) [[likely]] {
+    27	        void* ptr = argv[0].as_pointer();
+    28	        if (ptr) std::free(ptr);
+    29	    }
+    30	    return Value();
+    31	}
+    32	    
+    33	module_t create_memory_module(Machine* vm, MemoryManager* heap) noexcept {
+    34	    auto name = heap->new_string("memory");
+    35	    auto mod = heap->new_module(name, name);
+    36	    
+    37	    auto reg = [&](const char* n, native_t fn) { 
+    38	        mod->set_export(heap->new_string(n), Value(fn)); 
+    39	    };
+    40	
+    41	    reg("malloc", malloc);
+    42	    reg("free", free);
+    43	
+    44	    return mod;
+    45	}
+    46	
+    47	}
+
+
+// =============================================================================
 //  FILE PATH: src/vm/stdlib/object_lib.cpp
 // =============================================================================
 
@@ -10478,7 +10541,8 @@
     20	    [[nodiscard]] module_t create_string_module(Machine* vm, MemoryManager* heap) noexcept;
     21	    [[nodiscard]] module_t create_object_module(Machine* vm, MemoryManager* heap) noexcept;
     22	    [[nodiscard]] module_t create_json_module(Machine* vm, MemoryManager* heap) noexcept;
-    23	}
+    23	    [[nodiscard]] module_t create_memory_module(Machine* vm, MemoryManager* heap) noexcept;
+    24	}
 
 
 
