@@ -11,7 +11,8 @@ enum class GCState : uint8_t {
 };
 
 enum class ObjectType : uint8_t {
-    ARRAY = base_t::index_of<object_t>() + 1, STRING, HASH_TABLE, INSTANCE, CLASS,
+    ARRAY = base_t::index_of<object_t>() + 1,
+    STRING, HASH_TABLE, INSTANCE, CLASS,
     BOUND_METHOD, UPVALUE, PROTO, FUNCTION, MODULE, SHAPE
 };
 
@@ -24,8 +25,6 @@ struct MeowObject {
     
     virtual void trace(GCVisitor& visitor) const noexcept = 0;
     
-    virtual size_t obj_size() const noexcept = 0;
-
     inline ObjectType get_type() const noexcept { return type; }
     inline bool is_marked() const noexcept { return gc_state != GCState::UNMARKED; }
     inline void mark() noexcept { if (gc_state == GCState::UNMARKED) gc_state = GCState::MARKED; }

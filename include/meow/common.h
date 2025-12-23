@@ -36,6 +36,7 @@ using bool_t = bool;
 using int_t = int64_t;
 using float_t = double;
 using native_t = value_t (*)(Machine* engine, int argc, value_t* argv);
+using pointer_t = void*;
 using object_t = MeowObject*;
 
 using array_t = ObjArray*;
@@ -50,7 +51,7 @@ using function_t = ObjClosure*;
 using module_t = ObjModule*;
 using shape_t = Shape*;
 
-using base_t = meow::variant<null_t, bool_t, int_t, float_t, native_t, object_t>;
+using base_t = meow::variant<null_t, bool_t, int_t, float_t, native_t, pointer_t, object_t>;
 
 enum class ValueType : uint8_t {
     Null,

@@ -54,8 +54,6 @@ class ObjUpvalue : public ObjBase<ObjectType::UPVALUE> {
         return index_;
     }
 
-    size_t obj_size() const noexcept override { return sizeof(ObjUpvalue); }
-
     void trace(visitor_t& visitor) const noexcept override;
 };
 
@@ -106,8 +104,6 @@ public:
         return upvalue_descs_.size();
     }
 
-    size_t obj_size() const noexcept override { return sizeof(ObjFunctionProto); }
-
     void trace(visitor_t& visitor) const noexcept override;
 };
 
@@ -138,8 +134,6 @@ class ObjClosure : public ObjBase<ObjectType::FUNCTION> {
     inline upvalue_t at_upvalue(size_t index) const {
         return upvalues_.at(index);
     }
-
-    size_t obj_size() const noexcept override { return sizeof(ObjClosure); }
 
     void trace(visitor_t& visitor) const noexcept override;
 };

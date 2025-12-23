@@ -8,8 +8,6 @@ namespace meow {
 
 class ObjString : public ObjBase<ObjectType::STRING> {
 private:
-    using visitor_t = GCVisitor;
-    
     size_t length_;
     size_t hash_;
     char chars_[1]; 
@@ -35,11 +33,7 @@ public:
 
     inline char get(size_t index) const noexcept { return chars_[index]; }
 
-    inline void trace(visitor_t&) const noexcept override {}
-    
-    size_t obj_size() const noexcept override { 
-        return sizeof(ObjString) + length_; 
-    }
+    inline void trace(GCVisitor&) const noexcept override {}
 };
 
 struct ObjStringHasher {

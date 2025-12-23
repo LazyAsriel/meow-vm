@@ -1,53 +1,36 @@
-/**
- * @file array.h
- * @author LazyPaws
- * @brief Core definition of Array in TrangMeo
- */
-
 #pragma once
 
-#include <cstdint>
-#include <vector>
 #include <meow/core/meow_object.h>
 #include <meow/value.h>
 #include <meow/memory/gc_visitor.h>
 #include <meow/memory/memory_manager.h>
+#include <cstdint>
+#include <vector>
 
 namespace meow {
 class ObjArray : public ObjBase<ObjectType::ARRAY> {
 public:
     using container_t = std::vector<value_t>;
-    
 private:
     using visitor_t = GCVisitor;
     container_t elements_;
-
 public:
     explicit ObjArray() = default;
 
-    ObjArray(const std::vector<value_t>& elements) 
-        : elements_(elements) {}
+    ObjArray(const std::vector<value_t>& elements)  : elements_(elements) {}
 
-    ObjArray(container_t&& elements) noexcept 
-        : elements_(std::move(elements)) {}
+    ObjArray(container_t&& elements) noexcept : elements_(std::move(elements)) {}
 
-    // --- Rule of 5 ---
     ObjArray(const ObjArray&) = delete;
     ObjArray(ObjArray&&) = default;
     ObjArray& operator=(const ObjArray&) = delete;
     ObjArray& operator=(ObjArray&&) = delete;
     ~ObjArray() override = default;
 
-    // --- Size Override ---
-    size_t obj_size() const noexcept override { return sizeof(ObjArray); }
-
-    // --- Iterator types ---
     using iterator = container_t::iterator;
     using const_iterator = container_t::const_iterator;
     using reverse_iterator = container_t::reverse_iterator;
     using const_reverse_iterator = container_t::const_reverse_iterator;
-
-    // --- Accessors & Modifiers ---
     
     template <typename Self>
     inline decltype(auto) get(this Self&& self, size_t index) noexcept {
@@ -109,6 +92,6 @@ public:
     template <typename Self>
     inline auto rend(this Self&& self) noexcept { return std::forward<Self>(self).elements_.rend(); }
 
-    void trace(visitor_t& visitor) const noexcept override;
+    void trace(GCVisitor& visitor) const noexcept override;
 };
 }

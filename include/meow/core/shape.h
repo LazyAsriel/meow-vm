@@ -18,12 +18,10 @@ class Shape : public ObjBase<ObjectType::SHAPE> {
 public:
     using TransitionMap = meow::flat_map<string_t, Shape*>;
     using PropertyMap = meow::flat_map<string_t, uint32_t>;
-
 private:
     PropertyMap property_offsets_;
     TransitionMap transitions_;     
     uint32_t num_fields_ = 0;       
-
 public:
     explicit Shape() = default;
 
@@ -43,8 +41,6 @@ public:
     void add_property(string_t name) {
         property_offsets_[name] = num_fields_++;
     }
-
-    size_t obj_size() const noexcept override { return sizeof(Shape); }
 
     void trace(GCVisitor& visitor) const noexcept override;
 };

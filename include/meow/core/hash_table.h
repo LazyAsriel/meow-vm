@@ -1,9 +1,3 @@
-/**
- * @file hash_table.h
- * @brief Optimized Hash Table with State-ful Allocator (meow::allocator)
- * Compatible with std::map semantics (first/second)
- */
-
 #pragma once
 
 #include <cstdint>
@@ -26,34 +20,29 @@ struct Entry {
 class ObjHashTable : public ObjBase<ObjectType::HASH_TABLE> {
 public:
     using Allocator = meow::allocator<Entry>;
-
 private:
     Entry* entries_ = nullptr;
     uint32_t count_ = 0;
     uint32_t capacity_ = 0;
     uint32_t mask_ = 0;
     
-    [[no_unique_address]] Allocator alloc_;
+    [[no_unique_address]] Allocator allocator_;
 
     static constexpr double MAX_LOAD_FACTOR = 0.75;
     static constexpr uint32_t MIN_CAPACITY = 8;
-
 public:
-    explicit ObjHashTable(Allocator alloc, uint32_t cap = 0) 
-        : alloc_(alloc) {
-        if (cap > 0) allocate(cap);
+    explicit ObjHashTable(Allocator allocator, uint32_t capacity = 0) : allocator_(allocator) {
+        if (capacity > 0) allocate(capacity);
     }
 
-    ~ObjHashTable() override {
+    ~ObjHashTable() noexcept override {
         if (entries_) {
-            alloc_.deallocate(entries_, capacity_);
+            allocator_.deallocate(entries_, capacity_);
         }
     }
 
-    // --- Core Operations ---
-
     [[gnu::always_inline]] 
-    inline Entry* find_entry(Entry* entries, uint32_t mask, string_t key) const {
+    inline Entry* find_entry(Entry* entries, uint32_t mask, string_t key) const noexcept {
         uint32_t index = key->hash() & mask;
         for (;;) {
             Entry* entry = &entries[index];
@@ -65,7 +54,7 @@ public:
     }
 
     [[gnu::always_inline]] 
-    inline bool set(string_t key, Value value) {
+    inline bool set(string_t key, Value value) noexcept {
         if (count_ + 1 > (capacity_ * MAX_LOAD_FACTOR)) [[unlikely]] {
             grow();
         }
@@ -82,7 +71,7 @@ public:
     }
 
     [[gnu::always_inline]] 
-    inline bool get(string_t key, Value* result) const {
+    inline bool get(string_t key, Value* result) const noexcept {
         if (count_ == 0) [[unlikely]] return false;
         Entry* entry = find_entry(entries_, mask_, key);
         if (entry->first == nullptr) return false;
@@ -91,7 +80,7 @@ public:
     }
 
     [[gnu::always_inline]]
-    inline Value get(string_t key) const {
+    inline Value get(string_t key) const noexcept {
         if (count_ == 0) return Value(null_t{});
         Entry* entry = find_entry(entries_, mask_, key);
         if (entry->first == nullptr) return Value(null_t{});
@@ -99,12 +88,12 @@ public:
     }
 
     [[gnu::always_inline]] 
-    inline bool has(string_t key) const {
+    inline bool has(string_t key) const noexcept {
         if (count_ == 0) return false;
         return find_entry(entries_, mask_, key)->first != nullptr;
     }
 
-    bool remove(string_t key) {
+    bool remove(string_t key) noexcept {
         if (count_ == 0) return false;
         Entry* entry = find_entry(entries_, mask_, key);
         if (entry->first == nullptr) return false;
@@ -163,10 +152,6 @@ public:
     inline Iterator begin() { return Iterator(entries_, entries_ + capacity_); }
     inline Iterator end() { return Iterator(entries_ + capacity_, entries_ + capacity_); }
 
-    size_t obj_size() const noexcept override {
-        return sizeof(ObjHashTable) + sizeof(Entry) * capacity_;
-    }
-
     void trace(GCVisitor& visitor) const noexcept override {
         for (uint32_t i = 0; i < capacity_; i++) {
             if (entries_[i].first) {
@@ -181,7 +166,7 @@ private:
         capacity_ = (capacity < MIN_CAPACITY) ? MIN_CAPACITY : std::bit_ceil(capacity);
         mask_ = capacity_ - 1;
         
-        entries_ = alloc_.allocate(capacity_);
+        entries_ = allocator_.allocate(capacity_);
         std::memset(static_cast<void*>(entries_), 0, sizeof(Entry) * capacity_);
     }
 
@@ -201,7 +186,7 @@ private:
                     count_++;
                 }
             }
-            alloc_.deallocate(old_entries, old_cap);
+            allocator_.deallocate(old_entries, old_cap);
         }
     }
 };
