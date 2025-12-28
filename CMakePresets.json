@@ -30,7 +30,7 @@
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_CXX_COMPILER": "clang++",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "YES",
-        "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG -march=native -flto -Wno-c99-designator -Wno-gnu-label-as-value -fno-omit-frame-pointer -g3",
+        "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG -march=native -flto -Wno-gnu-label-as-value -fno-omit-frame-pointer -g3",
         "CMAKE_CXX_COMPILER_LAUNCHER": "ccache"
       }
     }

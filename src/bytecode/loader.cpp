@@ -7,18 +7,26 @@
 #include <meow/value.h>
 #include <meow/bytecode/chunk.h>
 #include <meow/bytecode/op_codes.h>
+#include <cstring>
+#include <bit>
+#include <format>
 
 namespace meow {
 
-constexpr uint32_t MAGIC_NUMBER = 0x4D454F57; // "MEOW"
-constexpr uint32_t FORMAT_VERSION = 1;
+constexpr uint32_t MAGIC_NUMBER = 0x4D454F57; 
+
+// Định nghĩa các phiên bản
+constexpr uint32_t VER_LEGACY = 1;      // Bản cũ (không flags, không debug)
+constexpr uint32_t VER_WITH_FLAGS = 2;  // Bản mới (có flags, có debug)
 
 enum class ConstantTag : uint8_t {
-    NULL_T,
-    INT_T,
-    FLOAT_T,
-    STRING_T,
-    PROTO_REF_T
+    NULL_T, INT_T, FLOAT_T, STRING_T, PROTO_REF_T
+};
+
+// Flags khớp với Assembler
+enum class ProtoFlags : uint8_t {
+    NONE = 0,
+    HAS_DEBUG_INFO = 1 << 0
 };
 
 Loader::Loader(MemoryManager* heap, const std::vector<uint8_t>& data)
@@ -37,7 +45,6 @@ uint8_t Loader::read_u8() {
 
 uint16_t Loader::read_u16() {
     check_can_read(2);
-    // Little-endian load
     uint16_t val = static_cast<uint16_t>(data_[cursor_]) |
                    (static_cast<uint16_t>(data_[cursor_ + 1]) << 8);
     cursor_ += 2;
@@ -59,7 +66,7 @@ uint64_t Loader::read_u64() {
     uint64_t val;
     std::memcpy(&val, &data_[cursor_], 8); 
     cursor_ += 8;
-    return val; // Giả định little-endian machine (x86/arm64)
+    return val; 
 }
 
 double Loader::read_f64() {
@@ -81,7 +88,6 @@ Value Loader::read_constant(size_t current_proto_idx, size_t current_const_idx) 
         case ConstantTag::INT_T:    return Value(static_cast<int64_t>(read_u64()));
         case ConstantTag::FLOAT_T:  return Value(read_f64());
         case ConstantTag::STRING_T: return Value(read_string());
-        
         case ConstantTag::PROTO_REF_T: {
             uint32_t target_proto_index = read_u32();
             patches_.push_back({current_proto_idx, current_const_idx, target_proto_index});
@@ -95,12 +101,24 @@ Value Loader::read_constant(size_t current_proto_idx, size_t current_const_idx) 
 proto_t Loader::read_prototype(size_t current_proto_idx) {
     uint32_t num_registers = read_u32();
     uint32_t num_upvalues = read_u32();
-    uint32_t name_idx_in_pool = read_u32();
 
+    // --- [XỬ LÝ TƯƠNG THÍCH PHIÊN BẢN] ---
+    bool has_debug_info = false;
+
+    if (file_version_ >= VER_WITH_FLAGS) {
+        // Version 2+: Có byte Flags nằm ngay sau num_upvalues
+        uint8_t raw_flags = read_u8();
+        has_debug_info = (raw_flags & static_cast<uint8_t>(ProtoFlags::HAS_DEBUG_INFO)) != 0;
+    } else {
+        // Version 1: Không có byte Flags, giả lập flags = 0
+        has_debug_info = false;
+    }
+
+    uint32_t name_idx_in_pool = read_u32();
     uint32_t constant_pool_size = read_u32();
+    
     std::vector<Value> constants;
     constants.reserve(constant_pool_size);
-    
     for (uint32_t i = 0; i < constant_pool_size; ++i) {
         constants.push_back(read_constant(current_proto_idx, i));
     }
@@ -110,11 +128,7 @@ proto_t Loader::read_prototype(size_t current_proto_idx) {
         name = constants[name_idx_in_pool].as_string();
     }
 
-    // Upvalues
     uint32_t upvalue_desc_count = read_u32();
-    if (upvalue_desc_count != num_upvalues) {
-         throw LoaderError("Upvalue count mismatch.");
-    }
     std::vector<UpvalueDesc> upvalue_descs;
     upvalue_descs.reserve(upvalue_desc_count);
     for (uint32_t i = 0; i < upvalue_desc_count; ++i) {
@@ -123,13 +137,40 @@ proto_t Loader::read_prototype(size_t current_proto_idx) {
         upvalue_descs.emplace_back(is_local, index);
     }
 
-    // Bytecode
     uint32_t bytecode_size = read_u32();
     check_can_read(bytecode_size);
     std::vector<uint8_t> bytecode(data_.data() + cursor_, data_.data() + cursor_ + bytecode_size);
     cursor_ += bytecode_size;
     
-    Chunk chunk(std::move(bytecode), std::move(constants));
+    // --- [ĐỌC DEBUG INFO] ---
+    // Chỉ đọc nếu Version >= 2 VÀ Cờ được bật
+    std::vector<std::string> source_files;
+    std::vector<LineInfo> lines;
+
+    if (has_debug_info) {
+        uint32_t num_files = read_u32();
+        source_files.reserve(num_files);
+        for(uint32_t i = 0; i < num_files; ++i) {
+            uint32_t len = read_u32();
+            check_can_read(len);
+            std::string s(reinterpret_cast<const char*>(data_.data() + cursor_), len);
+            cursor_ += len;
+            source_files.push_back(std::move(s));
+        }
+
+        uint32_t num_lines = read_u32();
+        lines.reserve(num_lines);
+        for(uint32_t i = 0; i < num_lines; ++i) {
+            LineInfo info;
+            info.offset = read_u32();
+            info.line = read_u32();
+            info.col = read_u32();
+            info.file_idx = read_u32();
+            lines.push_back(info);
+        }
+    }
+    
+    Chunk chunk(std::move(bytecode), std::move(constants), std::move(source_files), std::move(lines));
     return heap_->new_proto(num_registers, num_upvalues, name, std::move(chunk), std::move(upvalue_descs));
 }
 
@@ -137,9 +178,13 @@ void Loader::check_magic() {
     if (read_u32() != MAGIC_NUMBER) {
         throw LoaderError("Not a valid Meow bytecode file (magic number mismatch).");
     }
-    uint32_t version = read_u32();
-    if (version != FORMAT_VERSION) {
-        throw LoaderError(std::format("Bytecode version mismatch. File is v{}, VM supports v{}.", version, FORMAT_VERSION));
+    
+    // Lưu lại version file
+    file_version_ = read_u32();
+    
+    // Hỗ trợ cả Version 1 và Version 2
+    if (file_version_ != VER_LEGACY && file_version_ != VER_WITH_FLAGS) {
+        throw LoaderError(std::format("Unsupported bytecode version v{}. VM supports v1 and v2.", file_version_));
     }
 }
 
@@ -152,13 +197,10 @@ void Loader::link_prototypes() {
         proto_t parent_proto = loaded_protos_[patch.proto_idx];
         proto_t child_proto = loaded_protos_[patch.target_idx];
 
-        // Hack const_cast để sửa constant pool (được phép lúc load)
         Chunk& chunk = const_cast<Chunk&>(parent_proto->get_chunk()); 
-        
         if (patch.const_idx >= chunk.get_pool_size()) {
              throw LoaderError("Internal Error: Patch constant index out of bounds.");
         }
-
         chunk.get_constant_ref(patch.const_idx) = Value(child_proto);
     }
 }
@@ -204,39 +246,30 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
         
         if (op == OpCode::GET_GLOBAL || op == OpCode::SET_GLOBAL) {
             size_t operand_offset = (op == OpCode::GET_GLOBAL) ? (ip + 3) : (ip + 1);
-            
             if (operand_offset + 2 <= size) {
                 uint16_t name_idx = static_cast<uint16_t>(code[operand_offset]) | 
                                     (static_cast<uint16_t>(code[operand_offset + 1]) << 8);
-                
                 if (name_idx < chunk.get_pool_size()) {
                     Value name_val = chunk.get_constant(name_idx);
                     if (name_val.is_string()) {
                         uint32_t global_idx = mod->intern_global(name_val.as_string());
-                        
-                        if (global_idx > 0xFFFF) {
-                            throw LoaderError("Module has too many globals (> 65535).");
-                        }
-
+                        if (global_idx > 0xFFFF) throw LoaderError("Module has too many globals.");
                         chunk.patch_u16(operand_offset, static_cast<uint16_t>(global_idx));
                     }
                 }
             }
         }
 
-        ip += 1; // Op
+        ip += 1; 
         switch (op) {
             case OpCode::HALT: case OpCode::POP_TRY: 
                 break;
-
             case OpCode::INC: case OpCode::DEC:
             case OpCode::CLOSE_UPVALUES: case OpCode::IMPORT_ALL: case OpCode::THROW: 
             case OpCode::RETURN: 
                 ip += 2; break;
-            
             case OpCode::LOAD_NULL: case OpCode::LOAD_TRUE: case OpCode::LOAD_FALSE:
                 ip += 2; break;
-            
             case OpCode::LOAD_CONST: case OpCode::MOVE: 
             case OpCode::NEG: case OpCode::NOT: case OpCode::BIT_NOT: 
             case OpCode::GET_UPVALUE: case OpCode::SET_UPVALUE: 
@@ -248,7 +281,6 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
             case OpCode::GET_GLOBAL: case OpCode::SET_GLOBAL:
             case OpCode::INHERIT:
                 ip += 4; break;
-
             case OpCode::GET_EXPORT: 
             case OpCode::ADD: case OpCode::SUB: case OpCode::MUL: case OpCode::DIV:
             case OpCode::MOD: case OpCode::POW: case OpCode::EQ: case OpCode::NEQ:
@@ -259,41 +291,26 @@ static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unor
             case OpCode::GET_INDEX: case OpCode::SET_INDEX: 
             case OpCode::GET_PROP: case OpCode::SET_PROP:
             case OpCode::SET_METHOD:
-            // case OpCode::INHERIT:
                 ip += 6; break;
-            
             case OpCode::CALL: 
-                ip += 8;
-                ip += 16;
-                break;
-            
+                ip += 8; ip += 16; break;
             case OpCode::TAIL_CALL:
-                ip += 8;
-                ip += 16;
-                break;
-                
+                ip += 8; ip += 16; break;
             case OpCode::CALL_VOID:
-                ip += 6;
-                ip += 16;
-                break;
-
+                ip += 6; ip += 16; break;
             case OpCode::LOAD_INT: case OpCode::LOAD_FLOAT:
                 ip += 10; break;
-
             case OpCode::JUMP: ip += 2; break;
             case OpCode::SETUP_TRY: ip += 4; break;
             case OpCode::JUMP_IF_FALSE: case OpCode::JUMP_IF_TRUE: ip += 4; break;
-
             case OpCode::ADD_B: case OpCode::SUB_B: case OpCode::MUL_B: 
             case OpCode::DIV_B: case OpCode::MOD_B: case OpCode::LT_B:
             case OpCode::JUMP_IF_TRUE_B: case OpCode::JUMP_IF_FALSE_B:
                 ip += 3; break;
             case OpCode::INVOKE:
-                ip += 79; 
-                break;
+                ip += 79; break;
             default: break;
         }
-        
         if (op == OpCode::GET_PROP || op == OpCode::SET_PROP) {
              ip += 48; 
         }
@@ -306,4 +323,4 @@ void Loader::link_module(module_t module) {
     patch_chunk_globals_recursive(module, module->get_main_proto(), visited);
 }
 
-}
+} // namespace meow

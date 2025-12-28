@@ -8,91 +8,132 @@
      4	#include <vector>
      5	#include <string>
      6	#include <memory>
-     7	#include <meow/common.h>
-     8	#include <meow/value.h>
-     9	
-    10	namespace meow {
-    11	class Chunk {
-    12	public:
-    13	    Chunk() = default;
-    14	    Chunk(std::vector<uint8_t>&& code, std::vector<Value>&& constants) noexcept : code_(std::move(code)), constant_pool_(std::move(constants)) {}
-    15	
-    16	    // --- Modifiers ---
-    17	    inline void write_byte(uint8_t byte) {
-    18	        code_.push_back(byte);
-    19	    }
+     7	#include <algorithm> // Cần cho std::upper_bound
+     8	#include <meow/common.h>
+     9	#include <meow/value.h>
+    10	
+    11	namespace meow {
+    12	
+    13	// Cấu trúc lưu thông tin dòng (Khớp với MASM)
+    14	struct LineInfo {
+    15	    uint32_t offset;    // Bytecode offset
+    16	    uint32_t line;
+    17	    uint32_t col;
+    18	    uint32_t file_idx;  // Index vào mảng source_files
+    19	};
     20	
-    21	    inline void write_u16(uint16_t value) {
-    22	        code_.push_back(static_cast<uint8_t>(value & 0xFF));
-    23	        code_.push_back(static_cast<uint8_t>((value >> 8) & 0xFF));
-    24	    }
-    25	
-    26	    inline void write_u32(uint32_t value) {
-    27	        code_.push_back(static_cast<uint8_t>(value & 0xFF));
-    28	        code_.push_back(static_cast<uint8_t>((value >> 8) & 0xFF));
-    29	        code_.push_back(static_cast<uint8_t>((value >> 16) & 0xFF));
-    30	        code_.push_back(static_cast<uint8_t>((value >> 24) & 0xFF));
-    31	    }
+    21	class Chunk {
+    22	public:
+    23	    Chunk() = default;
+    24	
+    25	    // Constructor mới: Nhận thêm source_files và lines
+    26	    Chunk(std::vector<uint8_t>&& code, std::vector<Value>&& constants,
+    27	          std::vector<std::string>&& source_files, std::vector<LineInfo>&& lines) noexcept 
+    28	        : code_(std::move(code)), 
+    29	          constant_pool_(std::move(constants)),
+    30	          source_files_(std::move(source_files)),
+    31	          lines_(std::move(lines)) {}
     32	
-    33	    inline void write_u64(uint64_t value) {
-    34	        code_.push_back(static_cast<uint8_t>(value & 0xFF));
-    35	        code_.push_back(static_cast<uint8_t>((value >> 8) & 0xFF));
-    36	        code_.push_back(static_cast<uint8_t>((value >> 16) & 0xFF));
-    37	        code_.push_back(static_cast<uint8_t>((value >> 24) & 0xFF));
-    38	        code_.push_back(static_cast<uint8_t>((value >> 32) & 0xFF));
-    39	        code_.push_back(static_cast<uint8_t>((value >> 40) & 0xFF));
-    40	        code_.push_back(static_cast<uint8_t>((value >> 48) & 0xFF));
-    41	        code_.push_back(static_cast<uint8_t>((value >> 56) & 0xFF));
-    42	    }
-    43	
-    44	    inline void write_f64(double value) {
-    45	        write_u64(std::bit_cast<uint64_t>(value));
-    46	    }
-    47	    // --- Code buffer ---
-    48	    inline const uint8_t* get_code() const noexcept {
-    49	        return code_.data();
-    50	    }
-    51	    inline size_t get_code_size() const noexcept {
-    52	        return code_.size();
+    33	    // --- Code modifiers (Giữ nguyên) ---
+    34	    inline void write_byte(uint8_t byte) {
+    35	        code_.push_back(byte);
+    36	    }
+    37	
+    38	    inline void write_u16(uint16_t value) {
+    39	        code_.push_back(static_cast<uint8_t>(value & 0xFF));
+    40	        code_.push_back(static_cast<uint8_t>((value >> 8) & 0xFF));
+    41	    }
+    42	
+    43	    inline void write_u32(uint32_t value) {
+    44	        code_.push_back(static_cast<uint8_t>(value & 0xFF));
+    45	        code_.push_back(static_cast<uint8_t>((value >> 8) & 0xFF));
+    46	        code_.push_back(static_cast<uint8_t>((value >> 16) & 0xFF));
+    47	        code_.push_back(static_cast<uint8_t>((value >> 24) & 0xFF));
+    48	    }
+    49	
+    50	    inline void write_u64(uint64_t value) {
+    51	        for (int i = 0; i < 8; ++i) 
+    52	            code_.push_back(static_cast<uint8_t>((value >> (i * 8)) & 0xFF));
     53	    }
-    54	    inline bool is_code_empty() const noexcept {
-    55	        return code_.empty();
-    56	    }
-    57	
-    58	    // --- Constant pool ---
-    59	    inline size_t get_pool_size() const noexcept {
-    60	        return constant_pool_.size();
-    61	    }
-    62	    inline bool is_pool_empty() const noexcept {
-    63	        return constant_pool_.empty();
-    64	    }
-    65	    inline size_t add_constant(param_t value) {
-    66	        constant_pool_.push_back(value);
-    67	        return constant_pool_.size() - 1;
+    54	
+    55	    inline void write_f64(double value) {
+    56	        write_u64(std::bit_cast<uint64_t>(value));
+    57	    }
+    58	
+    59	    // --- Accessors ---
+    60	    inline const uint8_t* get_code() const noexcept {
+    61	        return code_.data();
+    62	    }
+    63	    inline size_t get_code_size() const noexcept {
+    64	        return code_.size();
+    65	    }
+    66	    inline bool is_code_empty() const noexcept {
+    67	        return code_.empty();
     68	    }
-    69	    inline return_t get_constant(size_t index) const noexcept {
-    70	        return constant_pool_[index];
-    71	    }
-    72	    inline value_t& get_constant_ref(size_t index) noexcept {
-    73	        return constant_pool_[index];
-    74	    }
-    75	    inline const Value* get_constants_raw() const noexcept {
-    76	        return constant_pool_.data();
-    77	    }
-    78	
-    79	    inline bool patch_u16(size_t offset, uint16_t value) noexcept {
-    80	        if (offset + 1 >= code_.size()) return false;
-    81	
-    82	        code_[offset] = static_cast<uint8_t>(value & 0xFF);
-    83	        code_[offset + 1] = static_cast<uint8_t>((value >> 8) & 0xFF);
-    84	
-    85	        return true;
+    69	
+    70	    // --- Constant pool ---
+    71	    inline size_t get_pool_size() const noexcept {
+    72	        return constant_pool_.size();
+    73	    }
+    74	    inline bool is_pool_empty() const noexcept {
+    75	        return constant_pool_.empty();
+    76	    }
+    77	    inline size_t add_constant(param_t value) {
+    78	        constant_pool_.push_back(value);
+    79	        return constant_pool_.size() - 1;
+    80	    }
+    81	    inline return_t get_constant(size_t index) const noexcept {
+    82	        return constant_pool_[index];
+    83	    }
+    84	    inline value_t& get_constant_ref(size_t index) noexcept {
+    85	        return constant_pool_[index];
     86	    }
-    87	private:
-    88	    std::vector<uint8_t> code_;
-    89	    std::vector<Value> constant_pool_;
-    90	};
-    91	}
+    87	    inline const Value* get_constants_raw() const noexcept {
+    88	        return constant_pool_.data();
+    89	    }
+    90	
+    91	    inline bool patch_u16(size_t offset, uint16_t value) noexcept {
+    92	        if (offset + 1 >= code_.size()) return false;
+    93	        code_[offset] = static_cast<uint8_t>(value & 0xFF);
+    94	        code_[offset + 1] = static_cast<uint8_t>((value >> 8) & 0xFF);
+    95	        return true;
+    96	    }
+    97	
+    98	    // --- DEBUG INFO HELPERS ---
+    99	    
+   100	    // Lấy tên file từ index
+   101	    inline const std::string* get_file_name(uint32_t idx) const {
+   102	        if (idx < source_files_.size()) return &source_files_[idx];
+   103	        return nullptr;
+   104	    }
+   105	
+   106	    // Tìm thông tin dòng code dựa trên offset (PC)
+   107	    // Dùng binary search vì lines_ đã được sắp xếp theo offset từ lúc compile
+   108	    inline const LineInfo* get_line_info(size_t offset) const {
+   109	        if (lines_.empty()) return nullptr;
+   110	        
+   111	        // Tìm phần tử đầu tiên có offset LỚN HƠN offset hiện tại
+   112	        auto it = std::upper_bound(lines_.begin(), lines_.end(), offset,
+   113	            [](size_t val, const LineInfo& info) {
+   114	                return val < info.offset;
+   115	            });
+   116	            
+   117	        // Nếu tất cả các mốc offset đều lớn hơn (vô lý nếu file hợp lệ) -> nullptr
+   118	        if (it == lines_.begin()) return nullptr;
+   119	
+   120	        // LineInfo đúng là phần tử ngay trước đó (khoảng offset bao trùm)
+   121	        return &(*std::prev(it));
+   122	    }
+   123	
+   124	private:
+   125	    std::vector<uint8_t> code_;
+   126	    std::vector<Value> constant_pool_;
+   127	    
+   128	    // Dữ liệu debug mới
+   129	    std::vector<std::string> source_files_;
+   130	    std::vector<LineInfo> lines_;
+   131	};
+   132	}
 
 
 // =============================================================================

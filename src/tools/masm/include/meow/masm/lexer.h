@@ -22,6 +22,10 @@ private:
     Token scan_string();
     Token scan_number();
     Token scan_identifier();
+    
+    // --- Hàm mới ---
+    Token scan_debug_info(); // Xử lý #^
+    Token scan_annotation(); // Xử lý #@
 };
 
 } // namespace meow::masm

@@ -9,8 +9,7 @@ namespace meow::masm {
 std::unordered_map<std::string_view, meow::OpCode> OP_MAP;
 
 namespace {
-    template <auto V>
-    consteval std::string_view get_raw_name() {
+    template <auto V> consteval std::string_view get_raw_name() {
 #if defined(__clang__) || defined(__GNUC__)
         return __PRETTY_FUNCTION__;
 #elif defined(_MSC_VER)
@@ -19,11 +18,8 @@ namespace {
         return "";
 #endif
     }
-
-    template <auto V>
-    consteval std::string_view get_enum_name() {
+    template <auto V> consteval std::string_view get_enum_name() {
         constexpr std::string_view raw = get_raw_name<V>();
-        
 #if defined(__clang__) || defined(__GNUC__)
         constexpr auto end_pos = raw.size() - 1;
         constexpr auto last_colon = raw.find_last_of(':', end_pos);
@@ -33,18 +29,15 @@ namespace {
         return "UNKNOWN";
 #endif
     }
-    template <size_t... Is>
-    void build_map_impl(std::index_sequence<Is...>) {
+    template <size_t... Is> void build_map_impl(std::index_sequence<Is...>) {
         (..., (OP_MAP[get_enum_name<static_cast<meow::OpCode>(Is)>()] = static_cast<meow::OpCode>(Is)));
     }
 }
 
 void init_op_map() {
     if (!OP_MAP.empty()) return;
-
     constexpr size_t Count = static_cast<size_t>(meow::OpCode::TOTAL_OPCODES);
     build_map_impl(std::make_index_sequence<Count>{});
-
     OP_MAP.erase("__BEGIN_OPERATOR__");
     OP_MAP.erase("__END_OPERATOR__");
 }
@@ -58,10 +51,26 @@ std::vector<Token> Lexer::tokenize() {
             advance();
             continue;
         }
+        
+        // Xử lý các loại comment và annotation bắt đầu bằng '#'
         if (c == '#') {
-            while (peek() != '\n' && !is_at_end()) advance();
+            if (peek(1) == '^') {
+                // Debug Info: #^ "file" line:col
+                advance(); advance(); // Consume #^
+                tokens.push_back(scan_debug_info());
+            } 
+            else if (peek(1) == '@') {
+                // Annotation: #@ directive
+                advance(); advance(); // Consume #@
+                tokens.push_back(scan_annotation());
+            } 
+            else {
+                // Comment thường: bỏ qua đến hết dòng
+                while (peek() != '\n' && !is_at_end()) advance();
+            }
             continue;
         }
+
         if (c == '.') { tokens.push_back(scan_directive()); continue; }
         if (c == '"' || c == '\'') { tokens.push_back(scan_string()); continue; }
         if (isdigit(c) || (c == '-' && isdigit(peek(1)))) { tokens.push_back(scan_number()); continue; }
@@ -79,13 +88,30 @@ char Lexer::peek(int offset) const {
 }
 char Lexer::advance() { return src_[pos_++]; }
 
+// Quét phần còn lại của dòng làm nội dung debug
+Token Lexer::scan_debug_info() {
+    size_t start = pos_;
+    while (peek() != '\n' && !is_at_end()) {
+        advance();
+    }
+    return {TokenType::DEBUG_INFO, src_.substr(start, pos_ - start), line_};
+}
+
+// Quét từ khóa annotation (bỏ qua khoảng trắng đầu)
+Token Lexer::scan_annotation() {
+    while (peek() == ' ' || peek() == '\t') advance(); // Skip space
+    
+    size_t start = pos_;
+    while (isalnum(peek()) || peek() == '_') advance();
+    
+    return {TokenType::ANNOTATION, src_.substr(start, pos_ - start), line_};
+}
+
 Token Lexer::scan_directive() {
     size_t start = pos_;
     advance(); 
     while (isalnum(peek()) || peek() == '_' || peek() == '-' || peek() == '/' || peek() == '.') advance();
-    
     std::string_view text = src_.substr(start, pos_ - start);
-    
     TokenType type = TokenType::IDENTIFIER; 
     
     if (text == ".func") type = TokenType::DIR_FUNC;
@@ -94,7 +120,6 @@ Token Lexer::scan_directive() {
     else if (text == ".upvalues") type = TokenType::DIR_UPVALUES;
     else if (text == ".upvalue") type = TokenType::DIR_UPVALUE;
     else if (text == ".const") type = TokenType::DIR_CONST;
-    
     return {type, text, line_};
 }
 
@@ -136,9 +161,7 @@ Token Lexer::scan_identifier() {
         return {TokenType::LABEL_DEF, src_.substr(start, pos_ - start - 1), line_};
     }
     std::string_view text = src_.substr(start, pos_ - start);
-    
     if (OP_MAP.count(text)) return {TokenType::OPCODE, text, line_};
-    
     return {TokenType::IDENTIFIER, text, line_};
 }
 

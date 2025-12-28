@@ -14,12 +14,15 @@ class Assembler {
     Prototype* curr_proto_ = nullptr;
     std::unordered_map<std::string, uint32_t> proto_name_map_;
 
+    // --- State Management ---
+    // Trạng thái cờ toàn cục (áp dụng cho các hàm mới tạo)
+    ProtoFlags global_flags_ = ProtoFlags::NONE;
+
 public:
     explicit Assembler(const std::vector<Token>& tokens);
 
     std::vector<uint8_t> assemble();
     void assemble_to_file(const std::string& output_file);
-    
     static int get_arity(meow::OpCode op);
 
 private:
@@ -39,8 +42,10 @@ private:
     void parse_label();
     void parse_instruction();
     
+    // --- Annotation Handler ---
+    void parse_annotation(); 
+
     void optimize();
-    
     std::string parse_string_literal(std::string_view sv);
 
     // Emit bytecode helpers

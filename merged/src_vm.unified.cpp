@@ -754,295 +754,296 @@
    169	        return ip + sizeof(JumpCondArgs);
    170	    }
    171	
-   172	    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_TRUE_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   173	        const auto& args = *reinterpret_cast<const JumpCondArgsB*>(ip);
-   174	        Value& cond = regs[args.cond];
-   175	        bool truthy = cond.is_bool() ? cond.as_bool() : (cond.is_int() ? (cond.as_int() != 0) : meow::to_bool(cond));
-   176	        if (truthy) return state->instruction_base + args.offset;
-   177	        return ip + sizeof(JumpCondArgsB);
-   178	    }
-   179	
-   180	    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_FALSE_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   181	        const auto& args = *reinterpret_cast<const JumpCondArgsB*>(ip);
-   182	        Value& cond = regs[args.cond];
-   183	        bool truthy = cond.is_bool() ? cond.as_bool() : (cond.is_int() ? (cond.as_int() != 0) : meow::to_bool(cond));
-   184	        if (!truthy) return state->instruction_base + args.offset;
-   185	        return ip + sizeof(JumpCondArgsB);
-   186	    }
-   187	
-   188	    [[gnu::always_inline]]
-   189	    inline static const uint8_t* impl_RETURN(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   190	        uint16_t ret_reg_idx = read_u16(ip);
-   191	        Value result = (ret_reg_idx == 0xFFFF) ? Value(null_t{}) : regs[ret_reg_idx];
-   192	
-   193	        size_t base_idx = state->ctx.current_regs_ - state->ctx.stack_;
-   194	        meow::close_upvalues(state->ctx, base_idx);
-   195	
-   196	        if (state->ctx.frame_ptr_ == state->ctx.call_stack_) [[unlikely]] {
-   197	            return nullptr; 
-   198	        }
-   199	
-   200	        CallFrame* popped_frame = state->ctx.frame_ptr_;
-   201	        
-   202	        if (state->current_module) [[likely]] {
-   203	             if (popped_frame->function_->get_proto() == state->current_module->get_main_proto()) [[unlikely]] {
-   204	                 state->current_module->set_executed();
-   205	             }
-   206	        }
-   207	
-   208	        state->ctx.frame_ptr_--;
-   209	        CallFrame* caller = state->ctx.frame_ptr_;
-   210	        
-   211	        state->ctx.stack_top_ = popped_frame->regs_base_;
-   212	        state->ctx.current_regs_ = caller->regs_base_;
-   213	        state->ctx.current_frame_ = caller; 
-   214	        
-   215	        state->update_pointers(); 
-   216	
-   217	        if (popped_frame->ret_dest_ != nullptr) {
-   218	            *popped_frame->ret_dest_ = result;
-   219	        }
-   220	
-   221	        return popped_frame->ip_; 
-   222	    }
-   223	
-   224	    template <bool IsVoid>
-   225	    [[gnu::always_inline]] 
-   226	    static inline const uint8_t* do_call(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   227	        const uint8_t* start_ip = ip - 1; 
-   228	
-   229	        uint16_t dst = 0;
-   230	        if constexpr (!IsVoid) dst = read_u16(ip);
-   231	        uint16_t fn_reg    = read_u16(ip);
-   232	        uint16_t arg_start = read_u16(ip);
-   233	        uint16_t argc      = read_u16(ip);
-   234	
-   235	        CallIC* ic = get_call_ic(ip);
-   236	        Value& callee = regs[fn_reg];
-   237	
-   238	        if (callee.is_function()) [[likely]] {
-   239	            function_t closure = callee.as_function();
-   240	            proto_t proto = closure->get_proto();
-   241	
-   242	            if (ic->check_tag == proto) [[likely]] {
-   243	                size_t num_params = proto->get_num_registers();
-   244	                
-   245	                if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
-   246	                    state->ctx.current_frame_->ip_ = start_ip;
-   247	                    state->error("Stack Overflow!");
-   248	                    return impl_PANIC(ip, regs, constants, state);
-   249	                }
-   250	
-   251	                Value* new_base = state->ctx.stack_top_;
-   252	                
-   253	                size_t copy_count = (argc < num_params) ? argc : num_params;
-   254	                for (size_t i = 0; i < copy_count; ++i) {
-   255	                    new_base[i] = regs[arg_start + i];
-   256	                }
-   257	
-   258	                for (size_t i = copy_count; i < num_params; ++i) {
-   259	                    new_base[i] = Value(null_t{});
-   260	                }
-   261	
-   262	                state->ctx.frame_ptr_++;
-   263	                *state->ctx.frame_ptr_ = CallFrame(
-   264	                    closure,
-   265	                    new_base,
-   266	                    IsVoid ? nullptr : &regs[dst], 
-   267	                    ip 
-   268	                );
-   269	                
-   270	                state->ctx.current_regs_ = new_base;
-   271	                state->ctx.stack_top_ += num_params;
-   272	                state->ctx.current_frame_ = state->ctx.frame_ptr_;
-   273	                state->update_pointers(); 
-   274	
-   275	                return state->instruction_base;
-   276	            }
-   277	            
-   278	            ic->check_tag = proto;
-   279	        } 
-   280	        
-   281	        if (callee.is_native()) {
-   282	            native_t fn = callee.as_native();
-   283	            if (ic->check_tag != (void*)fn) {
-   284	                ic->check_tag = (void*)fn;
-   285	            }
-   286	
-   287	            Value result = fn(&state->machine, argc, &regs[arg_start]);
-   288	            
-   289	            if (state->machine.has_error()) [[unlikely]] {
-   290	                state->error(std::string(state->machine.get_error_message()));
-   291	                state->machine.clear_error();
-   292	                return impl_PANIC(ip, regs, constants, state);
-   293	            }
-   294	
-   295	            if constexpr (!IsVoid) {
-   296	                if (dst != 0xFFFF) regs[dst] = result;
-   297	            }
-   298	            return ip;
-   299	        }
-   300	
-   301	        Value* ret_dest_ptr = nullptr;
-   302	        if constexpr (!IsVoid) {
-   303	            if (dst != 0xFFFF) ret_dest_ptr = &regs[dst];
-   304	        }
-   305	
-   306	        instance_t self = nullptr;
-   307	        function_t closure = nullptr;
-   308	        bool is_init = false;
-   309	
-   310	        if (callee.is_function()) {
-   311	            closure = callee.as_function();
-   312	        } 
-   313	        else if (callee.is_bound_method()) {
-   314	            bound_method_t bound = callee.as_bound_method();
-   315	            Value receiver = bound->get_receiver();
-   316	            Value method = bound->get_method();
-   317	
-   318	            if (method.is_native()) {
-   319	                native_t fn = method.as_native();
-   320	                
-   321	                std::vector<Value> args;
-   322	                args.reserve(argc + 1);
-   323	                args.push_back(receiver);
-   324	                
-   325	                for (size_t i = 0; i < argc; ++i) {
-   326	                    args.push_back(regs[arg_start + i]);
-   327	                }
-   328	
-   329	                Value result = fn(&state->machine, static_cast<int>(args.size()), args.data());
-   330	                
-   331	                if (state->machine.has_error()) {
-   332	                     return impl_PANIC(ip, regs, constants, state);
-   333	                }
-   334	
-   335	                if constexpr (!IsVoid) regs[dst] = result;
-   336	                return ip;
-   337	            }
-   338	            else if (method.is_function()) {
-   339	                closure = method.as_function();
-   340	                if (receiver.is_instance()) self = receiver.as_instance();
-   341	            }
-   342	        }
-   343	        else if (callee.is_class()) {
-   344	            class_t klass = callee.as_class();
-   345	            self = state->heap.new_instance(klass, state->heap.get_empty_shape());
-   346	            if (ret_dest_ptr) *ret_dest_ptr = Value(self);
-   347	            
-   348	            Value init_method = klass->get_method(state->heap.new_string("init"));
-   349	            if (init_method.is_function()) {
-   350	                closure = init_method.as_function();
-   351	                is_init = true;
-   352	            } else {
-   353	                return ip; 
-   354	            }
-   355	        } 
-   356	        else [[unlikely]] {
-   357	            state->ctx.current_frame_->ip_ = start_ip;
-   358	            state->error(std::format("Giá trị loại '{}' không thể gọi được (Not callable).", to_string(callee)));
-   359	            return impl_PANIC(ip, regs, constants, state);
-   360	        }
-   361	
-   362	        proto_t proto = closure->get_proto();
-   363	        size_t num_params = proto->get_num_registers();
-   364	
-   365	        if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
-   366	            state->ctx.current_frame_->ip_ = start_ip;
-   367	            state->error("Stack Overflow!");
-   368	            return impl_PANIC(ip, regs, constants, state);
-   369	        }
-   370	
-   371	        Value* new_base = state->ctx.stack_top_;
-   372	        size_t arg_offset = 0;
-   373	        
-   374	        if (self != nullptr && num_params > 0) {
-   375	            new_base[0] = Value(self);
-   376	            arg_offset = 1;
-   377	        }
-   378	
-   379	        for (size_t i = 0; i < argc; ++i) {
-   380	            if (arg_offset + i < num_params) {
-   381	                new_base[arg_offset + i] = regs[arg_start + i];
-   382	            }
-   383	        }
-   384	
-   385	        size_t filled_count = arg_offset + argc;
-   386	        if (filled_count > num_params) filled_count = num_params;
-   387	
-   388	        for (size_t i = filled_count; i < num_params; ++i) {
-   389	            new_base[i] = Value(null_t{});
-   390	        }
-   391	
-   392	        state->ctx.frame_ptr_++;
-   393	        *state->ctx.frame_ptr_ = CallFrame(
-   394	            closure,
-   395	            new_base,                          
-   396	            is_init ? nullptr : ret_dest_ptr,  
-   397	            ip                                 
-   398	        );
-   399	
-   400	        state->ctx.current_regs_ = new_base;
-   401	        state->ctx.stack_top_ += num_params;
-   402	        state->ctx.current_frame_ = state->ctx.frame_ptr_;
-   403	        state->update_pointers(); 
-   404	
-   405	        return state->instruction_base;
-   406	    }
-   407	
-   408	    [[gnu::always_inline]] inline static const uint8_t* impl_CALL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   409	        return do_call<false>(ip, regs, constants, state);
-   410	    }
-   411	
-   412	    [[gnu::always_inline]] inline static const uint8_t* impl_CALL_VOID(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   413	        return do_call<true>(ip, regs, constants, state);
-   414	    }
-   415	
-   416	[[gnu::always_inline]] 
-   417	static const uint8_t* impl_TAIL_CALL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   418	    const uint8_t* start_ip = ip - 1;
-   419	
-   420	    uint16_t dst = read_u16(ip); (void)dst;
-   421	    uint16_t fn_reg = read_u16(ip);
-   422	    uint16_t arg_start = read_u16(ip);
-   423	    uint16_t argc = read_u16(ip);
-   424	    
-   425	    ip += 16;
-   426	
-   427	    Value& callee = regs[fn_reg];
-   428	    if (!callee.is_function()) [[unlikely]] {
-   429	        state->ctx.current_frame_->ip_ = start_ip;
-   430	        state->error("TAIL_CALL: Target không phải là Function.");
-   431	        return nullptr;
-   432	    }
-   433	
-   434	    function_t closure = callee.as_function();
-   435	    proto_t proto = closure->get_proto();
-   436	    size_t num_params = proto->get_num_registers();
-   437	
-   438	    size_t current_base_idx = regs - state->ctx.stack_;
-   439	    meow::close_upvalues(state->ctx, current_base_idx);
-   440	
-   441	    size_t copy_count = (argc < num_params) ? argc : num_params;
-   442	
-   443	    for (size_t i = 0; i < copy_count; ++i) {
-   444	        regs[i] = regs[arg_start + i];
-   445	    }
-   446	
-   447	    for (size_t i = copy_count; i < num_params; ++i) {
-   448	        regs[i] = Value(null_t{});
-   449	    }
-   450	
-   451	    CallFrame* current_frame = state->ctx.frame_ptr_;
-   452	    current_frame->function_ = closure;
-   453	    
-   454	    state->ctx.stack_top_ = regs + num_params;
-   455	    state->update_pointers();
-   456	
-   457	    return proto->get_chunk().get_code();
-   458	}
-   459	
-   460	} // namespace meow::handlers
+   172	    [[gnu::always_inline, gnu::hot]]
+   173	    inline static const uint8_t* impl_JUMP_IF_TRUE_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   174	        const auto& args = *reinterpret_cast<const JumpCondArgsB*>(ip);
+   175	        Value& cond = regs[args.cond];
+   176	        bool truthy = cond.is_bool() ? cond.as_bool() : (cond.is_int() ? (cond.as_int() != 0) : meow::to_bool(cond));
+   177	        if (truthy) return state->instruction_base + args.offset;
+   178	        return ip + sizeof(JumpCondArgsB);
+   179	    }
+   180	
+   181	    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_FALSE_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   182	        const auto& args = *reinterpret_cast<const JumpCondArgsB*>(ip);
+   183	        Value& cond = regs[args.cond];
+   184	        bool truthy = cond.is_bool() ? cond.as_bool() : (cond.is_int() ? (cond.as_int() != 0) : meow::to_bool(cond));
+   185	        if (!truthy) return state->instruction_base + args.offset;
+   186	        return ip + sizeof(JumpCondArgsB);
+   187	    }
+   188	
+   189	    [[gnu::always_inline]]
+   190	    inline static const uint8_t* impl_RETURN(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   191	        uint16_t ret_reg_idx = read_u16(ip);
+   192	        Value result = (ret_reg_idx == 0xFFFF) ? Value(null_t{}) : regs[ret_reg_idx];
+   193	
+   194	        size_t base_idx = state->ctx.current_regs_ - state->ctx.stack_;
+   195	        meow::close_upvalues(state->ctx, base_idx);
+   196	
+   197	        if (state->ctx.frame_ptr_ == state->ctx.call_stack_) [[unlikely]] {
+   198	            return nullptr; 
+   199	        }
+   200	
+   201	        CallFrame* popped_frame = state->ctx.frame_ptr_;
+   202	        
+   203	        if (state->current_module) [[likely]] {
+   204	             if (popped_frame->function_->get_proto() == state->current_module->get_main_proto()) [[unlikely]] {
+   205	                 state->current_module->set_executed();
+   206	             }
+   207	        }
+   208	
+   209	        state->ctx.frame_ptr_--;
+   210	        CallFrame* caller = state->ctx.frame_ptr_;
+   211	        
+   212	        state->ctx.stack_top_ = popped_frame->regs_base_;
+   213	        state->ctx.current_regs_ = caller->regs_base_;
+   214	        state->ctx.current_frame_ = caller; 
+   215	        
+   216	        state->update_pointers(); 
+   217	
+   218	        if (popped_frame->ret_dest_ != nullptr) {
+   219	            *popped_frame->ret_dest_ = result;
+   220	        }
+   221	
+   222	        return popped_frame->ip_; 
+   223	    }
+   224	
+   225	    template <bool IsVoid>
+   226	    [[gnu::always_inline]] 
+   227	    static inline const uint8_t* do_call(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   228	        const uint8_t* start_ip = ip - 1; 
+   229	
+   230	        uint16_t dst = 0;
+   231	        if constexpr (!IsVoid) dst = read_u16(ip);
+   232	        uint16_t fn_reg    = read_u16(ip);
+   233	        uint16_t arg_start = read_u16(ip);
+   234	        uint16_t argc      = read_u16(ip);
+   235	
+   236	        CallIC* ic = get_call_ic(ip);
+   237	        Value& callee = regs[fn_reg];
+   238	
+   239	        if (callee.is_function()) [[likely]] {
+   240	            function_t closure = callee.as_function();
+   241	            proto_t proto = closure->get_proto();
+   242	
+   243	            if (ic->check_tag == proto) [[likely]] {
+   244	                size_t num_params = proto->get_num_registers();
+   245	                
+   246	                if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
+   247	                    state->ctx.current_frame_->ip_ = start_ip;
+   248	                    state->error("Stack Overflow!");
+   249	                    return impl_PANIC(ip, regs, constants, state);
+   250	                }
+   251	
+   252	                Value* new_base = state->ctx.stack_top_;
+   253	                
+   254	                size_t copy_count = (argc < num_params) ? argc : num_params;
+   255	                for (size_t i = 0; i < copy_count; ++i) {
+   256	                    new_base[i] = regs[arg_start + i];
+   257	                }
+   258	
+   259	                for (size_t i = copy_count; i < num_params; ++i) {
+   260	                    new_base[i] = Value(null_t{});
+   261	                }
+   262	
+   263	                state->ctx.frame_ptr_++;
+   264	                *state->ctx.frame_ptr_ = CallFrame(
+   265	                    closure,
+   266	                    new_base,
+   267	                    IsVoid ? nullptr : &regs[dst], 
+   268	                    ip 
+   269	                );
+   270	                
+   271	                state->ctx.current_regs_ = new_base;
+   272	                state->ctx.stack_top_ += num_params;
+   273	                state->ctx.current_frame_ = state->ctx.frame_ptr_;
+   274	                state->update_pointers(); 
+   275	
+   276	                return state->instruction_base;
+   277	            }
+   278	            
+   279	            ic->check_tag = proto;
+   280	        } 
+   281	        
+   282	        if (callee.is_native()) {
+   283	            native_t fn = callee.as_native();
+   284	            if (ic->check_tag != (void*)fn) {
+   285	                ic->check_tag = (void*)fn;
+   286	            }
+   287	
+   288	            Value result = fn(&state->machine, argc, &regs[arg_start]);
+   289	            
+   290	            if (state->machine.has_error()) [[unlikely]] {
+   291	                state->error(std::string(state->machine.get_error_message()));
+   292	                state->machine.clear_error();
+   293	                return impl_PANIC(ip, regs, constants, state);
+   294	            }
+   295	
+   296	            if constexpr (!IsVoid) {
+   297	                if (dst != 0xFFFF) regs[dst] = result;
+   298	            }
+   299	            return ip;
+   300	        }
+   301	
+   302	        Value* ret_dest_ptr = nullptr;
+   303	        if constexpr (!IsVoid) {
+   304	            if (dst != 0xFFFF) ret_dest_ptr = &regs[dst];
+   305	        }
+   306	
+   307	        instance_t self = nullptr;
+   308	        function_t closure = nullptr;
+   309	        bool is_init = false;
+   310	
+   311	        if (callee.is_function()) {
+   312	            closure = callee.as_function();
+   313	        } 
+   314	        else if (callee.is_bound_method()) {
+   315	            bound_method_t bound = callee.as_bound_method();
+   316	            Value receiver = bound->get_receiver();
+   317	            Value method = bound->get_method();
+   318	
+   319	            if (method.is_native()) {
+   320	                native_t fn = method.as_native();
+   321	                
+   322	                std::vector<Value> args;
+   323	                args.reserve(argc + 1);
+   324	                args.push_back(receiver);
+   325	                
+   326	                for (size_t i = 0; i < argc; ++i) {
+   327	                    args.push_back(regs[arg_start + i]);
+   328	                }
+   329	
+   330	                Value result = fn(&state->machine, static_cast<int>(args.size()), args.data());
+   331	                
+   332	                if (state->machine.has_error()) {
+   333	                     return impl_PANIC(ip, regs, constants, state);
+   334	                }
+   335	
+   336	                if constexpr (!IsVoid) regs[dst] = result;
+   337	                return ip;
+   338	            }
+   339	            else if (method.is_function()) {
+   340	                closure = method.as_function();
+   341	                if (receiver.is_instance()) self = receiver.as_instance();
+   342	            }
+   343	        }
+   344	        else if (callee.is_class()) {
+   345	            class_t klass = callee.as_class();
+   346	            self = state->heap.new_instance(klass, state->heap.get_empty_shape());
+   347	            if (ret_dest_ptr) *ret_dest_ptr = Value(self);
+   348	            
+   349	            Value init_method = klass->get_method(state->heap.new_string("init"));
+   350	            if (init_method.is_function()) {
+   351	                closure = init_method.as_function();
+   352	                is_init = true;
+   353	            } else {
+   354	                return ip; 
+   355	            }
+   356	        } 
+   357	        else [[unlikely]] {
+   358	            state->ctx.current_frame_->ip_ = start_ip;
+   359	            state->error(std::format("Giá trị loại '{}' không thể gọi được (Not callable).", to_string(callee)));
+   360	            return impl_PANIC(ip, regs, constants, state);
+   361	        }
+   362	
+   363	        proto_t proto = closure->get_proto();
+   364	        size_t num_params = proto->get_num_registers();
+   365	
+   366	        if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
+   367	            state->ctx.current_frame_->ip_ = start_ip;
+   368	            state->error("Stack Overflow!");
+   369	            return impl_PANIC(ip, regs, constants, state);
+   370	        }
+   371	
+   372	        Value* new_base = state->ctx.stack_top_;
+   373	        size_t arg_offset = 0;
+   374	        
+   375	        if (self != nullptr && num_params > 0) {
+   376	            new_base[0] = Value(self);
+   377	            arg_offset = 1;
+   378	        }
+   379	
+   380	        for (size_t i = 0; i < argc; ++i) {
+   381	            if (arg_offset + i < num_params) {
+   382	                new_base[arg_offset + i] = regs[arg_start + i];
+   383	            }
+   384	        }
+   385	
+   386	        size_t filled_count = arg_offset + argc;
+   387	        if (filled_count > num_params) filled_count = num_params;
+   388	
+   389	        for (size_t i = filled_count; i < num_params; ++i) {
+   390	            new_base[i] = Value(null_t{});
+   391	        }
+   392	
+   393	        state->ctx.frame_ptr_++;
+   394	        *state->ctx.frame_ptr_ = CallFrame(
+   395	            closure,
+   396	            new_base,                          
+   397	            is_init ? nullptr : ret_dest_ptr,  
+   398	            ip                                 
+   399	        );
+   400	
+   401	        state->ctx.current_regs_ = new_base;
+   402	        state->ctx.stack_top_ += num_params;
+   403	        state->ctx.current_frame_ = state->ctx.frame_ptr_;
+   404	        state->update_pointers(); 
+   405	
+   406	        return state->instruction_base;
+   407	    }
+   408	
+   409	    [[gnu::always_inline]] inline static const uint8_t* impl_CALL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   410	        return do_call<false>(ip, regs, constants, state);
+   411	    }
+   412	
+   413	    [[gnu::always_inline]] inline static const uint8_t* impl_CALL_VOID(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   414	        return do_call<true>(ip, regs, constants, state);
+   415	    }
+   416	
+   417	[[gnu::always_inline]] 
+   418	static const uint8_t* impl_TAIL_CALL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   419	    const uint8_t* start_ip = ip - 1;
+   420	
+   421	    uint16_t dst = read_u16(ip); (void)dst;
+   422	    uint16_t fn_reg = read_u16(ip);
+   423	    uint16_t arg_start = read_u16(ip);
+   424	    uint16_t argc = read_u16(ip);
+   425	    
+   426	    ip += 16;
+   427	
+   428	    Value& callee = regs[fn_reg];
+   429	    if (!callee.is_function()) [[unlikely]] {
+   430	        state->ctx.current_frame_->ip_ = start_ip;
+   431	        state->error("TAIL_CALL: Target không phải là Function.");
+   432	        return nullptr;
+   433	    }
+   434	
+   435	    function_t closure = callee.as_function();
+   436	    proto_t proto = closure->get_proto();
+   437	    size_t num_params = proto->get_num_registers();
+   438	
+   439	    size_t current_base_idx = regs - state->ctx.stack_;
+   440	    meow::close_upvalues(state->ctx, current_base_idx);
+   441	
+   442	    size_t copy_count = (argc < num_params) ? argc : num_params;
+   443	
+   444	    for (size_t i = 0; i < copy_count; ++i) {
+   445	        regs[i] = regs[arg_start + i];
+   446	    }
+   447	
+   448	    for (size_t i = copy_count; i < num_params; ++i) {
+   449	        regs[i] = Value(null_t{});
+   450	    }
+   451	
+   452	    CallFrame* current_frame = state->ctx.frame_ptr_;
+   453	    current_frame->function_ = closure;
+   454	    
+   455	    state->ctx.stack_top_ = regs + num_params;
+   456	    state->update_pointers();
+   457	
+   458	    return proto->get_chunk().get_code();
+   459	}
+   460	
+   461	} // namespace meow::handlers
 
 
 // =============================================================================

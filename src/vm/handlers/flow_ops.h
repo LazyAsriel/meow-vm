@@ -169,7 +169,8 @@ namespace meow::handlers {
         return ip + sizeof(JumpCondArgs);
     }
 
-    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_TRUE_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    [[gnu::always_inline, gnu::hot]]
+    inline static const uint8_t* impl_JUMP_IF_TRUE_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
         const auto& args = *reinterpret_cast<const JumpCondArgsB*>(ip);
         Value& cond = regs[args.cond];
         bool truthy = cond.is_bool() ? cond.as_bool() : (cond.is_int() ? (cond.as_int() != 0) : meow::to_bool(cond));

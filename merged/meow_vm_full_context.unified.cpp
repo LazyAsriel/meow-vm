@@ -1,5 +1,5 @@
 // MEOW-VM FULL CONTEXT FILE
-// Generated at: Wed Dec 24 11:45:36 AM +07 2025
+// Generated at: Sun Dec 28 06:52:26 PM +07 2025
 // Structure: ALL HEADERS (include/) + ALL SOURCES (src/)
 
 
@@ -14,91 +14,132 @@
      4	#include <vector>
      5	#include <string>
      6	#include <memory>
-     7	#include <meow/common.h>
-     8	#include <meow/value.h>
-     9	
-    10	namespace meow {
-    11	class Chunk {
-    12	public:
-    13	    Chunk() = default;
-    14	    Chunk(std::vector<uint8_t>&& code, std::vector<Value>&& constants) noexcept : code_(std::move(code)), constant_pool_(std::move(constants)) {}
-    15	
-    16	    // --- Modifiers ---
-    17	    inline void write_byte(uint8_t byte) {
-    18	        code_.push_back(byte);
-    19	    }
+     7	#include <algorithm> // Cần cho std::upper_bound
+     8	#include <meow/common.h>
+     9	#include <meow/value.h>
+    10	
+    11	namespace meow {
+    12	
+    13	// Cấu trúc lưu thông tin dòng (Khớp với MASM)
+    14	struct LineInfo {
+    15	    uint32_t offset;    // Bytecode offset
+    16	    uint32_t line;
+    17	    uint32_t col;
+    18	    uint32_t file_idx;  // Index vào mảng source_files
+    19	};
     20	
-    21	    inline void write_u16(uint16_t value) {
-    22	        code_.push_back(static_cast<uint8_t>(value & 0xFF));
-    23	        code_.push_back(static_cast<uint8_t>((value >> 8) & 0xFF));
-    24	    }
-    25	
-    26	    inline void write_u32(uint32_t value) {
-    27	        code_.push_back(static_cast<uint8_t>(value & 0xFF));
-    28	        code_.push_back(static_cast<uint8_t>((value >> 8) & 0xFF));
-    29	        code_.push_back(static_cast<uint8_t>((value >> 16) & 0xFF));
-    30	        code_.push_back(static_cast<uint8_t>((value >> 24) & 0xFF));
-    31	    }
+    21	class Chunk {
+    22	public:
+    23	    Chunk() = default;
+    24	
+    25	    // Constructor mới: Nhận thêm source_files và lines
+    26	    Chunk(std::vector<uint8_t>&& code, std::vector<Value>&& constants,
+    27	          std::vector<std::string>&& source_files, std::vector<LineInfo>&& lines) noexcept 
+    28	        : code_(std::move(code)), 
+    29	          constant_pool_(std::move(constants)),
+    30	          source_files_(std::move(source_files)),
+    31	          lines_(std::move(lines)) {}
     32	
-    33	    inline void write_u64(uint64_t value) {
-    34	        code_.push_back(static_cast<uint8_t>(value & 0xFF));
-    35	        code_.push_back(static_cast<uint8_t>((value >> 8) & 0xFF));
-    36	        code_.push_back(static_cast<uint8_t>((value >> 16) & 0xFF));
-    37	        code_.push_back(static_cast<uint8_t>((value >> 24) & 0xFF));
-    38	        code_.push_back(static_cast<uint8_t>((value >> 32) & 0xFF));
-    39	        code_.push_back(static_cast<uint8_t>((value >> 40) & 0xFF));
-    40	        code_.push_back(static_cast<uint8_t>((value >> 48) & 0xFF));
-    41	        code_.push_back(static_cast<uint8_t>((value >> 56) & 0xFF));
-    42	    }
-    43	
-    44	    inline void write_f64(double value) {
-    45	        write_u64(std::bit_cast<uint64_t>(value));
-    46	    }
-    47	    // --- Code buffer ---
-    48	    inline const uint8_t* get_code() const noexcept {
-    49	        return code_.data();
-    50	    }
-    51	    inline size_t get_code_size() const noexcept {
-    52	        return code_.size();
+    33	    // --- Code modifiers (Giữ nguyên) ---
+    34	    inline void write_byte(uint8_t byte) {
+    35	        code_.push_back(byte);
+    36	    }
+    37	
+    38	    inline void write_u16(uint16_t value) {
+    39	        code_.push_back(static_cast<uint8_t>(value & 0xFF));
+    40	        code_.push_back(static_cast<uint8_t>((value >> 8) & 0xFF));
+    41	    }
+    42	
+    43	    inline void write_u32(uint32_t value) {
+    44	        code_.push_back(static_cast<uint8_t>(value & 0xFF));
+    45	        code_.push_back(static_cast<uint8_t>((value >> 8) & 0xFF));
+    46	        code_.push_back(static_cast<uint8_t>((value >> 16) & 0xFF));
+    47	        code_.push_back(static_cast<uint8_t>((value >> 24) & 0xFF));
+    48	    }
+    49	
+    50	    inline void write_u64(uint64_t value) {
+    51	        for (int i = 0; i < 8; ++i) 
+    52	            code_.push_back(static_cast<uint8_t>((value >> (i * 8)) & 0xFF));
     53	    }
-    54	    inline bool is_code_empty() const noexcept {
-    55	        return code_.empty();
-    56	    }
-    57	
-    58	    // --- Constant pool ---
-    59	    inline size_t get_pool_size() const noexcept {
-    60	        return constant_pool_.size();
-    61	    }
-    62	    inline bool is_pool_empty() const noexcept {
-    63	        return constant_pool_.empty();
-    64	    }
-    65	    inline size_t add_constant(param_t value) {
-    66	        constant_pool_.push_back(value);
-    67	        return constant_pool_.size() - 1;
+    54	
+    55	    inline void write_f64(double value) {
+    56	        write_u64(std::bit_cast<uint64_t>(value));
+    57	    }
+    58	
+    59	    // --- Accessors ---
+    60	    inline const uint8_t* get_code() const noexcept {
+    61	        return code_.data();
+    62	    }
+    63	    inline size_t get_code_size() const noexcept {
+    64	        return code_.size();
+    65	    }
+    66	    inline bool is_code_empty() const noexcept {
+    67	        return code_.empty();
     68	    }
-    69	    inline return_t get_constant(size_t index) const noexcept {
-    70	        return constant_pool_[index];
-    71	    }
-    72	    inline value_t& get_constant_ref(size_t index) noexcept {
-    73	        return constant_pool_[index];
-    74	    }
-    75	    inline const Value* get_constants_raw() const noexcept {
-    76	        return constant_pool_.data();
-    77	    }
-    78	
-    79	    inline bool patch_u16(size_t offset, uint16_t value) noexcept {
-    80	        if (offset + 1 >= code_.size()) return false;
-    81	
-    82	        code_[offset] = static_cast<uint8_t>(value & 0xFF);
-    83	        code_[offset + 1] = static_cast<uint8_t>((value >> 8) & 0xFF);
-    84	
-    85	        return true;
+    69	
+    70	    // --- Constant pool ---
+    71	    inline size_t get_pool_size() const noexcept {
+    72	        return constant_pool_.size();
+    73	    }
+    74	    inline bool is_pool_empty() const noexcept {
+    75	        return constant_pool_.empty();
+    76	    }
+    77	    inline size_t add_constant(param_t value) {
+    78	        constant_pool_.push_back(value);
+    79	        return constant_pool_.size() - 1;
+    80	    }
+    81	    inline return_t get_constant(size_t index) const noexcept {
+    82	        return constant_pool_[index];
+    83	    }
+    84	    inline value_t& get_constant_ref(size_t index) noexcept {
+    85	        return constant_pool_[index];
     86	    }
-    87	private:
-    88	    std::vector<uint8_t> code_;
-    89	    std::vector<Value> constant_pool_;
-    90	};
-    91	}
+    87	    inline const Value* get_constants_raw() const noexcept {
+    88	        return constant_pool_.data();
+    89	    }
+    90	
+    91	    inline bool patch_u16(size_t offset, uint16_t value) noexcept {
+    92	        if (offset + 1 >= code_.size()) return false;
+    93	        code_[offset] = static_cast<uint8_t>(value & 0xFF);
+    94	        code_[offset + 1] = static_cast<uint8_t>((value >> 8) & 0xFF);
+    95	        return true;
+    96	    }
+    97	
+    98	    // --- DEBUG INFO HELPERS ---
+    99	    
+   100	    // Lấy tên file từ index
+   101	    inline const std::string* get_file_name(uint32_t idx) const {
+   102	        if (idx < source_files_.size()) return &source_files_[idx];
+   103	        return nullptr;
+   104	    }
+   105	
+   106	    // Tìm thông tin dòng code dựa trên offset (PC)
+   107	    // Dùng binary search vì lines_ đã được sắp xếp theo offset từ lúc compile
+   108	    inline const LineInfo* get_line_info(size_t offset) const {
+   109	        if (lines_.empty()) return nullptr;
+   110	        
+   111	        // Tìm phần tử đầu tiên có offset LỚN HƠN offset hiện tại
+   112	        auto it = std::upper_bound(lines_.begin(), lines_.end(), offset,
+   113	            [](size_t val, const LineInfo& info) {
+   114	                return val < info.offset;
+   115	            });
+   116	            
+   117	        // Nếu tất cả các mốc offset đều lớn hơn (vô lý nếu file hợp lệ) -> nullptr
+   118	        if (it == lines_.begin()) return nullptr;
+   119	
+   120	        // LineInfo đúng là phần tử ngay trước đó (khoảng offset bao trùm)
+   121	        return &(*std::prev(it));
+   122	    }
+   123	
+   124	private:
+   125	    std::vector<uint8_t> code_;
+   126	    std::vector<Value> constant_pool_;
+   127	    
+   128	    // Dữ liệu debug mới
+   129	    std::vector<std::string> source_files_;
+   130	    std::vector<LineInfo> lines_;
+   131	};
+   132	}
 
 
 // =============================================================================
@@ -2488,306 +2529,322 @@
      7	#include <meow/value.h>
      8	#include <meow/bytecode/chunk.h>
      9	#include <meow/bytecode/op_codes.h>
-    10	
-    11	namespace meow {
-    12	
-    13	constexpr uint32_t MAGIC_NUMBER = 0x4D454F57; // "MEOW"
-    14	constexpr uint32_t FORMAT_VERSION = 1;
+    10	#include <cstring> // memcpy
+    11	#include <bit>     // bit_cast
+    12	#include <format>
+    13	
+    14	namespace meow {
     15	
-    16	enum class ConstantTag : uint8_t {
-    17	    NULL_T,
-    18	    INT_T,
-    19	    FLOAT_T,
-    20	    STRING_T,
-    21	    PROTO_REF_T
-    22	};
-    23	
-    24	Loader::Loader(MemoryManager* heap, const std::vector<uint8_t>& data)
-    25	    : heap_(heap), data_(data), cursor_(0) {}
+    16	constexpr uint32_t MAGIC_NUMBER = 0x4D454F57; // "MEOW"
+    17	constexpr uint32_t FORMAT_VERSION = 1;
+    18	
+    19	enum class ConstantTag : uint8_t {
+    20	    NULL_T,
+    21	    INT_T,
+    22	    FLOAT_T,
+    23	    STRING_T,
+    24	    PROTO_REF_T
+    25	};
     26	
-    27	void Loader::check_can_read(size_t bytes) {
-    28	    if (cursor_ + bytes > data_.size()) {
-    29	        throw LoaderError("Unexpected end of file. File is truncated or corrupt.");
-    30	    }
-    31	}
+    27	// Enum Flags khớp với MASM
+    28	enum class ProtoFlags : uint8_t {
+    29	    NONE = 0,
+    30	    HAS_DEBUG_INFO = 1 << 0
+    31	};
     32	
-    33	uint8_t Loader::read_u8() {
-    34	    check_can_read(1);
-    35	    return data_[cursor_++];
-    36	}
-    37	
-    38	uint16_t Loader::read_u16() {
-    39	    check_can_read(2);
-    40	    // Little-endian load
-    41	    uint16_t val = static_cast<uint16_t>(data_[cursor_]) |
-    42	                   (static_cast<uint16_t>(data_[cursor_ + 1]) << 8);
-    43	    cursor_ += 2;
-    44	    return val;
+    33	Loader::Loader(MemoryManager* heap, const std::vector<uint8_t>& data)
+    34	    : heap_(heap), data_(data), cursor_(0) {}
+    35	
+    36	void Loader::check_can_read(size_t bytes) {
+    37	    if (cursor_ + bytes > data_.size()) {
+    38	        throw LoaderError("Unexpected end of file. File is truncated or corrupt.");
+    39	    }
+    40	}
+    41	
+    42	uint8_t Loader::read_u8() {
+    43	    check_can_read(1);
+    44	    return data_[cursor_++];
     45	}
     46	
-    47	uint32_t Loader::read_u32() {
-    48	    check_can_read(4);
-    49	    uint32_t val = static_cast<uint32_t>(data_[cursor_]) |
-    50	                   (static_cast<uint32_t>(data_[cursor_ + 1]) << 8) |
-    51	                   (static_cast<uint32_t>(data_[cursor_ + 2]) << 16) |
-    52	                   (static_cast<uint32_t>(data_[cursor_ + 3]) << 24);
-    53	    cursor_ += 4;
-    54	    return val;
-    55	}
-    56	
-    57	uint64_t Loader::read_u64() {
-    58	    check_can_read(8);
-    59	    uint64_t val;
-    60	    std::memcpy(&val, &data_[cursor_], 8); 
-    61	    cursor_ += 8;
-    62	    return val; // Giả định little-endian machine (x86/arm64)
-    63	}
-    64	
-    65	double Loader::read_f64() {
-    66	    return std::bit_cast<double>(read_u64());
-    67	}
-    68	
-    69	string_t Loader::read_string() {
-    70	    uint32_t length = read_u32();
-    71	    check_can_read(length);
-    72	    std::string str(reinterpret_cast<const char*>(data_.data() + cursor_), length);
-    73	    cursor_ += length;
-    74	    return heap_->new_string(str);
-    75	}
-    76	
-    77	Value Loader::read_constant(size_t current_proto_idx, size_t current_const_idx) {
-    78	    ConstantTag tag = static_cast<ConstantTag>(read_u8());
-    79	    switch (tag) {
-    80	        case ConstantTag::NULL_T:   return Value(null_t{});
-    81	        case ConstantTag::INT_T:    return Value(static_cast<int64_t>(read_u64()));
-    82	        case ConstantTag::FLOAT_T:  return Value(read_f64());
-    83	        case ConstantTag::STRING_T: return Value(read_string());
-    84	        
-    85	        case ConstantTag::PROTO_REF_T: {
-    86	            uint32_t target_proto_index = read_u32();
-    87	            patches_.push_back({current_proto_idx, current_const_idx, target_proto_index});
-    88	            return Value(null_t{}); 
-    89	        }
-    90	        default:
-    91	            throw LoaderError("Unknown constant tag in binary file.");
-    92	    }
-    93	}
-    94	
-    95	proto_t Loader::read_prototype(size_t current_proto_idx) {
-    96	    uint32_t num_registers = read_u32();
-    97	    uint32_t num_upvalues = read_u32();
-    98	    uint32_t name_idx_in_pool = read_u32();
-    99	
-   100	    uint32_t constant_pool_size = read_u32();
-   101	    std::vector<Value> constants;
-   102	    constants.reserve(constant_pool_size);
-   103	    
-   104	    for (uint32_t i = 0; i < constant_pool_size; ++i) {
-   105	        constants.push_back(read_constant(current_proto_idx, i));
-   106	    }
-   107	    
-   108	    string_t name = nullptr;
-   109	    if (name_idx_in_pool < constants.size() && constants[name_idx_in_pool].is_string()) {
-   110	        name = constants[name_idx_in_pool].as_string();
-   111	    }
+    47	uint16_t Loader::read_u16() {
+    48	    check_can_read(2);
+    49	    // Little-endian load
+    50	    uint16_t val = static_cast<uint16_t>(data_[cursor_]) |
+    51	                   (static_cast<uint16_t>(data_[cursor_ + 1]) << 8);
+    52	    cursor_ += 2;
+    53	    return val;
+    54	}
+    55	
+    56	uint32_t Loader::read_u32() {
+    57	    check_can_read(4);
+    58	    uint32_t val = static_cast<uint32_t>(data_[cursor_]) |
+    59	                   (static_cast<uint32_t>(data_[cursor_ + 1]) << 8) |
+    60	                   (static_cast<uint32_t>(data_[cursor_ + 2]) << 16) |
+    61	                   (static_cast<uint32_t>(data_[cursor_ + 3]) << 24);
+    62	    cursor_ += 4;
+    63	    return val;
+    64	}
+    65	
+    66	uint64_t Loader::read_u64() {
+    67	    check_can_read(8);
+    68	    uint64_t val;
+    69	    std::memcpy(&val, &data_[cursor_], 8); 
+    70	    cursor_ += 8;
+    71	    return val; 
+    72	}
+    73	
+    74	double Loader::read_f64() {
+    75	    return std::bit_cast<double>(read_u64());
+    76	}
+    77	
+    78	string_t Loader::read_string() {
+    79	    uint32_t length = read_u32();
+    80	    check_can_read(length);
+    81	    std::string str(reinterpret_cast<const char*>(data_.data() + cursor_), length);
+    82	    cursor_ += length;
+    83	    return heap_->new_string(str);
+    84	}
+    85	
+    86	Value Loader::read_constant(size_t current_proto_idx, size_t current_const_idx) {
+    87	    ConstantTag tag = static_cast<ConstantTag>(read_u8());
+    88	    switch (tag) {
+    89	        case ConstantTag::NULL_T:   return Value(null_t{});
+    90	        case ConstantTag::INT_T:    return Value(static_cast<int64_t>(read_u64()));
+    91	        case ConstantTag::FLOAT_T:  return Value(read_f64());
+    92	        case ConstantTag::STRING_T: return Value(read_string());
+    93	        
+    94	        case ConstantTag::PROTO_REF_T: {
+    95	            uint32_t target_proto_index = read_u32();
+    96	            patches_.push_back({current_proto_idx, current_const_idx, target_proto_index});
+    97	            return Value(null_t{}); 
+    98	        }
+    99	        default:
+   100	            throw LoaderError("Unknown constant tag in binary file.");
+   101	    }
+   102	}
+   103	
+   104	proto_t Loader::read_prototype(size_t current_proto_idx) {
+   105	    uint32_t num_registers = read_u32();
+   106	    uint32_t num_upvalues = read_u32();
+   107	
+   108	    // --- [NEW] ĐỌC FLAGS ---
+   109	    // Byte này quyết định cấu trúc file phía sau
+   110	    uint8_t raw_flags = read_u8();
+   111	    bool has_debug_info = (raw_flags & static_cast<uint8_t>(ProtoFlags::HAS_DEBUG_INFO)) != 0;
    112	
-   113	    // Upvalues
-   114	    uint32_t upvalue_desc_count = read_u32();
-   115	    if (upvalue_desc_count != num_upvalues) {
-   116	         throw LoaderError("Upvalue count mismatch.");
-   117	    }
-   118	    std::vector<UpvalueDesc> upvalue_descs;
-   119	    upvalue_descs.reserve(upvalue_desc_count);
-   120	    for (uint32_t i = 0; i < upvalue_desc_count; ++i) {
-   121	        bool is_local = (read_u8() == 1);
-   122	        uint32_t index = read_u32();
-   123	        upvalue_descs.emplace_back(is_local, index);
-   124	    }
-   125	
-   126	    // Bytecode
-   127	    uint32_t bytecode_size = read_u32();
-   128	    check_can_read(bytecode_size);
-   129	    std::vector<uint8_t> bytecode(data_.data() + cursor_, data_.data() + cursor_ + bytecode_size);
-   130	    cursor_ += bytecode_size;
-   131	    
-   132	    Chunk chunk(std::move(bytecode), std::move(constants));
-   133	    return heap_->new_proto(num_registers, num_upvalues, name, std::move(chunk), std::move(upvalue_descs));
-   134	}
-   135	
-   136	void Loader::check_magic() {
-   137	    if (read_u32() != MAGIC_NUMBER) {
-   138	        throw LoaderError("Not a valid Meow bytecode file (magic number mismatch).");
-   139	    }
-   140	    uint32_t version = read_u32();
-   141	    if (version != FORMAT_VERSION) {
-   142	        throw LoaderError(std::format("Bytecode version mismatch. File is v{}, VM supports v{}.", version, FORMAT_VERSION));
-   143	    }
-   144	}
-   145	
-   146	void Loader::link_prototypes() {    
-   147	    for (const auto& patch : patches_) {
-   148	        if (patch.proto_idx >= loaded_protos_.size() || patch.target_idx >= loaded_protos_.size()) {
-   149	            throw LoaderError("Invalid prototype reference indices.");
-   150	        }
-   151	
-   152	        proto_t parent_proto = loaded_protos_[patch.proto_idx];
-   153	        proto_t child_proto = loaded_protos_[patch.target_idx];
-   154	
-   155	        // Hack const_cast để sửa constant pool (được phép lúc load)
-   156	        Chunk& chunk = const_cast<Chunk&>(parent_proto->get_chunk()); 
-   157	        
-   158	        if (patch.const_idx >= chunk.get_pool_size()) {
-   159	             throw LoaderError("Internal Error: Patch constant index out of bounds.");
-   160	        }
-   161	
-   162	        chunk.get_constant_ref(patch.const_idx) = Value(child_proto);
-   163	    }
-   164	}
-   165	
-   166	proto_t Loader::load_module() {
-   167	    GCDisableGuard guard(heap_);
-   168	    check_magic();
-   169	    
-   170	    uint32_t main_proto_index = read_u32();
-   171	    uint32_t prototype_count = read_u32();
-   172	    
-   173	    if (prototype_count == 0) throw LoaderError("No prototypes found.");
-   174	    
-   175	    loaded_protos_.reserve(prototype_count);
-   176	    for (uint32_t i = 0; i < prototype_count; ++i) {
-   177	        loaded_protos_.push_back(read_prototype(i));
-   178	    }
-   179	    
-   180	    if (main_proto_index >= loaded_protos_.size()) throw LoaderError("Main proto index invalid.");
-   181	    
-   182	    link_prototypes();
-   183	    
-   184	    return loaded_protos_[main_proto_index];
+   113	    uint32_t name_idx_in_pool = read_u32();
+   114	    uint32_t constant_pool_size = read_u32();
+   115	    
+   116	    std::vector<Value> constants;
+   117	    constants.reserve(constant_pool_size);
+   118	    for (uint32_t i = 0; i < constant_pool_size; ++i) {
+   119	        constants.push_back(read_constant(current_proto_idx, i));
+   120	    }
+   121	    
+   122	    string_t name = nullptr;
+   123	    if (name_idx_in_pool < constants.size() && constants[name_idx_in_pool].is_string()) {
+   124	        name = constants[name_idx_in_pool].as_string();
+   125	    }
+   126	
+   127	    // Upvalues
+   128	    uint32_t upvalue_desc_count = read_u32();
+   129	    std::vector<UpvalueDesc> upvalue_descs;
+   130	    upvalue_descs.reserve(upvalue_desc_count);
+   131	    for (uint32_t i = 0; i < upvalue_desc_count; ++i) {
+   132	        bool is_local = (read_u8() == 1);
+   133	        uint32_t index = read_u32();
+   134	        upvalue_descs.emplace_back(is_local, index);
+   135	    }
+   136	
+   137	    // Bytecode
+   138	    uint32_t bytecode_size = read_u32();
+   139	    check_can_read(bytecode_size);
+   140	    std::vector<uint8_t> bytecode(data_.data() + cursor_, data_.data() + cursor_ + bytecode_size);
+   141	    cursor_ += bytecode_size;
+   142	    
+   143	    // --- [NEW] ĐỌC DEBUG INFO (Conditionally) ---
+   144	    std::vector<std::string> source_files;
+   145	    std::vector<LineInfo> lines;
+   146	
+   147	    if (has_debug_info) {
+   148	        // 1. Đọc bảng Source Files
+   149	        uint32_t num_files = read_u32();
+   150	        source_files.reserve(num_files);
+   151	        for(uint32_t i = 0; i < num_files; ++i) {
+   152	            uint32_t len = read_u32();
+   153	            check_can_read(len);
+   154	            std::string s(reinterpret_cast<const char*>(data_.data() + cursor_), len);
+   155	            cursor_ += len;
+   156	            source_files.push_back(std::move(s));
+   157	        }
+   158	
+   159	        // 2. Đọc bảng LineInfo
+   160	        uint32_t num_lines = read_u32();
+   161	        lines.reserve(num_lines);
+   162	        for(uint32_t i = 0; i < num_lines; ++i) {
+   163	            LineInfo info;
+   164	            info.offset = read_u32();
+   165	            info.line = read_u32();
+   166	            info.col = read_u32();
+   167	            info.file_idx = read_u32();
+   168	            lines.push_back(info);
+   169	        }
+   170	    }
+   171	    
+   172	    // Tạo Chunk với constructor đầy đủ
+   173	    Chunk chunk(std::move(bytecode), std::move(constants), std::move(source_files), std::move(lines));
+   174	    return heap_->new_proto(num_registers, num_upvalues, name, std::move(chunk), std::move(upvalue_descs));
+   175	}
+   176	
+   177	void Loader::check_magic() {
+   178	    if (read_u32() != MAGIC_NUMBER) {
+   179	        throw LoaderError("Not a valid Meow bytecode file (magic number mismatch).");
+   180	    }
+   181	    uint32_t version = read_u32();
+   182	    if (version != FORMAT_VERSION) {
+   183	        throw LoaderError(std::format("Bytecode version mismatch. File is v{}, VM supports v{}.", version, FORMAT_VERSION));
+   184	    }
    185	}
    186	
-   187	static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unordered_set<proto_t>& visited) {
-   188	    if (!proto || visited.contains(proto)) return;
-   189	    visited.insert(proto);
-   190	
-   191	    Chunk& chunk = const_cast<Chunk&>(proto->get_chunk());
-   192	    const uint8_t* code = chunk.get_code();
-   193	    size_t size = chunk.get_code_size();
-   194	    size_t ip = 0;
+   187	void Loader::link_prototypes() {    
+   188	    for (const auto& patch : patches_) {
+   189	        if (patch.proto_idx >= loaded_protos_.size() || patch.target_idx >= loaded_protos_.size()) {
+   190	            throw LoaderError("Invalid prototype reference indices.");
+   191	        }
+   192	
+   193	        proto_t parent_proto = loaded_protos_[patch.proto_idx];
+   194	        proto_t child_proto = loaded_protos_[patch.target_idx];
    195	
-   196	    for (size_t i = 0; i < chunk.get_pool_size(); ++i) {
-   197	        if (chunk.get_constant(i).is_proto()) {
-   198	            patch_chunk_globals_recursive(mod, chunk.get_constant(i).as_proto(), visited);
-   199	        }
-   200	    }
+   196	        Chunk& chunk = const_cast<Chunk&>(parent_proto->get_chunk()); 
+   197	        
+   198	        if (patch.const_idx >= chunk.get_pool_size()) {
+   199	             throw LoaderError("Internal Error: Patch constant index out of bounds.");
+   200	        }
    201	
-   202	    while (ip < size) {
-   203	        OpCode op = static_cast<OpCode>(code[ip]);
-   204	        
-   205	        if (op == OpCode::GET_GLOBAL || op == OpCode::SET_GLOBAL) {
-   206	            size_t operand_offset = (op == OpCode::GET_GLOBAL) ? (ip + 3) : (ip + 1);
-   207	            
-   208	            if (operand_offset + 2 <= size) {
-   209	                uint16_t name_idx = static_cast<uint16_t>(code[operand_offset]) | 
-   210	                                    (static_cast<uint16_t>(code[operand_offset + 1]) << 8);
-   211	                
-   212	                if (name_idx < chunk.get_pool_size()) {
-   213	                    Value name_val = chunk.get_constant(name_idx);
-   214	                    if (name_val.is_string()) {
-   215	                        uint32_t global_idx = mod->intern_global(name_val.as_string());
-   216	                        
-   217	                        if (global_idx > 0xFFFF) {
-   218	                            throw LoaderError("Module has too many globals (> 65535).");
-   219	                        }
-   220	
-   221	                        chunk.patch_u16(operand_offset, static_cast<uint16_t>(global_idx));
-   222	                    }
-   223	                }
-   224	            }
-   225	        }
+   202	        chunk.get_constant_ref(patch.const_idx) = Value(child_proto);
+   203	    }
+   204	}
+   205	
+   206	proto_t Loader::load_module() {
+   207	    GCDisableGuard guard(heap_);
+   208	    check_magic();
+   209	    
+   210	    uint32_t main_proto_index = read_u32();
+   211	    uint32_t prototype_count = read_u32();
+   212	    
+   213	    if (prototype_count == 0) throw LoaderError("No prototypes found.");
+   214	    
+   215	    loaded_protos_.reserve(prototype_count);
+   216	    for (uint32_t i = 0; i < prototype_count; ++i) {
+   217	        loaded_protos_.push_back(read_prototype(i));
+   218	    }
+   219	    
+   220	    if (main_proto_index >= loaded_protos_.size()) throw LoaderError("Main proto index invalid.");
+   221	    
+   222	    link_prototypes();
+   223	    
+   224	    return loaded_protos_[main_proto_index];
+   225	}
    226	
-   227	        ip += 1; // Op
-   228	        switch (op) {
-   229	            case OpCode::HALT: case OpCode::POP_TRY: 
-   230	                break;
-   231	
-   232	            case OpCode::INC: case OpCode::DEC:
-   233	            case OpCode::CLOSE_UPVALUES: case OpCode::IMPORT_ALL: case OpCode::THROW: 
-   234	            case OpCode::RETURN: 
-   235	                ip += 2; break;
-   236	            
-   237	            case OpCode::LOAD_NULL: case OpCode::LOAD_TRUE: case OpCode::LOAD_FALSE:
-   238	                ip += 2; break;
-   239	            
-   240	            case OpCode::LOAD_CONST: case OpCode::MOVE: 
-   241	            case OpCode::NEG: case OpCode::NOT: case OpCode::BIT_NOT: 
-   242	            case OpCode::GET_UPVALUE: case OpCode::SET_UPVALUE: 
-   243	            case OpCode::CLOSURE:
-   244	            case OpCode::NEW_CLASS: case OpCode::NEW_INSTANCE: 
-   245	            case OpCode::IMPORT_MODULE: case OpCode::EXPORT: 
-   246	            case OpCode::GET_KEYS: case OpCode::GET_VALUES:
-   247	            case OpCode::GET_SUPER: 
-   248	            case OpCode::GET_GLOBAL: case OpCode::SET_GLOBAL:
-   249	            case OpCode::INHERIT:
-   250	                ip += 4; break;
-   251	
-   252	            case OpCode::GET_EXPORT: 
-   253	            case OpCode::ADD: case OpCode::SUB: case OpCode::MUL: case OpCode::DIV:
-   254	            case OpCode::MOD: case OpCode::POW: case OpCode::EQ: case OpCode::NEQ:
-   255	            case OpCode::GT: case OpCode::GE: case OpCode::LT: case OpCode::LE:
-   256	            case OpCode::BIT_AND: case OpCode::BIT_OR: case OpCode::BIT_XOR:
-   257	            case OpCode::LSHIFT: case OpCode::RSHIFT: 
-   258	            case OpCode::NEW_ARRAY: case OpCode::NEW_HASH: 
-   259	            case OpCode::GET_INDEX: case OpCode::SET_INDEX: 
-   260	            case OpCode::GET_PROP: case OpCode::SET_PROP:
-   261	            case OpCode::SET_METHOD:
-   262	            // case OpCode::INHERIT:
-   263	                ip += 6; break;
-   264	            
-   265	            case OpCode::CALL: 
-   266	                ip += 8;
-   267	                ip += 16;
-   268	                break;
-   269	            
-   270	            case OpCode::TAIL_CALL:
-   271	                ip += 8;
-   272	                ip += 16;
-   273	                break;
-   274	                
-   275	            case OpCode::CALL_VOID:
-   276	                ip += 6;
-   277	                ip += 16;
-   278	                break;
-   279	
-   280	            case OpCode::LOAD_INT: case OpCode::LOAD_FLOAT:
-   281	                ip += 10; break;
-   282	
-   283	            case OpCode::JUMP: ip += 2; break;
-   284	            case OpCode::SETUP_TRY: ip += 4; break;
-   285	            case OpCode::JUMP_IF_FALSE: case OpCode::JUMP_IF_TRUE: ip += 4; break;
-   286	
-   287	            case OpCode::ADD_B: case OpCode::SUB_B: case OpCode::MUL_B: 
-   288	            case OpCode::DIV_B: case OpCode::MOD_B: case OpCode::LT_B:
-   289	            case OpCode::JUMP_IF_TRUE_B: case OpCode::JUMP_IF_FALSE_B:
-   290	                ip += 3; break;
-   291	            case OpCode::INVOKE:
-   292	                ip += 79; 
-   293	                break;
-   294	            default: break;
-   295	        }
-   296	        
-   297	        if (op == OpCode::GET_PROP || op == OpCode::SET_PROP) {
-   298	             ip += 48; 
-   299	        }
-   300	    }
-   301	}
-   302	
-   303	void Loader::link_module(module_t module) {
-   304	    if (!module || !module->is_has_main()) return;
-   305	    std::unordered_set<proto_t> visited;
-   306	    patch_chunk_globals_recursive(module, module->get_main_proto(), visited);
-   307	}
-   308	
-   309	}
+   227	static void patch_chunk_globals_recursive(module_t mod, proto_t proto, std::unordered_set<proto_t>& visited) {
+   228	    if (!proto || visited.contains(proto)) return;
+   229	    visited.insert(proto);
+   230	
+   231	    Chunk& chunk = const_cast<Chunk&>(proto->get_chunk());
+   232	    const uint8_t* code = chunk.get_code();
+   233	    size_t size = chunk.get_code_size();
+   234	    size_t ip = 0;
+   235	
+   236	    for (size_t i = 0; i < chunk.get_pool_size(); ++i) {
+   237	        if (chunk.get_constant(i).is_proto()) {
+   238	            patch_chunk_globals_recursive(mod, chunk.get_constant(i).as_proto(), visited);
+   239	        }
+   240	    }
+   241	
+   242	    while (ip < size) {
+   243	        OpCode op = static_cast<OpCode>(code[ip]);
+   244	        
+   245	        if (op == OpCode::GET_GLOBAL || op == OpCode::SET_GLOBAL) {
+   246	            size_t operand_offset = (op == OpCode::GET_GLOBAL) ? (ip + 3) : (ip + 1);
+   247	            if (operand_offset + 2 <= size) {
+   248	                uint16_t name_idx = static_cast<uint16_t>(code[operand_offset]) | 
+   249	                                    (static_cast<uint16_t>(code[operand_offset + 1]) << 8);
+   250	                if (name_idx < chunk.get_pool_size()) {
+   251	                    Value name_val = chunk.get_constant(name_idx);
+   252	                    if (name_val.is_string()) {
+   253	                        uint32_t global_idx = mod->intern_global(name_val.as_string());
+   254	                        if (global_idx > 0xFFFF) throw LoaderError("Module has too many globals.");
+   255	                        chunk.patch_u16(operand_offset, static_cast<uint16_t>(global_idx));
+   256	                    }
+   257	                }
+   258	            }
+   259	        }
+   260	
+   261	        // Logic skip instruction (giữ nguyên vì không đổi)
+   262	        ip += 1; // Op
+   263	        switch (op) {
+   264	            case OpCode::HALT: case OpCode::POP_TRY: 
+   265	                break;
+   266	            case OpCode::INC: case OpCode::DEC:
+   267	            case OpCode::CLOSE_UPVALUES: case OpCode::IMPORT_ALL: case OpCode::THROW: 
+   268	            case OpCode::RETURN: 
+   269	                ip += 2; break;
+   270	            case OpCode::LOAD_NULL: case OpCode::LOAD_TRUE: case OpCode::LOAD_FALSE:
+   271	                ip += 2; break;
+   272	            case OpCode::LOAD_CONST: case OpCode::MOVE: 
+   273	            case OpCode::NEG: case OpCode::NOT: case OpCode::BIT_NOT: 
+   274	            case OpCode::GET_UPVALUE: case OpCode::SET_UPVALUE: 
+   275	            case OpCode::CLOSURE:
+   276	            case OpCode::NEW_CLASS: case OpCode::NEW_INSTANCE: 
+   277	            case OpCode::IMPORT_MODULE: case OpCode::EXPORT: 
+   278	            case OpCode::GET_KEYS: case OpCode::GET_VALUES:
+   279	            case OpCode::GET_SUPER: 
+   280	            case OpCode::GET_GLOBAL: case OpCode::SET_GLOBAL:
+   281	            case OpCode::INHERIT:
+   282	                ip += 4; break;
+   283	            case OpCode::GET_EXPORT: 
+   284	            case OpCode::ADD: case OpCode::SUB: case OpCode::MUL: case OpCode::DIV:
+   285	            case OpCode::MOD: case OpCode::POW: case OpCode::EQ: case OpCode::NEQ:
+   286	            case OpCode::GT: case OpCode::GE: case OpCode::LT: case OpCode::LE:
+   287	            case OpCode::BIT_AND: case OpCode::BIT_OR: case OpCode::BIT_XOR:
+   288	            case OpCode::LSHIFT: case OpCode::RSHIFT: 
+   289	            case OpCode::NEW_ARRAY: case OpCode::NEW_HASH: 
+   290	            case OpCode::GET_INDEX: case OpCode::SET_INDEX: 
+   291	            case OpCode::GET_PROP: case OpCode::SET_PROP:
+   292	            case OpCode::SET_METHOD:
+   293	                ip += 6; break;
+   294	            case OpCode::CALL: 
+   295	                ip += 8; ip += 16; break;
+   296	            case OpCode::TAIL_CALL:
+   297	                ip += 8; ip += 16; break;
+   298	            case OpCode::CALL_VOID:
+   299	                ip += 6; ip += 16; break;
+   300	            case OpCode::LOAD_INT: case OpCode::LOAD_FLOAT:
+   301	                ip += 10; break;
+   302	            case OpCode::JUMP: ip += 2; break;
+   303	            case OpCode::SETUP_TRY: ip += 4; break;
+   304	            case OpCode::JUMP_IF_FALSE: case OpCode::JUMP_IF_TRUE: ip += 4; break;
+   305	            case OpCode::ADD_B: case OpCode::SUB_B: case OpCode::MUL_B: 
+   306	            case OpCode::DIV_B: case OpCode::MOD_B: case OpCode::LT_B:
+   307	            case OpCode::JUMP_IF_TRUE_B: case OpCode::JUMP_IF_FALSE_B:
+   308	                ip += 3; break;
+   309	            case OpCode::INVOKE:
+   310	                ip += 79; break;
+   311	            default: break;
+   312	        }
+   313	        if (op == OpCode::GET_PROP || op == OpCode::SET_PROP) {
+   314	             ip += 48; 
+   315	        }
+   316	    }
+   317	}
+   318	
+   319	void Loader::link_module(module_t module) {
+   320	    if (!module || !module->is_has_main()) return;
+   321	    std::unordered_set<proto_t> visited;
+   322	    patch_chunk_globals_recursive(module, module->get_main_proto(), visited);
+   323	}
+   324	
+   325	} // namespace meow
 
 
 // =============================================================================
@@ -6061,48 +6118,53 @@
     14	    Prototype* curr_proto_ = nullptr;
     15	    std::unordered_map<std::string, uint32_t> proto_name_map_;
     16	
-    17	public:
-    18	    explicit Assembler(const std::vector<Token>& tokens);
-    19	
-    20	    std::vector<uint8_t> assemble();
-    21	    void assemble_to_file(const std::string& output_file);
-    22	    
-    23	    static int get_arity(meow::OpCode op);
-    24	
-    25	private:
-    26	    Token peek() const;
-    27	    Token previous() const;
-    28	    bool is_at_end() const;
-    29	    Token advance();
-    30	    Token consume(TokenType type, const std::string& msg);
-    31	
-    32	    // Parsing
-    33	    void parse_statement();
-    34	    void parse_func();
-    35	    void parse_registers();
-    36	    void parse_upvalues_decl();
-    37	    void parse_upvalue_def();
-    38	    void parse_const();
-    39	    void parse_label();
-    40	    void parse_instruction();
-    41	    
-    42	    void optimize();
-    43	    
-    44	    std::string parse_string_literal(std::string_view sv);
-    45	
-    46	    // Emit bytecode helpers
-    47	    void emit_byte(uint8_t b);
-    48	    void emit_u16(uint16_t v);
-    49	    void emit_u32(uint32_t v);
-    50	    void emit_u64(uint64_t v);
-    51	
-    52	    // Finalize
-    53	    void link_proto_refs();
-    54	    void patch_labels();
-    55	    std::vector<uint8_t> serialize_binary();
-    56	};
-    57	
-    58	} // namespace meow::masm
+    17	    // --- State Management ---
+    18	    // Trạng thái cờ toàn cục (áp dụng cho các hàm mới tạo)
+    19	    ProtoFlags global_flags_ = ProtoFlags::NONE;
+    20	
+    21	public:
+    22	    explicit Assembler(const std::vector<Token>& tokens);
+    23	
+    24	    std::vector<uint8_t> assemble();
+    25	    void assemble_to_file(const std::string& output_file);
+    26	    static int get_arity(meow::OpCode op);
+    27	
+    28	private:
+    29	    Token peek() const;
+    30	    Token previous() const;
+    31	    bool is_at_end() const;
+    32	    Token advance();
+    33	    Token consume(TokenType type, const std::string& msg);
+    34	
+    35	    // Parsing
+    36	    void parse_statement();
+    37	    void parse_func();
+    38	    void parse_registers();
+    39	    void parse_upvalues_decl();
+    40	    void parse_upvalue_def();
+    41	    void parse_const();
+    42	    void parse_label();
+    43	    void parse_instruction();
+    44	    
+    45	    // --- Annotation Handler ---
+    46	    void parse_annotation(); 
+    47	
+    48	    void optimize();
+    49	    std::string parse_string_literal(std::string_view sv);
+    50	
+    51	    // Emit bytecode helpers
+    52	    void emit_byte(uint8_t b);
+    53	    void emit_u16(uint16_t v);
+    54	    void emit_u32(uint32_t v);
+    55	    void emit_u64(uint64_t v);
+    56	
+    57	    // Finalize
+    58	    void link_proto_refs();
+    59	    void patch_labels();
+    60	    std::vector<uint8_t> serialize_binary();
+    61	};
+    62	
+    63	} // namespace meow::masm
 
 
 // =============================================================================
@@ -6126,45 +6188,96 @@
     15	    DIR_FUNC, DIR_ENDFUNC, DIR_REGISTERS, DIR_UPVALUES, DIR_UPVALUE, DIR_CONST,
     16	    LABEL_DEF, IDENTIFIER, OPCODE,
     17	    NUMBER_INT, NUMBER_FLOAT, STRING,
-    18	    END_OF_FILE, UNKNOWN
-    19	};
-    20	
-    21	struct Token {
-    22	    TokenType type;
-    23	    std::string_view lexeme;
-    24	    size_t line;
-    25	};
-    26	
-    27	enum class ConstType { NULL_T, INT_T, FLOAT_T, STRING_T, PROTO_REF_T };
-    28	
-    29	struct Constant {
-    30	    ConstType type;
-    31	    int64_t val_i64 = 0;
-    32	    double val_f64 = 0.0;
-    33	    std::string val_str;
-    34	    uint32_t proto_index = 0; 
-    35	};
-    36	
-    37	struct UpvalueInfo {
-    38	    bool is_local;
-    39	    uint32_t index;
+    18	    
+    19	    // --- Token mới ---
+    20	    DEBUG_INFO, // #^ "file" line:col
+    21	    ANNOTATION, // #@ directive
+    22	
+    23	    END_OF_FILE, UNKNOWN
+    24	};
+    25	
+    26	struct Token {
+    27	    TokenType type;
+    28	    std::string_view lexeme;
+    29	    size_t line;
+    30	};
+    31	
+    32	enum class ConstType { NULL_T, INT_T, FLOAT_T, STRING_T, PROTO_REF_T };
+    33	
+    34	struct Constant {
+    35	    ConstType type;
+    36	    int64_t val_i64 = 0;
+    37	    double val_f64 = 0.0;
+    38	    std::string val_str;
+    39	    uint32_t proto_index = 0; 
     40	};
     41	
-    42	struct Prototype {
-    43	    std::string name;
-    44	    uint32_t num_regs = 0;
-    45	    uint32_t num_upvalues = 0;
-    46	    
-    47	    std::vector<Constant> constants;
-    48	    std::vector<UpvalueInfo> upvalues;
-    49	    std::vector<uint8_t> bytecode;
-    50	
-    51	    std::unordered_map<std::string, size_t> labels;
-    52	    std::vector<std::pair<size_t, std::string>> jump_patches;
-    53	    std::vector<std::pair<size_t, std::string>> try_patches;
-    54	};
-    55	
-    56	} // namespace meow::masm
+    42	struct UpvalueInfo {
+    43	    bool is_local;
+    44	    uint32_t index;
+    45	};
+    46	
+    47	// Cấu trúc lưu vị trí dòng code
+    48	struct LineInfo {
+    49	    uint32_t offset;    // Bytecode offset
+    50	    uint32_t line;
+    51	    uint32_t col;
+    52	    uint32_t file_idx;  // Index vào bảng tên file
+    53	};
+    54	
+    55	// Enum cờ cho Prototype (Dùng bitmask)
+    56	enum class ProtoFlags : uint8_t {
+    57	    NONE = 0,
+    58	    HAS_DEBUG_INFO = 1 << 0, // Bit 0: Có debug info
+    59	    IS_VARARG      = 1 << 1  // Bit 1: Hàm variadic (Dành cho tương lai)
+    60	};
+    61	
+    62	// Operator overloading để dùng phép bitwise với enum class
+    63	inline ProtoFlags operator|(ProtoFlags a, ProtoFlags b) {
+    64	    return static_cast<ProtoFlags>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
+    65	}
+    66	inline ProtoFlags operator&(ProtoFlags a, ProtoFlags b) {
+    67	    return static_cast<ProtoFlags>(static_cast<uint8_t>(a) & static_cast<uint8_t>(b));
+    68	}
+    69	inline ProtoFlags operator~(ProtoFlags a) {
+    70	    return static_cast<ProtoFlags>(~static_cast<uint8_t>(a));
+    71	}
+    72	inline bool has_flag(ProtoFlags flags, ProtoFlags check) {
+    73	    return (flags & check) != ProtoFlags::NONE;
+    74	}
+    75	
+    76	struct Prototype {
+    77	    std::string name;
+    78	    uint32_t num_regs = 0;
+    79	    uint32_t num_upvalues = 0;
+    80	    
+    81	    // --- Flags ---
+    82	    ProtoFlags flags = ProtoFlags::NONE; 
+    83	
+    84	    std::vector<Constant> constants;
+    85	    std::vector<UpvalueInfo> upvalues;
+    86	    std::vector<uint8_t> bytecode;
+    87	
+    88	    // --- Debug Info Storage ---
+    89	    std::vector<LineInfo> lines;
+    90	    std::vector<std::string> source_files;
+    91	    std::unordered_map<std::string, uint32_t> file_map; 
+    92	
+    93	    std::unordered_map<std::string, size_t> labels;
+    94	    std::vector<std::pair<size_t, std::string>> jump_patches;
+    95	    std::vector<std::pair<size_t, std::string>> try_patches;
+    96	
+    97	    // Helper: Thêm file và trả về index (có deduplicate)
+    98	    uint32_t add_file(const std::string& file) {
+    99	        if (file_map.count(file)) return file_map[file];
+   100	        uint32_t idx = source_files.size();
+   101	        source_files.push_back(file);
+   102	        file_map[file] = idx;
+   103	        return idx;
+   104	    }
+   105	};
+   106	
+   107	} // namespace meow::masm
 
 
 // =============================================================================
@@ -6195,9 +6308,13 @@
     22	    Token scan_string();
     23	    Token scan_number();
     24	    Token scan_identifier();
-    25	};
-    26	
-    27	} // namespace meow::masm
+    25	    
+    26	    // --- Hàm mới ---
+    27	    Token scan_debug_info(); // Xử lý #^
+    28	    Token scan_annotation(); // Xử lý #@
+    29	};
+    30	
+    31	} // namespace meow::masm
 
 
 // =============================================================================
@@ -6211,543 +6328,535 @@
      5	#include <bit>
      6	#include <cstring>
      7	#include <stdexcept>
-     8	
-     9	namespace meow::masm {
+     8	#include <sstream>
+     9	#include <iomanip> // cho std::quoted
     10	
-    11	Assembler::Assembler(const std::vector<Token>& tokens) : tokens_(tokens) {}
+    11	namespace meow::masm {
     12	
-    13	Token Assembler::peek() const { return tokens_[current_]; }
-    14	Token Assembler::previous() const { return tokens_[current_ - 1]; }
-    15	bool Assembler::is_at_end() const { return peek().type == TokenType::END_OF_FILE; }
-    16	Token Assembler::advance() { if (!is_at_end()) current_++; return previous(); }
-    17	
-    18	Token Assembler::consume(TokenType type, const std::string& msg) {
-    19	    if (peek().type == type) return advance();
-    20	    throw std::runtime_error(msg + " (Found: " + std::string(peek().lexeme) + " at line " + std::to_string(peek().line) + ")");
-    21	}
-    22	
-    23	void Assembler::parse_statement() {
-    24	    Token tk = peek();
-    25	    switch (tk.type) {
-    26	        case TokenType::DIR_FUNC:      parse_func(); break;
-    27	        case TokenType::DIR_REGISTERS: parse_registers(); break;
-    28	        case TokenType::DIR_UPVALUES:  parse_upvalues_decl(); break;
-    29	        case TokenType::DIR_UPVALUE:   parse_upvalue_def(); break;
-    30	        case TokenType::DIR_CONST:     parse_const(); break;
-    31	        case TokenType::LABEL_DEF:     parse_label(); break;
-    32	        case TokenType::OPCODE:        parse_instruction(); break;
-    33	        case TokenType::DIR_ENDFUNC:   advance(); curr_proto_ = nullptr; break;
-    34	        case TokenType::IDENTIFIER:    throw std::runtime_error("Unexpected identifier: " + std::string(tk.lexeme));
-    35	        default: throw std::runtime_error("Unexpected token: " + std::string(tk.lexeme));
-    36	    }
-    37	}
-    38	
-    39	void Assembler::parse_func() {
-    40	    advance(); 
-    41	    Token name = consume(TokenType::IDENTIFIER, "Expected func name");
-    42	    std::string func_name(name.lexeme);
-    43	    if (func_name.starts_with("@")) func_name = func_name.substr(1);
-    44	    protos_.emplace_back();
-    45	    protos_.back().name = func_name;
-    46	    
-    47	    curr_proto_ = &protos_.back();
-    48	    proto_name_map_[func_name] = protos_.size() - 1;
-    49	}
-    50	
-    51	void Assembler::parse_registers() {
-    52	    if (!curr_proto_) throw std::runtime_error("Outside .func");
-    53	    advance();
-    54	    Token num = consume(TokenType::NUMBER_INT, "Expected number");
-    55	    curr_proto_->num_regs = std::stoi(std::string(num.lexeme));
-    56	}
-    57	
-    58	void Assembler::parse_upvalues_decl() {
-    59	    if (!curr_proto_) throw std::runtime_error("Outside .func");
-    60	    advance();
-    61	    Token num = consume(TokenType::NUMBER_INT, "Expected number");
-    62	    curr_proto_->num_upvalues = std::stoi(std::string(num.lexeme));
-    63	    curr_proto_->upvalues.resize(curr_proto_->num_upvalues);
-    64	}
-    65	
-    66	void Assembler::parse_upvalue_def() {
-    67	    if (!curr_proto_) throw std::runtime_error("Outside .func");
-    68	    advance();
-    69	    uint32_t idx = std::stoi(std::string(consume(TokenType::NUMBER_INT, "Idx").lexeme));
-    70	    std::string type(consume(TokenType::IDENTIFIER, "Type").lexeme);
-    71	    uint32_t slot = std::stoi(std::string(consume(TokenType::NUMBER_INT, "Slot").lexeme));
-    72	    if (idx < curr_proto_->upvalues.size()) curr_proto_->upvalues[idx] = { (type == "local"), slot };
-    73	}
-    74	
-    75	void Assembler::parse_const() {
-    76	    if (!curr_proto_) throw std::runtime_error("Outside .func");
-    77	    advance();
-    78	    Constant c;
-    79	    Token tk = peek();
-    80	    
-    81	    if (tk.type == TokenType::STRING) {
-    82	        c.type = ConstType::STRING_T;
-    83	        c.val_str = parse_string_literal(tk.lexeme);
-    84	        advance();
-    85	    } else if (tk.type == TokenType::NUMBER_INT) {
-    86	        c.type = ConstType::INT_T;
-    87	        std::string_view sv = tk.lexeme;
-    88	        if (sv.starts_with("0x") || sv.starts_with("0X")) {
-    89	            c.val_i64 = std::stoll(std::string(sv), nullptr, 16);
-    90	        } else {
-    91	            std::from_chars(sv.data(), sv.data() + sv.size(), c.val_i64);
-    92	        }
-    93	        advance();
-    94	    } else if (tk.type == TokenType::NUMBER_FLOAT) {
-    95	        c.type = ConstType::FLOAT_T;
-    96	        c.val_f64 = std::stod(std::string(tk.lexeme));
-    97	        advance();
-    98	    } else if (tk.type == TokenType::IDENTIFIER) {
-    99	        if (tk.lexeme == "null") { c.type = ConstType::NULL_T; advance(); }
-   100	        else if (tk.lexeme == "true") { c.type = ConstType::INT_T; c.val_i64 = 1; advance(); } 
-   101	        else if (tk.lexeme == "false") { c.type = ConstType::INT_T; c.val_i64 = 0; advance(); }
-   102	        else if (tk.lexeme.starts_with("@")) {
-   103	            c.type = ConstType::PROTO_REF_T;
-   104	            c.val_str = tk.lexeme.substr(1);
-   105	            advance();
-   106	        } else throw std::runtime_error("Unknown constant identifier: " + std::string(tk.lexeme));
-   107	    } else throw std::runtime_error("Invalid constant");
-   108	    curr_proto_->constants.push_back(c);
-   109	}
-   110	
-   111	void Assembler::parse_label() {
-   112	    Token lbl = advance();
-   113	    std::string labelName(lbl.lexeme); 
-   114	    curr_proto_->labels[labelName] = curr_proto_->bytecode.size();
-   115	}
-   116	
-   117	void Assembler::emit_byte(uint8_t b) { curr_proto_->bytecode.push_back(b); }
-   118	void Assembler::emit_u16(uint16_t v) { emit_byte(v & 0xFF); emit_byte((v >> 8) & 0xFF); }
-   119	void Assembler::emit_u32(uint32_t v) { 
-   120	    emit_byte(v & 0xFF); emit_byte((v >> 8) & 0xFF); 
-   121	    emit_byte((v >> 16) & 0xFF); emit_byte((v >> 24) & 0xFF); 
-   122	}
-   123	void Assembler::emit_u64(uint64_t v) { for(int i=0; i<8; ++i) emit_byte((v >> (i*8)) & 0xFF); }
-   124	
-   125	void Assembler::parse_instruction() {
-   126	    if (!curr_proto_) throw std::runtime_error("Instruction outside .func");
-   127	    Token op_tok = advance();
-   128	    
-   129	    // Check if OP exists
-   130	    if (OP_MAP.find(op_tok.lexeme) == OP_MAP.end()) {
-   131	        throw std::runtime_error("Unknown opcode: " + std::string(op_tok.lexeme));
-   132	    }
-   133	    meow::OpCode op = OP_MAP[op_tok.lexeme];
-   134	    emit_byte(static_cast<uint8_t>(op));
-   135	
-   136	    auto parse_u16 = [&]() {
-   137	        Token t = consume(TokenType::NUMBER_INT, "Expected u16");
-   138	        emit_u16(static_cast<uint16_t>(std::stoi(std::string(t.lexeme))));
-   139	    };
-   140	
-   141	    switch (op) {
-   142	        case meow::OpCode::LOAD_INT: {
-   143	            parse_u16(); // dst
-   144	            Token t = consume(TokenType::NUMBER_INT, "Expected int64");
-   145	            int64_t val;
-   146	            std::from_chars(t.lexeme.data(), t.lexeme.data() + t.lexeme.size(), val);
-   147	            emit_u64(std::bit_cast<uint64_t>(val));
-   148	            break;
-   149	        }
-   150	        case meow::OpCode::LOAD_FLOAT: {
-   151	            parse_u16(); // dst
-   152	            Token t = consume(TokenType::NUMBER_FLOAT, "Expected double");
-   153	            double val = std::stod(std::string(t.lexeme));
-   154	            emit_u64(std::bit_cast<uint64_t>(val));
-   155	            break;
-   156	        }
-   157	        case meow::OpCode::JUMP: case meow::OpCode::SETUP_TRY: {
-   158	            if (peek().type == TokenType::IDENTIFIER) {
-   159	                Token target = advance();
-   160	                curr_proto_->try_patches.push_back({curr_proto_->bytecode.size(), std::string(target.lexeme)});
-   161	                emit_u16(0xFFFF);
-   162	                if (op == meow::OpCode::SETUP_TRY) parse_u16(); 
-   163	            } else {
-   164	                parse_u16();
-   165	                if (op == meow::OpCode::SETUP_TRY) parse_u16();
-   166	            }
-   167	            break;
-   168	        }
-   169	        case meow::OpCode::JUMP_IF_FALSE: case meow::OpCode::JUMP_IF_TRUE: {
-   170	            parse_u16(); // reg
-   171	            if (peek().type == TokenType::IDENTIFIER) {
-   172	                Token target = advance();
-   173	                curr_proto_->jump_patches.push_back({curr_proto_->bytecode.size(), std::string(target.lexeme)});
-   174	                emit_u16(0xFFFF);
-   175	            } else parse_u16();
-   176	            break;
-   177	        }
-   178	        case meow::OpCode::GET_PROP:
-   179	        case meow::OpCode::SET_PROP: {
-   180	            for(int i=0; i<3; ++i) parse_u16();
-   181	            
-   182	            // Emit Polymorphic Cache Placeholder (48 bytes)
-   183	            for (int j = 0; j < 4; ++j) {
-   184	                emit_u64(0); // Shape*
-   185	                emit_u32(0); // Offset
-   186	            }
-   187	            break;
-   188	        }
-   189	        
-   190	        case meow::OpCode::CALL:
-   191	        case meow::OpCode::TAIL_CALL: {
-   192	            for(int i=0; i<4; ++i) parse_u16(); // dst, fn, arg_start, argc
-   193	            
-   194	            // Padding cho Inline Cache (16 bytes)
-   195	            emit_u64(0); // Cache Tag
-   196	            emit_u64(0); // Cache Dest
-   197	            break;
-   198	        }
-   199	
-   200	        case meow::OpCode::CALL_VOID: {
-   201	            for(int i=0; i<3; ++i) parse_u16(); // fn, arg_start, argc
-   202	            emit_u64(0); emit_u64(0); // 16 bytes cache
-   203	            break;
-   204	        }
-   205	
-   206	        default: {
-   207	            int args = get_arity(op);
-   208	            for(int i=0; i<args; ++i) parse_u16();
-   209	            break;
-   210	        }
-   211	    }
-   212	}
-   213	
-   214	int Assembler::get_arity(meow::OpCode op) {
-   215	    switch (op) {
-   216	        case meow::OpCode::CLOSE_UPVALUES: case meow::OpCode::IMPORT_ALL: case meow::OpCode::THROW: 
-   217	        case meow::OpCode::RETURN: case meow::OpCode::LOAD_NULL: case meow::OpCode::LOAD_TRUE: case meow::OpCode::LOAD_FALSE:
-   218	        case meow::OpCode::INC: case meow::OpCode::DEC:
-   219	            return 1;
-   220	            
-   221	        case meow::OpCode::LOAD_CONST: case meow::OpCode::MOVE: 
-   222	        case meow::OpCode::NEG: case meow::OpCode::NOT: case meow::OpCode::BIT_NOT: 
-   223	        case meow::OpCode::GET_UPVALUE: case meow::OpCode::SET_UPVALUE: 
-   224	        case meow::OpCode::CLOSURE:
-   225	        case meow::OpCode::NEW_CLASS: case meow::OpCode::NEW_INSTANCE: 
-   226	        case meow::OpCode::IMPORT_MODULE:
-   227	        case meow::OpCode::EXPORT: 
-   228	        case meow::OpCode::GET_KEYS: case meow::OpCode::GET_VALUES:
-   229	        case meow::OpCode::GET_SUPER: 
-   230	        case meow::OpCode::GET_GLOBAL: case meow::OpCode::SET_GLOBAL:
-   231	        case meow::OpCode::INHERIT:
-   232	            return 2;
+    13	Assembler::Assembler(const std::vector<Token>& tokens) : tokens_(tokens) {}
+    14	
+    15	Token Assembler::peek() const { return tokens_[current_]; }
+    16	Token Assembler::previous() const { return tokens_[current_ - 1]; }
+    17	bool Assembler::is_at_end() const { return peek().type == TokenType::END_OF_FILE; }
+    18	Token Assembler::advance() { if (!is_at_end()) current_++; return previous(); }
+    19	
+    20	Token Assembler::consume(TokenType type, const std::string& msg) {
+    21	    if (peek().type == type) return advance();
+    22	    throw std::runtime_error(msg + " (Found: " + std::string(peek().lexeme) + " at line " + std::to_string(peek().line) + ")");
+    23	}
+    24	
+    25	void Assembler::parse_statement() {
+    26	    Token tk = peek();
+    27	    switch (tk.type) {
+    28	        case TokenType::DIR_FUNC:      parse_func(); break;
+    29	        case TokenType::DIR_REGISTERS: parse_registers(); break;
+    30	        case TokenType::DIR_UPVALUES:  parse_upvalues_decl(); break;
+    31	        case TokenType::DIR_UPVALUE:   parse_upvalue_def(); break;
+    32	        case TokenType::DIR_CONST:     parse_const(); break;
+    33	        case TokenType::LABEL_DEF:     parse_label(); break;
+    34	        case TokenType::OPCODE:        parse_instruction(); break;
+    35	        case TokenType::DIR_ENDFUNC:   advance(); curr_proto_ = nullptr; break;
+    36	        
+    37	        // --- Xử lý Annotation ở cả trong và ngoài hàm ---
+    38	        case TokenType::ANNOTATION:    parse_annotation(); break; 
+    39	        
+    40	        case TokenType::IDENTIFIER:    throw std::runtime_error("Unexpected identifier: " + std::string(tk.lexeme));
+    41	        default: throw std::runtime_error("Unexpected token: " + std::string(tk.lexeme));
+    42	    }
+    43	}
+    44	
+    45	// Xử lý logic bật/tắt Flags từ directive #@
+    46	void Assembler::parse_annotation() {
+    47	    Token ann = advance(); // Consume ANNOTATION token
+    48	    std::string key(ann.lexeme);
+    49	
+    50	    // Nếu đang trong hàm -> sửa flags của hàm. Nếu không -> sửa global flags.
+    51	    ProtoFlags* target = (curr_proto_) ? &curr_proto_->flags : &global_flags_;
+    52	
+    53	    if (key == "debug") {
+    54	        *target = *target | ProtoFlags::HAS_DEBUG_INFO;
+    55	    } 
+    56	    else if (key == "no_debug") {
+    57	        *target = *target & (~ProtoFlags::HAS_DEBUG_INFO);
+    58	    }
+    59	    else if (key == "vararg") {
+    60	        *target = *target | ProtoFlags::IS_VARARG;
+    61	    }
+    62	    else {
+    63	        std::cout << "[MASM] Warning: Unknown annotation '#@ " << key << "'" << std::endl;
+    64	    }
+    65	}
+    66	
+    67	void Assembler::parse_func() {
+    68	    advance(); 
+    69	    Token name = consume(TokenType::IDENTIFIER, "Expected func name");
+    70	    std::string func_name(name.lexeme);
+    71	    if (func_name.starts_with("@")) func_name = func_name.substr(1);
+    72	    protos_.emplace_back();
+    73	    protos_.back().name = func_name;
+    74	    
+    75	    curr_proto_ = &protos_.back();
+    76	    
+    77	    // --- Kế thừa cờ từ global state ---
+    78	    curr_proto_->flags = global_flags_;
+    79	
+    80	    proto_name_map_[func_name] = protos_.size() - 1;
+    81	}
+    82	
+    83	void Assembler::parse_registers() {
+    84	    if (!curr_proto_) throw std::runtime_error("Outside .func");
+    85	    advance();
+    86	    Token num = consume(TokenType::NUMBER_INT, "Expected number");
+    87	    curr_proto_->num_regs = std::stoi(std::string(num.lexeme));
+    88	}
+    89	
+    90	void Assembler::parse_upvalues_decl() {
+    91	    if (!curr_proto_) throw std::runtime_error("Outside .func");
+    92	    advance();
+    93	    Token num = consume(TokenType::NUMBER_INT, "Expected number");
+    94	    curr_proto_->num_upvalues = std::stoi(std::string(num.lexeme));
+    95	    curr_proto_->upvalues.resize(curr_proto_->num_upvalues);
+    96	}
+    97	
+    98	void Assembler::parse_upvalue_def() {
+    99	    if (!curr_proto_) throw std::runtime_error("Outside .func");
+   100	    advance();
+   101	    uint32_t idx = std::stoi(std::string(consume(TokenType::NUMBER_INT, "Idx").lexeme));
+   102	    std::string type(consume(TokenType::IDENTIFIER, "Type").lexeme);
+   103	    uint32_t slot = std::stoi(std::string(consume(TokenType::NUMBER_INT, "Slot").lexeme));
+   104	    if (idx < curr_proto_->upvalues.size()) curr_proto_->upvalues[idx] = { (type == "local"), slot };
+   105	}
+   106	
+   107	void Assembler::parse_const() {
+   108	    if (!curr_proto_) throw std::runtime_error("Outside .func");
+   109	    advance();
+   110	    Constant c;
+   111	    Token tk = peek();
+   112	    
+   113	    if (tk.type == TokenType::STRING) {
+   114	        c.type = ConstType::STRING_T;
+   115	        c.val_str = parse_string_literal(tk.lexeme);
+   116	        advance();
+   117	    } else if (tk.type == TokenType::NUMBER_INT) {
+   118	        c.type = ConstType::INT_T;
+   119	        std::string_view sv = tk.lexeme;
+   120	        if (sv.starts_with("0x") || sv.starts_with("0X")) {
+   121	            c.val_i64 = std::stoll(std::string(sv), nullptr, 16);
+   122	        } else {
+   123	            std::from_chars(sv.data(), sv.data() + sv.size(), c.val_i64);
+   124	        }
+   125	        advance();
+   126	    } else if (tk.type == TokenType::NUMBER_FLOAT) {
+   127	        c.type = ConstType::FLOAT_T;
+   128	        c.val_f64 = std::stod(std::string(tk.lexeme));
+   129	        advance();
+   130	    } else if (tk.type == TokenType::IDENTIFIER) {
+   131	        if (tk.lexeme == "null") { c.type = ConstType::NULL_T; advance(); }
+   132	        else if (tk.lexeme == "true") { c.type = ConstType::INT_T; c.val_i64 = 1; advance(); } 
+   133	        else if (tk.lexeme == "false") { c.type = ConstType::INT_T; c.val_i64 = 0; advance(); }
+   134	        else if (tk.lexeme.starts_with("@")) {
+   135	            c.type = ConstType::PROTO_REF_T;
+   136	            c.val_str = tk.lexeme.substr(1);
+   137	            advance();
+   138	        } else throw std::runtime_error("Unknown constant identifier: " + std::string(tk.lexeme));
+   139	    } else throw std::runtime_error("Invalid constant");
+   140	    curr_proto_->constants.push_back(c);
+   141	}
+   142	
+   143	void Assembler::parse_label() {
+   144	    Token lbl = advance();
+   145	    std::string labelName(lbl.lexeme); 
+   146	    curr_proto_->labels[labelName] = curr_proto_->bytecode.size();
+   147	}
+   148	
+   149	void Assembler::emit_byte(uint8_t b) { curr_proto_->bytecode.push_back(b); }
+   150	void Assembler::emit_u16(uint16_t v) { emit_byte(v & 0xFF); emit_byte((v >> 8) & 0xFF); }
+   151	void Assembler::emit_u32(uint32_t v) { 
+   152	    emit_byte(v & 0xFF); emit_byte((v >> 8) & 0xFF); 
+   153	    emit_byte((v >> 16) & 0xFF); emit_byte((v >> 24) & 0xFF); 
+   154	}
+   155	void Assembler::emit_u64(uint64_t v) { for(int i=0; i<8; ++i) emit_byte((v >> (i*8)) & 0xFF); }
+   156	
+   157	void Assembler::parse_instruction() {
+   158	    if (!curr_proto_) throw std::runtime_error("Instruction outside .func");
+   159	    
+   160	    // Lưu lại offset của lệnh hiện tại
+   161	    uint32_t current_offset = curr_proto_->bytecode.size();
+   162	
+   163	    Token op_tok = advance();
+   164	    if (OP_MAP.find(op_tok.lexeme) == OP_MAP.end()) {
+   165	        throw std::runtime_error("Unknown opcode: " + std::string(op_tok.lexeme));
+   166	    }
+   167	    meow::OpCode op = OP_MAP[op_tok.lexeme];
+   168	    emit_byte(static_cast<uint8_t>(op));
+   169	
+   170	    auto parse_u16 = [&]() {
+   171	        Token t = consume(TokenType::NUMBER_INT, "Expected u16");
+   172	        emit_u16(static_cast<uint16_t>(std::stoi(std::string(t.lexeme))));
+   173	    };
+   174	
+   175	    switch (op) {
+   176	        case meow::OpCode::LOAD_INT: {
+   177	            parse_u16(); // dst
+   178	            Token t = consume(TokenType::NUMBER_INT, "Expected int64");
+   179	            int64_t val;
+   180	            std::from_chars(t.lexeme.data(), t.lexeme.data() + t.lexeme.size(), val);
+   181	            emit_u64(std::bit_cast<uint64_t>(val));
+   182	            break;
+   183	        }
+   184	        case meow::OpCode::LOAD_FLOAT: {
+   185	            parse_u16(); // dst
+   186	            Token t = consume(TokenType::NUMBER_FLOAT, "Expected double");
+   187	            double val = std::stod(std::string(t.lexeme));
+   188	            emit_u64(std::bit_cast<uint64_t>(val));
+   189	            break;
+   190	        }
+   191	        case meow::OpCode::JUMP: case meow::OpCode::SETUP_TRY: {
+   192	            if (peek().type == TokenType::IDENTIFIER) {
+   193	                Token target = advance();
+   194	                curr_proto_->try_patches.push_back({curr_proto_->bytecode.size(), std::string(target.lexeme)});
+   195	                emit_u16(0xFFFF);
+   196	                if (op == meow::OpCode::SETUP_TRY) parse_u16(); 
+   197	            } else {
+   198	                parse_u16();
+   199	                if (op == meow::OpCode::SETUP_TRY) parse_u16();
+   200	            }
+   201	            break;
+   202	        }
+   203	        case meow::OpCode::JUMP_IF_FALSE: case meow::OpCode::JUMP_IF_TRUE: {
+   204	            parse_u16(); // reg
+   205	            if (peek().type == TokenType::IDENTIFIER) {
+   206	                Token target = advance();
+   207	                curr_proto_->jump_patches.push_back({curr_proto_->bytecode.size(), std::string(target.lexeme)});
+   208	                emit_u16(0xFFFF);
+   209	            } else parse_u16();
+   210	            break;
+   211	        }
+   212	        case meow::OpCode::GET_PROP: case meow::OpCode::SET_PROP: {
+   213	            for(int i=0; i<3; ++i) parse_u16();
+   214	            for (int j = 0; j < 4; ++j) { emit_u64(0); emit_u32(0); } // Cache
+   215	            break;
+   216	        }
+   217	        case meow::OpCode::CALL: case meow::OpCode::TAIL_CALL: {
+   218	            for(int i=0; i<4; ++i) parse_u16();
+   219	            emit_u64(0); emit_u64(0); // Cache
+   220	            break;
+   221	        }
+   222	        case meow::OpCode::CALL_VOID: {
+   223	            for(int i=0; i<3; ++i) parse_u16();
+   224	            emit_u64(0); emit_u64(0); 
+   225	            break;
+   226	        }
+   227	        default: {
+   228	            int args = get_arity(op);
+   229	            for(int i=0; i<args; ++i) parse_u16();
+   230	            break;
+   231	        }
+   232	    }
    233	
-   234	        case meow::OpCode::GET_EXPORT: 
-   235	        case meow::OpCode::ADD: case meow::OpCode::SUB: case meow::OpCode::MUL: case meow::OpCode::DIV:
-   236	        case meow::OpCode::MOD: case meow::OpCode::POW: case meow::OpCode::EQ: case meow::OpCode::NEQ:
-   237	        case meow::OpCode::GT: case meow::OpCode::GE: case meow::OpCode::LT: case meow::OpCode::LE:
-   238	        case meow::OpCode::BIT_AND: case meow::OpCode::BIT_OR: case meow::OpCode::BIT_XOR:
-   239	        case meow::OpCode::LSHIFT: case meow::OpCode::RSHIFT: 
-   240	        case meow::OpCode::NEW_ARRAY: case meow::OpCode::NEW_HASH: 
-   241	        case meow::OpCode::GET_INDEX: case meow::OpCode::SET_INDEX: 
-   242	        case meow::OpCode::GET_PROP: case meow::OpCode::SET_PROP:
-   243	        case meow::OpCode::SET_METHOD: case meow::OpCode::CALL_VOID:
-   244	        // case meow::OpCode::INHERIT:
-   245	            return 3;
-   246	            
-   247	        case meow::OpCode::CALL:
-   248	        case meow::OpCode::TAIL_CALL:
-   249	            return 4;
-   250	        case meow::OpCode::INVOKE: return 5;
-   251	        default: return 0;
-   252	    }
-   253	}
-   254	
-   255	void Assembler::link_proto_refs() {
-   256	    for (auto& p : protos_) {
-   257	        for (auto& c : p.constants) {
-   258	            if (c.type == ConstType::PROTO_REF_T) {
-   259	                if (proto_name_map_.count(c.val_str)) c.proto_index = proto_name_map_[c.val_str];
-   260	                else throw std::runtime_error("Undefined proto: " + c.val_str);
-   261	            }
-   262	        }
-   263	    }
-   264	}
-   265	
-   266	void Assembler::patch_labels() {
-   267	    for (auto& p : protos_) {
-   268	        auto apply = [&](auto& patches) {
-   269	            for (auto& patch : patches) {
-   270	                if (!p.labels.count(patch.second)) throw std::runtime_error("Undefined label: " + patch.second);
-   271	                size_t target = p.labels[patch.second];
-   272	                p.bytecode[patch.first] = target & 0xFF;
-   273	                p.bytecode[patch.first+1] = (target >> 8) & 0xFF;
-   274	            }
-   275	        };
-   276	        apply(p.jump_patches);
-   277	        apply(p.try_patches);
-   278	    }
-   279	}
-   280	
-   281	std::string Assembler::parse_string_literal(std::string_view sv) {
-   282	    if (sv.length() >= 2) sv = sv.substr(1, sv.length() - 2);
-   283	    std::string res; res.reserve(sv.length());
-   284	    for (size_t i = 0; i < sv.length(); ++i) {
-   285	        if (sv[i] == '\\' && i + 1 < sv.length()) {
-   286	            char next = sv[++i];
-   287	            if (next == 'n') res += '\n'; 
-   288	            else if (next == 'r') res += '\r';
-   289	            else if (next == 't') res += '\t';
-   290	            else if (next == '\\') res += '\\'; 
-   291	            else if (next == '"') res += '"';
-   292	            else res += next;
-   293	        } else res += sv[i];
-   294	    }
-   295	    return res;
-   296	}
-   297	
-   298	std::vector<uint8_t> Assembler::serialize_binary() {
-   299	    std::vector<uint8_t> buffer;
-   300	    buffer.reserve(4096); 
-   301	
-   302	    auto write_u8 = [&](uint8_t v) { buffer.push_back(v); };
-   303	    auto write_u32 = [&](uint32_t v) { 
-   304	        buffer.push_back(v & 0xFF); buffer.push_back((v >> 8) & 0xFF);
-   305	        buffer.push_back((v >> 16) & 0xFF); buffer.push_back((v >> 24) & 0xFF);
-   306	    };
-   307	    auto write_u64 = [&](uint64_t v) { 
-   308	        for(int i=0; i<8; ++i) buffer.push_back((v >> (i*8)) & 0xFF); 
-   309	    };
-   310	    auto write_f64 = [&](double v) { 
-   311	        uint64_t bit; std::memcpy(&bit, &v, 8); write_u64(bit); 
-   312	    };
-   313	    auto write_str = [&](const std::string& s) { 
-   314	        write_u32(s.size()); 
-   315	        buffer.insert(buffer.end(), s.begin(), s.end()); 
-   316	    };
-   317	
-   318	    write_u32(0x4D454F57); // Magic
-   319	    write_u32(1);          // Version
-   320	
-   321	    if (proto_name_map_.count("main")) write_u32(proto_name_map_["main"]);
-   322	    else write_u32(0);
-   323	
-   324	    write_u32(protos_.size()); 
-   325	
-   326	    for (const auto& p : protos_) {
-   327	        write_u32(p.num_regs);
-   328	        write_u32(p.num_upvalues);
-   329	        
-   330	        std::vector<Constant> write_consts = p.constants;
-   331	        write_consts.push_back({ConstType::STRING_T, 0, 0, p.name, 0});
-   332	        
-   333	        write_u32(write_consts.size() - 1); 
-   334	        write_u32(write_consts.size());     
-   335	
-   336	        for (const auto& c : write_consts) {
-   337	            switch (c.type) {
-   338	                case ConstType::NULL_T: write_u8(0); break;
-   339	                case ConstType::INT_T:  write_u8(1); write_u64(c.val_i64); break;
-   340	                case ConstType::FLOAT_T:write_u8(2); write_f64(c.val_f64); break;
-   341	                case ConstType::STRING_T:write_u8(3); write_str(c.val_str); break;
-   342	                case ConstType::PROTO_REF_T: write_u8(4); write_u32(c.proto_index); break;
-   343	            }
-   344	        }
-   345	        write_u32(p.upvalues.size());
-   346	        for (const auto& u : p.upvalues) {
-   347	            write_u8(u.is_local ? 1 : 0);
-   348	            write_u32(u.index);
-   349	        }
-   350	        write_u32(p.bytecode.size());
-   351	        buffer.insert(buffer.end(), p.bytecode.begin(), p.bytecode.end());
-   352	    }
-   353	    return buffer;
-   354	}
-   355	
-   356	static size_t get_instr_size(meow::OpCode op) {
-   357	    using namespace meow;
-   358	    switch (op) {
-   359	        // --- Nhóm 1 byte (Không tham số) ---
-   360	        case OpCode::HALT: 
-   361	        case OpCode::POP_TRY: 
-   362	        case OpCode::CLOSE_UPVALUES: 
-   363	        case OpCode::RETURN: 
-   364	        case OpCode::IMPORT_ALL:
-   365	        case OpCode::THROW:
-   366	            return 1 + 2; // Op(1) + U16(2) -> Wait, check get_arity
-   367	        case OpCode::GET_PROP: 
-   368	        case OpCode::SET_PROP: 
-   369	            return 1 + 6 + 48; // Op + 3*U16 + 48(Cache) = 55 bytes
-   370	            
-   371	        case OpCode::CALL: 
-   372	        case OpCode::TAIL_CALL: 
-   373	            return 1 + 8 + 16; // Op + 4*U16 + 16(Cache) = 25 bytes
-   374	            
-   375	        case OpCode::CALL_VOID: 
-   376	            return 1 + 6 + 16; // Op + 3*U16 + 16(Cache) = 23 bytes
-   377	            
-   378	        case OpCode::INVOKE: 
-   379	            return 80;         // Fat Instruction (Size cố định)
-   380	
-   381	        // 2. Các lệnh Byte-code (Optimized B instructions)
-   382	        case OpCode::ADD_B: case OpCode::SUB_B: case OpCode::MUL_B: 
-   383	        case OpCode::DIV_B: case OpCode::MOD_B: 
-   384	        case OpCode::EQ_B:  case OpCode::NEQ_B: case OpCode::GT_B: 
-   385	        case OpCode::GE_B:  case OpCode::LT_B:  case OpCode::LE_B:
-   386	        case OpCode::BIT_AND_B: case OpCode::BIT_OR_B: case OpCode::BIT_XOR_B:
-   387	        case OpCode::LSHIFT_B:  case OpCode::RSHIFT_B:
-   388	        case OpCode::MOVE_B:
-   389	            return 1 + 3; // Op(1) + Dst(1) + R1(1) + R2(1) = 4 bytes
-   390	            
-   391	        case OpCode::LOAD_INT_B:
-   392	            return 1 + 1 + 1; // Op(1) + Dst(1) + Val(1) = 3 bytes
-   393	
-   394	        case OpCode::JUMP_IF_TRUE_B:
-   395	        case OpCode::JUMP_IF_FALSE_B:
-   396	            return 1 + 1 + 2; // Op(1) + Cond(1) + Offset(2) = 4 bytes
-   397	
-   398	        // 3. Các lệnh Load hằng số lớn (64-bit)
-   399	        case OpCode::LOAD_INT: 
-   400	        case OpCode::LOAD_FLOAT: 
-   401	            return 1 + 2 + 8; // Op(1) + Dst(2) + Value(8) = 11 bytes
-   402	
-   403	        // 4. Các lệnh Jump (Offset 16-bit)
-   404	        case OpCode::JUMP: 
-   405	            return 1 + 2; // Op + Offset = 3 bytes
-   406	            
-   407	        case OpCode::JUMP_IF_TRUE: 
-   408	        case OpCode::JUMP_IF_FALSE: 
-   409	            return 1 + 2 + 2; // Op + Cond + Offset = 5 bytes (Struct JumpCondArgs)
-   410	
-   411	        case OpCode::SETUP_TRY:
-   412	            return 1 + 2 + 2; // Op + Offset + CatchReg = 5 bytes
+   234	    // --- XỬ LÝ DEBUG INFO (#^) ---
+   235	    // Parse và lưu vào struct, nhưng việc ghi ra file phụ thuộc vào Flags
+   236	    if (peek().type == TokenType::DEBUG_INFO) {
+   237	        Token dbg = advance();
+   238	        
+   239	        // Format: "file" line:col
+   240	        std::string s(dbg.lexeme);
+   241	        std::stringstream ss(s);
+   242	        std::string file_part;
+   243	        char c;
+   244	        
+   245	        // Bỏ qua khoảng trắng đầu string nếu có
+   246	        if (ss >> std::ws && ss.peek() == '"') {
+   247	             ss >> std::quoted(file_part);
+   248	        }
+   249	        
+   250	        uint32_t line = 0, col = 0;
+   251	        ss >> line >> c >> col; 
+   252	        
+   253	        // Lưu vào proto
+   254	        uint32_t file_idx = curr_proto_->add_file(file_part);
+   255	        curr_proto_->lines.push_back({current_offset, line, col, file_idx});
+   256	    }
+   257	}
+   258	
+   259	int Assembler::get_arity(meow::OpCode op) {
+   260	    switch (op) {
+   261	        case meow::OpCode::CLOSE_UPVALUES: case meow::OpCode::IMPORT_ALL: case meow::OpCode::THROW: 
+   262	        case meow::OpCode::RETURN: case meow::OpCode::LOAD_NULL: case meow::OpCode::LOAD_TRUE: case meow::OpCode::LOAD_FALSE:
+   263	        case meow::OpCode::INC: case meow::OpCode::DEC:
+   264	            return 1;
+   265	        case meow::OpCode::LOAD_CONST: case meow::OpCode::MOVE: 
+   266	        case meow::OpCode::NEG: case meow::OpCode::NOT: case meow::OpCode::BIT_NOT: 
+   267	        case meow::OpCode::GET_UPVALUE: case meow::OpCode::SET_UPVALUE: 
+   268	        case meow::OpCode::CLOSURE:
+   269	        case meow::OpCode::NEW_CLASS: case meow::OpCode::NEW_INSTANCE: 
+   270	        case meow::OpCode::IMPORT_MODULE:
+   271	        case meow::OpCode::EXPORT: 
+   272	        case meow::OpCode::GET_KEYS: case meow::OpCode::GET_VALUES:
+   273	        case meow::OpCode::GET_SUPER: 
+   274	        case meow::OpCode::GET_GLOBAL: case meow::OpCode::SET_GLOBAL:
+   275	        case meow::OpCode::INHERIT:
+   276	            return 2;
+   277	        case meow::OpCode::GET_EXPORT: 
+   278	        case meow::OpCode::ADD: case meow::OpCode::SUB: case meow::OpCode::MUL: case meow::OpCode::DIV:
+   279	        case meow::OpCode::MOD: case meow::OpCode::POW: case meow::OpCode::EQ: case meow::OpCode::NEQ:
+   280	        case meow::OpCode::GT: case meow::OpCode::GE: case meow::OpCode::LT: case meow::OpCode::LE:
+   281	        case meow::OpCode::BIT_AND: case meow::OpCode::BIT_OR: case meow::OpCode::BIT_XOR:
+   282	        case meow::OpCode::LSHIFT: case meow::OpCode::RSHIFT: 
+   283	        case meow::OpCode::NEW_ARRAY: case meow::OpCode::NEW_HASH: 
+   284	        case meow::OpCode::GET_INDEX: case meow::OpCode::SET_INDEX: 
+   285	        case meow::OpCode::GET_PROP: case meow::OpCode::SET_PROP:
+   286	        case meow::OpCode::SET_METHOD: case meow::OpCode::CALL_VOID:
+   287	            return 3;
+   288	        case meow::OpCode::CALL:
+   289	        case meow::OpCode::TAIL_CALL:
+   290	            return 4;
+   291	        case meow::OpCode::INVOKE: return 5;
+   292	        default: return 0;
+   293	    }
+   294	}
+   295	
+   296	void Assembler::link_proto_refs() {
+   297	    for (auto& p : protos_) {
+   298	        for (auto& c : p.constants) {
+   299	            if (c.type == ConstType::PROTO_REF_T) {
+   300	                if (proto_name_map_.count(c.val_str)) c.proto_index = proto_name_map_[c.val_str];
+   301	                else throw std::runtime_error("Undefined proto: " + c.val_str);
+   302	            }
+   303	        }
+   304	    }
+   305	}
+   306	
+   307	void Assembler::patch_labels() {
+   308	    for (auto& p : protos_) {
+   309	        auto apply = [&](auto& patches) {
+   310	            for (auto& patch : patches) {
+   311	                if (!p.labels.count(patch.second)) throw std::runtime_error("Undefined label: " + patch.second);
+   312	                size_t target = p.labels[patch.second];
+   313	                p.bytecode[patch.first] = target & 0xFF;
+   314	                p.bytecode[patch.first+1] = (target >> 8) & 0xFF;
+   315	            }
+   316	        };
+   317	        apply(p.jump_patches);
+   318	        apply(p.try_patches);
+   319	    }
+   320	}
+   321	
+   322	std::string Assembler::parse_string_literal(std::string_view sv) {
+   323	    if (sv.length() >= 2) sv = sv.substr(1, sv.length() - 2);
+   324	    std::string res; res.reserve(sv.length());
+   325	    for (size_t i = 0; i < sv.length(); ++i) {
+   326	        if (sv[i] == '\\' && i + 1 < sv.length()) {
+   327	            char next = sv[++i];
+   328	            if (next == 'n') res += '\n'; 
+   329	            else if (next == 'r') res += '\r';
+   330	            else if (next == 't') res += '\t';
+   331	            else if (next == '\\') res += '\\'; 
+   332	            else if (next == '"') res += '"';
+   333	            else res += next;
+   334	        } else res += sv[i];
+   335	    }
+   336	    return res;
+   337	}
+   338	
+   339	std::vector<uint8_t> Assembler::serialize_binary() {
+   340	    std::vector<uint8_t> buffer;
+   341	    buffer.reserve(4096); 
+   342	
+   343	    auto write_u8 = [&](uint8_t v) { buffer.push_back(v); };
+   344	    auto write_u32 = [&](uint32_t v) { 
+   345	        buffer.push_back(v & 0xFF); buffer.push_back((v >> 8) & 0xFF);
+   346	        buffer.push_back((v >> 16) & 0xFF); buffer.push_back((v >> 24) & 0xFF);
+   347	    };
+   348	    auto write_u64 = [&](uint64_t v) { for(int i=0; i<8; ++i) buffer.push_back((v >> (i*8)) & 0xFF); };
+   349	    auto write_f64 = [&](double v) { uint64_t bit; std::memcpy(&bit, &v, 8); write_u64(bit); };
+   350	    auto write_str = [&](const std::string& s) { 
+   351	        write_u32(s.size()); buffer.insert(buffer.end(), s.begin(), s.end()); 
+   352	    };
+   353	
+   354	    write_u32(0x4D454F57); // Magic
+   355	    write_u32(1);          // Version
+   356	    if (proto_name_map_.count("main")) write_u32(proto_name_map_["main"]);
+   357	    else write_u32(0);
+   358	    write_u32(protos_.size()); 
+   359	
+   360	    for (const auto& p : protos_) {
+   361	        write_u32(p.num_regs);
+   362	        write_u32(p.num_upvalues);
+   363	        
+   364	        // --- GHI FLAGS ---
+   365	        // Byte này khớp với Loader::read_u8() ở phía VM
+   366	        write_u8(static_cast<uint8_t>(p.flags));
+   367	        
+   368	        std::vector<Constant> write_consts = p.constants;
+   369	        write_consts.push_back({ConstType::STRING_T, 0, 0, p.name, 0});
+   370	        
+   371	        write_u32(write_consts.size() - 1); 
+   372	        write_u32(write_consts.size());     
+   373	
+   374	        for (const auto& c : write_consts) {
+   375	            switch (c.type) {
+   376	                case ConstType::NULL_T: write_u8(0); break;
+   377	                case ConstType::INT_T:  write_u8(1); write_u64(c.val_i64); break;
+   378	                case ConstType::FLOAT_T:write_u8(2); write_f64(c.val_f64); break;
+   379	                case ConstType::STRING_T:write_u8(3); write_str(c.val_str); break;
+   380	                case ConstType::PROTO_REF_T: write_u8(4); write_u32(c.proto_index); break;
+   381	            }
+   382	        }
+   383	        write_u32(p.upvalues.size());
+   384	        for (const auto& u : p.upvalues) {
+   385	            write_u8(u.is_local ? 1 : 0);
+   386	            write_u32(u.index);
+   387	        }
+   388	        write_u32(p.bytecode.size());
+   389	        buffer.insert(buffer.end(), p.bytecode.begin(), p.bytecode.end());
+   390	        
+   391	        // --- GHI DEBUG TABLES (NẾU CỜ ĐƯỢC BẬT) ---
+   392	        if (has_flag(p.flags, ProtoFlags::HAS_DEBUG_INFO)) {
+   393	            // Table Source Files
+   394	            write_u32(p.source_files.size());
+   395	            for (const auto& f : p.source_files) write_str(f);
+   396	            
+   397	            // Table Lines
+   398	            write_u32(p.lines.size());
+   399	            for (const auto& l : p.lines) {
+   400	                write_u32(l.offset);
+   401	                write_u32(l.line);
+   402	                write_u32(l.col);
+   403	                write_u32(l.file_idx);
+   404	            }
+   405	        }
+   406	    }
+   407	    return buffer;
+   408	}
+   409	
+   410	// void Assembler::optimize() {
+   411	//     std::cout << "[MASM] Starting Optimization Pass..." << std::endl;
+   412	//     int optimized_count = 0;
    413	
-   414	        // 5. Default case (Dựa vào arity)
-   415	        default: {
-   416	            int arity = Assembler::get_arity(op);
-   417	            return 1 + (arity * 2);
-   418	        }
-   419	    }
-   420	}
+   414	//     for (auto& proto : protos_) {
+   415	//         std::vector<uint8_t>& code = proto.bytecode;
+   416	//         size_t ip = 0;
+   417	
+   418	//         while (ip < code.size()) {
+   419	//             meow::OpCode op = static_cast<meow::OpCode>(code[ip]);
+   420	//             size_t instr_size = get_instr_size(op); // GET_PROP = 55 bytes
    421	
-   422	void Assembler::optimize() {
-   423	    std::cout << "[MASM] Starting Optimization Pass..." << std::endl;
-   424	    int optimized_count = 0;
-   425	
-   426	    for (auto& proto : protos_) {
-   427	        std::vector<uint8_t>& code = proto.bytecode;
-   428	        size_t ip = 0;
-   429	
-   430	        while (ip < code.size()) {
-   431	            meow::OpCode op = static_cast<meow::OpCode>(code[ip]);
-   432	            size_t instr_size = get_instr_size(op); // GET_PROP = 55 bytes
+   422	//             if (op == meow::OpCode::GET_PROP) {
+   423	//                 size_t next_ip = ip + instr_size;
+   424	
+   425	//                 if (next_ip < code.size()) {
+   426	//                     uint8_t next_op_raw = code[next_ip];
+   427	//                     meow::OpCode next_op = static_cast<meow::OpCode>(next_op_raw);
+   428	
+   429	//                     // Decode GET_PROP: [OP] [Dst] [Obj] [Name] [Cache]
+   430	//                     uint16_t prop_dst = (uint16_t)code[ip+1] | ((uint16_t)code[ip+2] << 8);
+   431	//                     uint16_t obj_reg  = (uint16_t)code[ip+3] | ((uint16_t)code[ip+4] << 8);
+   432	//                     uint16_t name_idx = (uint16_t)code[ip+5] | ((uint16_t)code[ip+6] << 8);
    433	
-   434	            if (op == meow::OpCode::GET_PROP) {
-   435	                size_t next_ip = ip + instr_size;
-   436	
-   437	                if (next_ip < code.size()) {
-   438	                    uint8_t next_op_raw = code[next_ip];
-   439	                    meow::OpCode next_op = static_cast<meow::OpCode>(next_op_raw);
-   440	
-   441	                    // Decode GET_PROP: [OP] [Dst] [Obj] [Name] [Cache]
-   442	                    uint16_t prop_dst = (uint16_t)code[ip+1] | ((uint16_t)code[ip+2] << 8);
-   443	                    uint16_t obj_reg  = (uint16_t)code[ip+3] | ((uint16_t)code[ip+4] << 8);
-   444	                    uint16_t name_idx = (uint16_t)code[ip+5] | ((uint16_t)code[ip+6] << 8);
-   445	
-   446	                    // ---------------------------------------------------------
-   447	                    // TRƯỜNG HỢP 1: GET_PROP -> CALL (Chuẩn, 80 bytes)
-   448	                    // ---------------------------------------------------------
-   449	                    if (next_op == meow::OpCode::CALL) {
-   450	                        size_t call_base = next_ip;
-   451	                        // CALL: [OP] [Dst] [Fn] ...
-   452	                        uint16_t call_dst = (uint16_t)code[call_base+1] | ((uint16_t)code[call_base+2] << 8);
-   453	                        uint16_t fn_reg   = (uint16_t)code[call_base+3] | ((uint16_t)code[call_base+4] << 8);
-   454	                        uint16_t arg_start= (uint16_t)code[call_base+5] | ((uint16_t)code[call_base+6] << 8);
-   455	                        uint16_t argc     = (uint16_t)code[call_base+7] | ((uint16_t)code[call_base+8] << 8);
-   456	
-   457	                        if (prop_dst == fn_reg) {
-   458	                            std::cout << "[MASM] MERGED (Direct): GET_PROP + CALL -> INVOKE at " << ip << "\n";
-   459	                            
-   460	                            // Ghi đè INVOKE (80 bytes)
-   461	                            size_t write = ip;
-   462	                            code[write++] = static_cast<uint8_t>(meow::OpCode::INVOKE);
-   463	                            
-   464	                            auto emit_u16 = [&](uint16_t v) { code[write++] = v & 0xFF; code[write++] = (v >> 8) & 0xFF; };
-   465	                            emit_u16(call_dst); emit_u16(obj_reg); emit_u16(name_idx); emit_u16(arg_start); emit_u16(argc);
-   466	                            
-   467	                            std::memset(&code[write], 0, 48); write += 48; // IC
-   468	                            std::memset(&code[write], 0, 21); // Padding (80 - 11 - 48 = 21)
-   469	                            
-   470	                            ip += 80; optimized_count++; continue;
-   471	                        }
-   472	                    }
-   473	                    // ---------------------------------------------------------
-   474	                    // TRƯỜNG HỢP 2: GET_PROP -> MOVE -> CALL (Có rác, 85 bytes)
-   475	                    // ---------------------------------------------------------
-   476	                    else if (next_op == meow::OpCode::MOVE) {
-   477	                        size_t move_size = 5; // OP(1) + DST(2) + SRC(2)
-   478	                        size_t call_ip = next_ip + move_size;
-   479	
-   480	                        if (call_ip < code.size() && static_cast<meow::OpCode>(code[call_ip]) == meow::OpCode::CALL) {
-   481	                            // Decode MOVE: [OP] [Dst] [Src]
-   482	                            uint16_t move_dst = (uint16_t)code[next_ip+1] | ((uint16_t)code[next_ip+2] << 8);
-   483	                            uint16_t move_src = (uint16_t)code[next_ip+3] | ((uint16_t)code[next_ip+4] << 8);
-   484	
-   485	                            // Decode CALL
-   486	                            uint16_t call_dst = (uint16_t)code[call_ip+1] | ((uint16_t)code[call_ip+2] << 8);
-   487	                            uint16_t fn_reg   = (uint16_t)code[call_ip+3] | ((uint16_t)code[call_ip+4] << 8);
-   488	                            uint16_t arg_start= (uint16_t)code[call_ip+5] | ((uint16_t)code[call_ip+6] << 8);
-   489	                            uint16_t argc     = (uint16_t)code[call_ip+7] | ((uint16_t)code[call_ip+8] << 8);
-   490	
-   491	                            // Logic check: GET_PROP -> rA, MOVE rB, rA, CALL rB
-   492	                            if (prop_dst == move_src && move_dst == fn_reg) {
-   493	                                std::cout << "[MASM] MERGED (Jump Move): GET_PROP + MOVE + CALL -> INVOKE at " << ip << "\n";
-   494	
-   495	                                // 1. Ghi INVOKE (80 bytes)
-   496	                                size_t write = ip;
-   497	                                code[write++] = static_cast<uint8_t>(meow::OpCode::INVOKE);
-   498	                                
-   499	                                auto emit_u16 = [&](uint16_t v) { code[write++] = v & 0xFF; code[write++] = (v >> 8) & 0xFF; };
-   500	                                emit_u16(call_dst); emit_u16(obj_reg); emit_u16(name_idx); emit_u16(arg_start); emit_u16(argc);
+   434	//                     // ---------------------------------------------------------
+   435	//                     // TRƯỜNG HỢP 1: GET_PROP -> CALL (Chuẩn, 80 bytes)
+   436	//                     // ---------------------------------------------------------
+   437	//                     if (next_op == meow::OpCode::CALL) {
+   438	//                         size_t call_base = next_ip;
+   439	//                         // CALL: [OP] [Dst] [Fn] ...
+   440	//                         uint16_t call_dst = (uint16_t)code[call_base+1] | ((uint16_t)code[call_base+2] << 8);
+   441	//                         uint16_t fn_reg   = (uint16_t)code[call_base+3] | ((uint16_t)code[call_base+4] << 8);
+   442	//                         uint16_t arg_start= (uint16_t)code[call_base+5] | ((uint16_t)code[call_base+6] << 8);
+   443	//                         uint16_t argc     = (uint16_t)code[call_base+7] | ((uint16_t)code[call_base+8] << 8);
+   444	
+   445	//                         if (prop_dst == fn_reg) {
+   446	//                             std::cout << "[MASM] MERGED (Direct): GET_PROP + CALL -> INVOKE at " << ip << "\n";
+   447	                            
+   448	//                             // Ghi đè INVOKE (80 bytes)
+   449	//                             size_t write = ip;
+   450	//                             code[write++] = static_cast<uint8_t>(meow::OpCode::INVOKE);
+   451	                            
+   452	//                             auto emit_u16 = [&](uint16_t v) { code[write++] = v & 0xFF; code[write++] = (v >> 8) & 0xFF; };
+   453	//                             emit_u16(call_dst); emit_u16(obj_reg); emit_u16(name_idx); emit_u16(arg_start); emit_u16(argc);
+   454	                            
+   455	//                             std::memset(&code[write], 0, 48); write += 48; // IC
+   456	//                             std::memset(&code[write], 0, 21); // Padding (80 - 11 - 48 = 21)
+   457	                            
+   458	//                             ip += 80; optimized_count++; continue;
+   459	//                         }
+   460	//                     }
+   461	//                     // ---------------------------------------------------------
+   462	//                     // TRƯỜNG HỢP 2: GET_PROP -> MOVE -> CALL (Có rác, 85 bytes)
+   463	//                     // ---------------------------------------------------------
+   464	//                     else if (next_op == meow::OpCode::MOVE) {
+   465	//                         size_t move_size = 5; // OP(1) + DST(2) + SRC(2)
+   466	//                         size_t call_ip = next_ip + move_size;
+   467	
+   468	//                         if (call_ip < code.size() && static_cast<meow::OpCode>(code[call_ip]) == meow::OpCode::CALL) {
+   469	//                             // Decode MOVE: [OP] [Dst] [Src]
+   470	//                             uint16_t move_dst = (uint16_t)code[next_ip+1] | ((uint16_t)code[next_ip+2] << 8);
+   471	//                             uint16_t move_src = (uint16_t)code[next_ip+3] | ((uint16_t)code[next_ip+4] << 8);
+   472	
+   473	//                             // Decode CALL
+   474	//                             uint16_t call_dst = (uint16_t)code[call_ip+1] | ((uint16_t)code[call_ip+2] << 8);
+   475	//                             uint16_t fn_reg   = (uint16_t)code[call_ip+3] | ((uint16_t)code[call_ip+4] << 8);
+   476	//                             uint16_t arg_start= (uint16_t)code[call_ip+5] | ((uint16_t)code[call_ip+6] << 8);
+   477	//                             uint16_t argc     = (uint16_t)code[call_ip+7] | ((uint16_t)code[call_ip+8] << 8);
+   478	
+   479	//                             // Logic check: GET_PROP -> rA, MOVE rB, rA, CALL rB
+   480	//                             if (prop_dst == move_src && move_dst == fn_reg) {
+   481	//                                 std::cout << "[MASM] MERGED (Jump Move): GET_PROP + MOVE + CALL -> INVOKE at " << ip << "\n";
+   482	
+   483	//                                 // 1. Ghi INVOKE (80 bytes)
+   484	//                                 size_t write = ip;
+   485	//                                 code[write++] = static_cast<uint8_t>(meow::OpCode::INVOKE);
+   486	                                
+   487	//                                 auto emit_u16 = [&](uint16_t v) { code[write++] = v & 0xFF; code[write++] = (v >> 8) & 0xFF; };
+   488	//                                 emit_u16(call_dst); emit_u16(obj_reg); emit_u16(name_idx); emit_u16(arg_start); emit_u16(argc);
+   489	                                
+   490	//                                 std::memset(&code[write], 0, 48); write += 48;
+   491	//                                 std::memset(&code[write], 0, 21); write += 21;
+   492	
+   493	//                                 // 2. Xử lý 5 bytes thừa (MOVE cũ)
+   494	//                                 // Tổng block cũ là 55 + 5 + 25 = 85 bytes.
+   495	//                                 // INVOKE mới dùng 80 bytes. Còn dư 5 bytes cuối cùng.
+   496	//                                 // Ta ghi đè 5 bytes này bằng lệnh MOVE r0, r0 (No-Op) để giữ alignment.
+   497	                                
+   498	//                                 code[write++] = static_cast<uint8_t>(meow::OpCode::MOVE);
+   499	//                                 emit_u16(0); // Dst r0
+   500	//                                 emit_u16(0); // Src r0
    501	                                
-   502	                                std::memset(&code[write], 0, 48); write += 48;
-   503	                                std::memset(&code[write], 0, 21); write += 21;
-   504	
-   505	                                // 2. Xử lý 5 bytes thừa (MOVE cũ)
-   506	                                // Tổng block cũ là 55 + 5 + 25 = 85 bytes.
-   507	                                // INVOKE mới dùng 80 bytes. Còn dư 5 bytes cuối cùng.
-   508	                                // Ta ghi đè 5 bytes này bằng lệnh MOVE r0, r0 (No-Op) để giữ alignment.
-   509	                                
-   510	                                code[write++] = static_cast<uint8_t>(meow::OpCode::MOVE);
-   511	                                emit_u16(0); // Dst r0
-   512	                                emit_u16(0); // Src r0
-   513	                                
-   514	                                ip += 85; optimized_count++; continue;
-   515	                            }
-   516	                        }
-   517	                    }
-   518	                }
-   519	            }
-   520	            ip += instr_size;
-   521	        }
-   522	    }
-   523	    std::cout << "[MASM] Optimization finished. Total merged: " << optimized_count << std::endl;
-   524	}
-   525	
-   526	std::vector<uint8_t> Assembler::assemble() {
-   527	    while (!is_at_end()) {
-   528	        parse_statement();
-   529	    }
-   530	    link_proto_refs();
-   531	    patch_labels();
-   532	    // optimize();
-   533	    return serialize_binary();
+   502	//                                 ip += 85; optimized_count++; continue;
+   503	//                             }
+   504	//                         }
+   505	//                     }
+   506	//                 }
+   507	//             }
+   508	//             ip += instr_size;
+   509	//         }
+   510	//     }
+   511	//     std::cout << "[MASM] Optimization finished. Total merged: " << optimized_count << std::endl;
+   512	// }
+   513	
+   514	void Assembler::optimize() {
+   515	    // Logic optimize nếu có
+   516	}
+   517	
+   518	std::vector<uint8_t> Assembler::assemble() {
+   519	    while (!is_at_end()) {
+   520	        parse_statement();
+   521	    }
+   522	    link_proto_refs();
+   523	    patch_labels();
+   524	    // optimize();
+   525	    return serialize_binary();
+   526	}
+   527	
+   528	void Assembler::assemble_to_file(const std::string& output_file) {
+   529	    auto buffer = assemble();
+   530	    std::ofstream out(output_file, std::ios::binary);
+   531	    if (!out) throw std::runtime_error("Cannot open output file");
+   532	    out.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
+   533	    out.close();
    534	}
    535	
-   536	void Assembler::assemble_to_file(const std::string& output_file) {
-   537	    auto buffer = assemble();
-   538	    std::ofstream out(output_file, std::ios::binary);
-   539	    if (!out) throw std::runtime_error("Cannot open output file");
-   540	    out.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
-   541	    out.close();
-   542	}
-   543	
-   544	} // namespace meow::masm
+   536	} // namespace meow::masm
 
 
 // =============================================================================
@@ -6765,140 +6874,163 @@
      9	std::unordered_map<std::string_view, meow::OpCode> OP_MAP;
     10	
     11	namespace {
-    12	    template <auto V>
-    13	    consteval std::string_view get_raw_name() {
-    14	#if defined(__clang__) || defined(__GNUC__)
-    15	        return __PRETTY_FUNCTION__;
-    16	#elif defined(_MSC_VER)
-    17	        return __FUNCSIG__;
-    18	#else
-    19	        return "";
-    20	#endif
-    21	    }
-    22	
-    23	    template <auto V>
-    24	    consteval std::string_view get_enum_name() {
-    25	        constexpr std::string_view raw = get_raw_name<V>();
-    26	        
-    27	#if defined(__clang__) || defined(__GNUC__)
-    28	        constexpr auto end_pos = raw.size() - 1;
-    29	        constexpr auto last_colon = raw.find_last_of(':', end_pos);
-    30	        if (last_colon == std::string_view::npos) return ""; 
-    31	        return raw.substr(last_colon + 1, end_pos - (last_colon + 1));
-    32	#else
-    33	        return "UNKNOWN";
-    34	#endif
-    35	    }
-    36	    template <size_t... Is>
-    37	    void build_map_impl(std::index_sequence<Is...>) {
-    38	        (..., (OP_MAP[get_enum_name<static_cast<meow::OpCode>(Is)>()] = static_cast<meow::OpCode>(Is)));
-    39	    }
-    40	}
-    41	
-    42	void init_op_map() {
-    43	    if (!OP_MAP.empty()) return;
+    12	    template <auto V> consteval std::string_view get_raw_name() {
+    13	#if defined(__clang__) || defined(__GNUC__)
+    14	        return __PRETTY_FUNCTION__;
+    15	#elif defined(_MSC_VER)
+    16	        return __FUNCSIG__;
+    17	#else
+    18	        return "";
+    19	#endif
+    20	    }
+    21	    template <auto V> consteval std::string_view get_enum_name() {
+    22	        constexpr std::string_view raw = get_raw_name<V>();
+    23	#if defined(__clang__) || defined(__GNUC__)
+    24	        constexpr auto end_pos = raw.size() - 1;
+    25	        constexpr auto last_colon = raw.find_last_of(':', end_pos);
+    26	        if (last_colon == std::string_view::npos) return ""; 
+    27	        return raw.substr(last_colon + 1, end_pos - (last_colon + 1));
+    28	#else
+    29	        return "UNKNOWN";
+    30	#endif
+    31	    }
+    32	    template <size_t... Is> void build_map_impl(std::index_sequence<Is...>) {
+    33	        (..., (OP_MAP[get_enum_name<static_cast<meow::OpCode>(Is)>()] = static_cast<meow::OpCode>(Is)));
+    34	    }
+    35	}
+    36	
+    37	void init_op_map() {
+    38	    if (!OP_MAP.empty()) return;
+    39	    constexpr size_t Count = static_cast<size_t>(meow::OpCode::TOTAL_OPCODES);
+    40	    build_map_impl(std::make_index_sequence<Count>{});
+    41	    OP_MAP.erase("__BEGIN_OPERATOR__");
+    42	    OP_MAP.erase("__END_OPERATOR__");
+    43	}
     44	
-    45	    constexpr size_t Count = static_cast<size_t>(meow::OpCode::TOTAL_OPCODES);
-    46	    build_map_impl(std::make_index_sequence<Count>{});
-    47	
-    48	    OP_MAP.erase("__BEGIN_OPERATOR__");
-    49	    OP_MAP.erase("__END_OPERATOR__");
-    50	}
-    51	
-    52	std::vector<Token> Lexer::tokenize() {
-    53	    std::vector<Token> tokens;
-    54	    while (!is_at_end()) {
-    55	        char c = peek();
-    56	        if (isspace(c)) {
-    57	            if (c == '\n') line_++;
-    58	            advance();
-    59	            continue;
-    60	        }
-    61	        if (c == '#') {
-    62	            while (peek() != '\n' && !is_at_end()) advance();
-    63	            continue;
-    64	        }
-    65	        if (c == '.') { tokens.push_back(scan_directive()); continue; }
-    66	        if (c == '"' || c == '\'') { tokens.push_back(scan_string()); continue; }
-    67	        if (isdigit(c) || (c == '-' && isdigit(peek(1)))) { tokens.push_back(scan_number()); continue; }
-    68	        if (isalpha(c) || c == '_' || c == '@') { tokens.push_back(scan_identifier()); continue; }
-    69	        advance();
-    70	    }
-    71	    tokens.push_back({TokenType::END_OF_FILE, "", line_});
-    72	    return tokens;
-    73	}
-    74	
-    75	bool Lexer::is_at_end() const { return pos_ >= src_.size(); }
-    76	char Lexer::peek(int offset) const { 
-    77	    if (pos_ + offset >= src_.size()) return '\0';
-    78	    return src_[pos_ + offset]; 
-    79	}
-    80	char Lexer::advance() { return src_[pos_++]; }
-    81	
-    82	Token Lexer::scan_directive() {
-    83	    size_t start = pos_;
-    84	    advance(); 
-    85	    while (isalnum(peek()) || peek() == '_' || peek() == '-' || peek() == '/' || peek() == '.') advance();
-    86	    
-    87	    std::string_view text = src_.substr(start, pos_ - start);
-    88	    
-    89	    TokenType type = TokenType::IDENTIFIER; 
-    90	    
-    91	    if (text == ".func") type = TokenType::DIR_FUNC;
-    92	    else if (text == ".endfunc") type = TokenType::DIR_ENDFUNC;
-    93	    else if (text == ".registers") type = TokenType::DIR_REGISTERS;
-    94	    else if (text == ".upvalues") type = TokenType::DIR_UPVALUES;
-    95	    else if (text == ".upvalue") type = TokenType::DIR_UPVALUE;
-    96	    else if (text == ".const") type = TokenType::DIR_CONST;
-    97	    
-    98	    return {type, text, line_};
-    99	}
-   100	
-   101	Token Lexer::scan_string() {
-   102	    char quote = advance();
-   103	    size_t start = pos_ - 1; 
-   104	    while (peek() != quote && !is_at_end()) {
-   105	        if (peek() == '\\') advance();
-   106	        advance();
-   107	    }
-   108	    if (!is_at_end()) advance();
-   109	    return {TokenType::STRING, src_.substr(start, pos_ - start), line_};
-   110	}
-   111	
-   112	Token Lexer::scan_number() {
-   113	    size_t start = pos_;
-   114	    if (peek() == '-') advance();
-   115	    if (peek() == '0' && (peek(1) == 'x' || peek(1) == 'X')) {
-   116	        advance(); advance();
-   117	        while (isxdigit(peek())) advance();
-   118	        return {TokenType::NUMBER_INT, src_.substr(start, pos_ - start), line_};
-   119	    }
-   120	    bool is_float = false;
-   121	    while (isdigit(peek())) advance();
-   122	    if (peek() == '.' && isdigit(peek(1))) {
-   123	        is_float = true;
-   124	        advance();
-   125	        while (isdigit(peek())) advance();
-   126	    }
-   127	    return {is_float ? TokenType::NUMBER_FLOAT : TokenType::NUMBER_INT, src_.substr(start, pos_ - start), line_};
-   128	}
-   129	
-   130	Token Lexer::scan_identifier() {
-   131	    size_t start = pos_;
-   132	    while (isalnum(peek()) || peek() == '_' || peek() == '@' || peek() == '/' || peek() == '-' || peek() == '.') advance();
-   133	    
-   134	    if (peek() == ':') {
-   135	        advance(); 
-   136	        return {TokenType::LABEL_DEF, src_.substr(start, pos_ - start - 1), line_};
-   137	    }
-   138	    std::string_view text = src_.substr(start, pos_ - start);
-   139	    
-   140	    if (OP_MAP.count(text)) return {TokenType::OPCODE, text, line_};
-   141	    
-   142	    return {TokenType::IDENTIFIER, text, line_};
-   143	}
-   144	
-   145	} // namespace meow::masm
+    45	std::vector<Token> Lexer::tokenize() {
+    46	    std::vector<Token> tokens;
+    47	    while (!is_at_end()) {
+    48	        char c = peek();
+    49	        if (isspace(c)) {
+    50	            if (c == '\n') line_++;
+    51	            advance();
+    52	            continue;
+    53	        }
+    54	        
+    55	        // Xử lý các loại comment và annotation bắt đầu bằng '#'
+    56	        if (c == '#') {
+    57	            if (peek(1) == '^') {
+    58	                // Debug Info: #^ "file" line:col
+    59	                advance(); advance(); // Consume #^
+    60	                tokens.push_back(scan_debug_info());
+    61	            } 
+    62	            else if (peek(1) == '@') {
+    63	                // Annotation: #@ directive
+    64	                advance(); advance(); // Consume #@
+    65	                tokens.push_back(scan_annotation());
+    66	            } 
+    67	            else {
+    68	                // Comment thường: bỏ qua đến hết dòng
+    69	                while (peek() != '\n' && !is_at_end()) advance();
+    70	            }
+    71	            continue;
+    72	        }
+    73	
+    74	        if (c == '.') { tokens.push_back(scan_directive()); continue; }
+    75	        if (c == '"' || c == '\'') { tokens.push_back(scan_string()); continue; }
+    76	        if (isdigit(c) || (c == '-' && isdigit(peek(1)))) { tokens.push_back(scan_number()); continue; }
+    77	        if (isalpha(c) || c == '_' || c == '@') { tokens.push_back(scan_identifier()); continue; }
+    78	        advance();
+    79	    }
+    80	    tokens.push_back({TokenType::END_OF_FILE, "", line_});
+    81	    return tokens;
+    82	}
+    83	
+    84	bool Lexer::is_at_end() const { return pos_ >= src_.size(); }
+    85	char Lexer::peek(int offset) const { 
+    86	    if (pos_ + offset >= src_.size()) return '\0';
+    87	    return src_[pos_ + offset]; 
+    88	}
+    89	char Lexer::advance() { return src_[pos_++]; }
+    90	
+    91	// Quét phần còn lại của dòng làm nội dung debug
+    92	Token Lexer::scan_debug_info() {
+    93	    size_t start = pos_;
+    94	    while (peek() != '\n' && !is_at_end()) {
+    95	        advance();
+    96	    }
+    97	    return {TokenType::DEBUG_INFO, src_.substr(start, pos_ - start), line_};
+    98	}
+    99	
+   100	// Quét từ khóa annotation (bỏ qua khoảng trắng đầu)
+   101	Token Lexer::scan_annotation() {
+   102	    while (peek() == ' ' || peek() == '\t') advance(); // Skip space
+   103	    
+   104	    size_t start = pos_;
+   105	    while (isalnum(peek()) || peek() == '_') advance();
+   106	    
+   107	    return {TokenType::ANNOTATION, src_.substr(start, pos_ - start), line_};
+   108	}
+   109	
+   110	Token Lexer::scan_directive() {
+   111	    size_t start = pos_;
+   112	    advance(); 
+   113	    while (isalnum(peek()) || peek() == '_' || peek() == '-' || peek() == '/' || peek() == '.') advance();
+   114	    std::string_view text = src_.substr(start, pos_ - start);
+   115	    TokenType type = TokenType::IDENTIFIER; 
+   116	    
+   117	    if (text == ".func") type = TokenType::DIR_FUNC;
+   118	    else if (text == ".endfunc") type = TokenType::DIR_ENDFUNC;
+   119	    else if (text == ".registers") type = TokenType::DIR_REGISTERS;
+   120	    else if (text == ".upvalues") type = TokenType::DIR_UPVALUES;
+   121	    else if (text == ".upvalue") type = TokenType::DIR_UPVALUE;
+   122	    else if (text == ".const") type = TokenType::DIR_CONST;
+   123	    return {type, text, line_};
+   124	}
+   125	
+   126	Token Lexer::scan_string() {
+   127	    char quote = advance();
+   128	    size_t start = pos_ - 1; 
+   129	    while (peek() != quote && !is_at_end()) {
+   130	        if (peek() == '\\') advance();
+   131	        advance();
+   132	    }
+   133	    if (!is_at_end()) advance();
+   134	    return {TokenType::STRING, src_.substr(start, pos_ - start), line_};
+   135	}
+   136	
+   137	Token Lexer::scan_number() {
+   138	    size_t start = pos_;
+   139	    if (peek() == '-') advance();
+   140	    if (peek() == '0' && (peek(1) == 'x' || peek(1) == 'X')) {
+   141	        advance(); advance();
+   142	        while (isxdigit(peek())) advance();
+   143	        return {TokenType::NUMBER_INT, src_.substr(start, pos_ - start), line_};
+   144	    }
+   145	    bool is_float = false;
+   146	    while (isdigit(peek())) advance();
+   147	    if (peek() == '.' && isdigit(peek(1))) {
+   148	        is_float = true;
+   149	        advance();
+   150	        while (isdigit(peek())) advance();
+   151	    }
+   152	    return {is_float ? TokenType::NUMBER_FLOAT : TokenType::NUMBER_INT, src_.substr(start, pos_ - start), line_};
+   153	}
+   154	
+   155	Token Lexer::scan_identifier() {
+   156	    size_t start = pos_;
+   157	    while (isalnum(peek()) || peek() == '_' || peek() == '@' || peek() == '/' || peek() == '-' || peek() == '.') advance();
+   158	    
+   159	    if (peek() == ':') {
+   160	        advance(); 
+   161	        return {TokenType::LABEL_DEF, src_.substr(start, pos_ - start - 1), line_};
+   162	    }
+   163	    std::string_view text = src_.substr(start, pos_ - start);
+   164	    if (OP_MAP.count(text)) return {TokenType::OPCODE, text, line_};
+   165	    return {TokenType::IDENTIFIER, text, line_};
+   166	}
+   167	
+   168	} // namespace meow::masm
 
 
 // =============================================================================
@@ -7719,295 +7851,296 @@
    169	        return ip + sizeof(JumpCondArgs);
    170	    }
    171	
-   172	    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_TRUE_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   173	        const auto& args = *reinterpret_cast<const JumpCondArgsB*>(ip);
-   174	        Value& cond = regs[args.cond];
-   175	        bool truthy = cond.is_bool() ? cond.as_bool() : (cond.is_int() ? (cond.as_int() != 0) : meow::to_bool(cond));
-   176	        if (truthy) return state->instruction_base + args.offset;
-   177	        return ip + sizeof(JumpCondArgsB);
-   178	    }
-   179	
-   180	    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_FALSE_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   181	        const auto& args = *reinterpret_cast<const JumpCondArgsB*>(ip);
-   182	        Value& cond = regs[args.cond];
-   183	        bool truthy = cond.is_bool() ? cond.as_bool() : (cond.is_int() ? (cond.as_int() != 0) : meow::to_bool(cond));
-   184	        if (!truthy) return state->instruction_base + args.offset;
-   185	        return ip + sizeof(JumpCondArgsB);
-   186	    }
-   187	
-   188	    [[gnu::always_inline]]
-   189	    inline static const uint8_t* impl_RETURN(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   190	        uint16_t ret_reg_idx = read_u16(ip);
-   191	        Value result = (ret_reg_idx == 0xFFFF) ? Value(null_t{}) : regs[ret_reg_idx];
-   192	
-   193	        size_t base_idx = state->ctx.current_regs_ - state->ctx.stack_;
-   194	        meow::close_upvalues(state->ctx, base_idx);
-   195	
-   196	        if (state->ctx.frame_ptr_ == state->ctx.call_stack_) [[unlikely]] {
-   197	            return nullptr; 
-   198	        }
-   199	
-   200	        CallFrame* popped_frame = state->ctx.frame_ptr_;
-   201	        
-   202	        if (state->current_module) [[likely]] {
-   203	             if (popped_frame->function_->get_proto() == state->current_module->get_main_proto()) [[unlikely]] {
-   204	                 state->current_module->set_executed();
-   205	             }
-   206	        }
-   207	
-   208	        state->ctx.frame_ptr_--;
-   209	        CallFrame* caller = state->ctx.frame_ptr_;
-   210	        
-   211	        state->ctx.stack_top_ = popped_frame->regs_base_;
-   212	        state->ctx.current_regs_ = caller->regs_base_;
-   213	        state->ctx.current_frame_ = caller; 
-   214	        
-   215	        state->update_pointers(); 
-   216	
-   217	        if (popped_frame->ret_dest_ != nullptr) {
-   218	            *popped_frame->ret_dest_ = result;
-   219	        }
-   220	
-   221	        return popped_frame->ip_; 
-   222	    }
-   223	
-   224	    template <bool IsVoid>
-   225	    [[gnu::always_inline]] 
-   226	    static inline const uint8_t* do_call(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   227	        const uint8_t* start_ip = ip - 1; 
-   228	
-   229	        uint16_t dst = 0;
-   230	        if constexpr (!IsVoid) dst = read_u16(ip);
-   231	        uint16_t fn_reg    = read_u16(ip);
-   232	        uint16_t arg_start = read_u16(ip);
-   233	        uint16_t argc      = read_u16(ip);
-   234	
-   235	        CallIC* ic = get_call_ic(ip);
-   236	        Value& callee = regs[fn_reg];
-   237	
-   238	        if (callee.is_function()) [[likely]] {
-   239	            function_t closure = callee.as_function();
-   240	            proto_t proto = closure->get_proto();
-   241	
-   242	            if (ic->check_tag == proto) [[likely]] {
-   243	                size_t num_params = proto->get_num_registers();
-   244	                
-   245	                if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
-   246	                    state->ctx.current_frame_->ip_ = start_ip;
-   247	                    state->error("Stack Overflow!");
-   248	                    return impl_PANIC(ip, regs, constants, state);
-   249	                }
-   250	
-   251	                Value* new_base = state->ctx.stack_top_;
-   252	                
-   253	                size_t copy_count = (argc < num_params) ? argc : num_params;
-   254	                for (size_t i = 0; i < copy_count; ++i) {
-   255	                    new_base[i] = regs[arg_start + i];
-   256	                }
-   257	
-   258	                for (size_t i = copy_count; i < num_params; ++i) {
-   259	                    new_base[i] = Value(null_t{});
-   260	                }
-   261	
-   262	                state->ctx.frame_ptr_++;
-   263	                *state->ctx.frame_ptr_ = CallFrame(
-   264	                    closure,
-   265	                    new_base,
-   266	                    IsVoid ? nullptr : &regs[dst], 
-   267	                    ip 
-   268	                );
-   269	                
-   270	                state->ctx.current_regs_ = new_base;
-   271	                state->ctx.stack_top_ += num_params;
-   272	                state->ctx.current_frame_ = state->ctx.frame_ptr_;
-   273	                state->update_pointers(); 
-   274	
-   275	                return state->instruction_base;
-   276	            }
-   277	            
-   278	            ic->check_tag = proto;
-   279	        } 
-   280	        
-   281	        if (callee.is_native()) {
-   282	            native_t fn = callee.as_native();
-   283	            if (ic->check_tag != (void*)fn) {
-   284	                ic->check_tag = (void*)fn;
-   285	            }
-   286	
-   287	            Value result = fn(&state->machine, argc, &regs[arg_start]);
-   288	            
-   289	            if (state->machine.has_error()) [[unlikely]] {
-   290	                state->error(std::string(state->machine.get_error_message()));
-   291	                state->machine.clear_error();
-   292	                return impl_PANIC(ip, regs, constants, state);
-   293	            }
-   294	
-   295	            if constexpr (!IsVoid) {
-   296	                if (dst != 0xFFFF) regs[dst] = result;
-   297	            }
-   298	            return ip;
-   299	        }
-   300	
-   301	        Value* ret_dest_ptr = nullptr;
-   302	        if constexpr (!IsVoid) {
-   303	            if (dst != 0xFFFF) ret_dest_ptr = &regs[dst];
-   304	        }
-   305	
-   306	        instance_t self = nullptr;
-   307	        function_t closure = nullptr;
-   308	        bool is_init = false;
-   309	
-   310	        if (callee.is_function()) {
-   311	            closure = callee.as_function();
-   312	        } 
-   313	        else if (callee.is_bound_method()) {
-   314	            bound_method_t bound = callee.as_bound_method();
-   315	            Value receiver = bound->get_receiver();
-   316	            Value method = bound->get_method();
-   317	
-   318	            if (method.is_native()) {
-   319	                native_t fn = method.as_native();
-   320	                
-   321	                std::vector<Value> args;
-   322	                args.reserve(argc + 1);
-   323	                args.push_back(receiver);
-   324	                
-   325	                for (size_t i = 0; i < argc; ++i) {
-   326	                    args.push_back(regs[arg_start + i]);
-   327	                }
-   328	
-   329	                Value result = fn(&state->machine, static_cast<int>(args.size()), args.data());
-   330	                
-   331	                if (state->machine.has_error()) {
-   332	                     return impl_PANIC(ip, regs, constants, state);
-   333	                }
-   334	
-   335	                if constexpr (!IsVoid) regs[dst] = result;
-   336	                return ip;
-   337	            }
-   338	            else if (method.is_function()) {
-   339	                closure = method.as_function();
-   340	                if (receiver.is_instance()) self = receiver.as_instance();
-   341	            }
-   342	        }
-   343	        else if (callee.is_class()) {
-   344	            class_t klass = callee.as_class();
-   345	            self = state->heap.new_instance(klass, state->heap.get_empty_shape());
-   346	            if (ret_dest_ptr) *ret_dest_ptr = Value(self);
-   347	            
-   348	            Value init_method = klass->get_method(state->heap.new_string("init"));
-   349	            if (init_method.is_function()) {
-   350	                closure = init_method.as_function();
-   351	                is_init = true;
-   352	            } else {
-   353	                return ip; 
-   354	            }
-   355	        } 
-   356	        else [[unlikely]] {
-   357	            state->ctx.current_frame_->ip_ = start_ip;
-   358	            state->error(std::format("Giá trị loại '{}' không thể gọi được (Not callable).", to_string(callee)));
-   359	            return impl_PANIC(ip, regs, constants, state);
-   360	        }
-   361	
-   362	        proto_t proto = closure->get_proto();
-   363	        size_t num_params = proto->get_num_registers();
-   364	
-   365	        if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
-   366	            state->ctx.current_frame_->ip_ = start_ip;
-   367	            state->error("Stack Overflow!");
-   368	            return impl_PANIC(ip, regs, constants, state);
-   369	        }
-   370	
-   371	        Value* new_base = state->ctx.stack_top_;
-   372	        size_t arg_offset = 0;
-   373	        
-   374	        if (self != nullptr && num_params > 0) {
-   375	            new_base[0] = Value(self);
-   376	            arg_offset = 1;
-   377	        }
-   378	
-   379	        for (size_t i = 0; i < argc; ++i) {
-   380	            if (arg_offset + i < num_params) {
-   381	                new_base[arg_offset + i] = regs[arg_start + i];
-   382	            }
-   383	        }
-   384	
-   385	        size_t filled_count = arg_offset + argc;
-   386	        if (filled_count > num_params) filled_count = num_params;
-   387	
-   388	        for (size_t i = filled_count; i < num_params; ++i) {
-   389	            new_base[i] = Value(null_t{});
-   390	        }
-   391	
-   392	        state->ctx.frame_ptr_++;
-   393	        *state->ctx.frame_ptr_ = CallFrame(
-   394	            closure,
-   395	            new_base,                          
-   396	            is_init ? nullptr : ret_dest_ptr,  
-   397	            ip                                 
-   398	        );
-   399	
-   400	        state->ctx.current_regs_ = new_base;
-   401	        state->ctx.stack_top_ += num_params;
-   402	        state->ctx.current_frame_ = state->ctx.frame_ptr_;
-   403	        state->update_pointers(); 
-   404	
-   405	        return state->instruction_base;
-   406	    }
-   407	
-   408	    [[gnu::always_inline]] inline static const uint8_t* impl_CALL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   409	        return do_call<false>(ip, regs, constants, state);
-   410	    }
-   411	
-   412	    [[gnu::always_inline]] inline static const uint8_t* impl_CALL_VOID(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   413	        return do_call<true>(ip, regs, constants, state);
-   414	    }
-   415	
-   416	[[gnu::always_inline]] 
-   417	static const uint8_t* impl_TAIL_CALL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   418	    const uint8_t* start_ip = ip - 1;
-   419	
-   420	    uint16_t dst = read_u16(ip); (void)dst;
-   421	    uint16_t fn_reg = read_u16(ip);
-   422	    uint16_t arg_start = read_u16(ip);
-   423	    uint16_t argc = read_u16(ip);
-   424	    
-   425	    ip += 16;
-   426	
-   427	    Value& callee = regs[fn_reg];
-   428	    if (!callee.is_function()) [[unlikely]] {
-   429	        state->ctx.current_frame_->ip_ = start_ip;
-   430	        state->error("TAIL_CALL: Target không phải là Function.");
-   431	        return nullptr;
-   432	    }
-   433	
-   434	    function_t closure = callee.as_function();
-   435	    proto_t proto = closure->get_proto();
-   436	    size_t num_params = proto->get_num_registers();
-   437	
-   438	    size_t current_base_idx = regs - state->ctx.stack_;
-   439	    meow::close_upvalues(state->ctx, current_base_idx);
-   440	
-   441	    size_t copy_count = (argc < num_params) ? argc : num_params;
-   442	
-   443	    for (size_t i = 0; i < copy_count; ++i) {
-   444	        regs[i] = regs[arg_start + i];
-   445	    }
-   446	
-   447	    for (size_t i = copy_count; i < num_params; ++i) {
-   448	        regs[i] = Value(null_t{});
-   449	    }
-   450	
-   451	    CallFrame* current_frame = state->ctx.frame_ptr_;
-   452	    current_frame->function_ = closure;
-   453	    
-   454	    state->ctx.stack_top_ = regs + num_params;
-   455	    state->update_pointers();
-   456	
-   457	    return proto->get_chunk().get_code();
-   458	}
-   459	
-   460	} // namespace meow::handlers
+   172	    [[gnu::always_inline, gnu::hot]]
+   173	    inline static const uint8_t* impl_JUMP_IF_TRUE_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   174	        const auto& args = *reinterpret_cast<const JumpCondArgsB*>(ip);
+   175	        Value& cond = regs[args.cond];
+   176	        bool truthy = cond.is_bool() ? cond.as_bool() : (cond.is_int() ? (cond.as_int() != 0) : meow::to_bool(cond));
+   177	        if (truthy) return state->instruction_base + args.offset;
+   178	        return ip + sizeof(JumpCondArgsB);
+   179	    }
+   180	
+   181	    [[gnu::always_inline]] inline static const uint8_t* impl_JUMP_IF_FALSE_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   182	        const auto& args = *reinterpret_cast<const JumpCondArgsB*>(ip);
+   183	        Value& cond = regs[args.cond];
+   184	        bool truthy = cond.is_bool() ? cond.as_bool() : (cond.is_int() ? (cond.as_int() != 0) : meow::to_bool(cond));
+   185	        if (!truthy) return state->instruction_base + args.offset;
+   186	        return ip + sizeof(JumpCondArgsB);
+   187	    }
+   188	
+   189	    [[gnu::always_inline]]
+   190	    inline static const uint8_t* impl_RETURN(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   191	        uint16_t ret_reg_idx = read_u16(ip);
+   192	        Value result = (ret_reg_idx == 0xFFFF) ? Value(null_t{}) : regs[ret_reg_idx];
+   193	
+   194	        size_t base_idx = state->ctx.current_regs_ - state->ctx.stack_;
+   195	        meow::close_upvalues(state->ctx, base_idx);
+   196	
+   197	        if (state->ctx.frame_ptr_ == state->ctx.call_stack_) [[unlikely]] {
+   198	            return nullptr; 
+   199	        }
+   200	
+   201	        CallFrame* popped_frame = state->ctx.frame_ptr_;
+   202	        
+   203	        if (state->current_module) [[likely]] {
+   204	             if (popped_frame->function_->get_proto() == state->current_module->get_main_proto()) [[unlikely]] {
+   205	                 state->current_module->set_executed();
+   206	             }
+   207	        }
+   208	
+   209	        state->ctx.frame_ptr_--;
+   210	        CallFrame* caller = state->ctx.frame_ptr_;
+   211	        
+   212	        state->ctx.stack_top_ = popped_frame->regs_base_;
+   213	        state->ctx.current_regs_ = caller->regs_base_;
+   214	        state->ctx.current_frame_ = caller; 
+   215	        
+   216	        state->update_pointers(); 
+   217	
+   218	        if (popped_frame->ret_dest_ != nullptr) {
+   219	            *popped_frame->ret_dest_ = result;
+   220	        }
+   221	
+   222	        return popped_frame->ip_; 
+   223	    }
+   224	
+   225	    template <bool IsVoid>
+   226	    [[gnu::always_inline]] 
+   227	    static inline const uint8_t* do_call(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   228	        const uint8_t* start_ip = ip - 1; 
+   229	
+   230	        uint16_t dst = 0;
+   231	        if constexpr (!IsVoid) dst = read_u16(ip);
+   232	        uint16_t fn_reg    = read_u16(ip);
+   233	        uint16_t arg_start = read_u16(ip);
+   234	        uint16_t argc      = read_u16(ip);
+   235	
+   236	        CallIC* ic = get_call_ic(ip);
+   237	        Value& callee = regs[fn_reg];
+   238	
+   239	        if (callee.is_function()) [[likely]] {
+   240	            function_t closure = callee.as_function();
+   241	            proto_t proto = closure->get_proto();
+   242	
+   243	            if (ic->check_tag == proto) [[likely]] {
+   244	                size_t num_params = proto->get_num_registers();
+   245	                
+   246	                if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
+   247	                    state->ctx.current_frame_->ip_ = start_ip;
+   248	                    state->error("Stack Overflow!");
+   249	                    return impl_PANIC(ip, regs, constants, state);
+   250	                }
+   251	
+   252	                Value* new_base = state->ctx.stack_top_;
+   253	                
+   254	                size_t copy_count = (argc < num_params) ? argc : num_params;
+   255	                for (size_t i = 0; i < copy_count; ++i) {
+   256	                    new_base[i] = regs[arg_start + i];
+   257	                }
+   258	
+   259	                for (size_t i = copy_count; i < num_params; ++i) {
+   260	                    new_base[i] = Value(null_t{});
+   261	                }
+   262	
+   263	                state->ctx.frame_ptr_++;
+   264	                *state->ctx.frame_ptr_ = CallFrame(
+   265	                    closure,
+   266	                    new_base,
+   267	                    IsVoid ? nullptr : &regs[dst], 
+   268	                    ip 
+   269	                );
+   270	                
+   271	                state->ctx.current_regs_ = new_base;
+   272	                state->ctx.stack_top_ += num_params;
+   273	                state->ctx.current_frame_ = state->ctx.frame_ptr_;
+   274	                state->update_pointers(); 
+   275	
+   276	                return state->instruction_base;
+   277	            }
+   278	            
+   279	            ic->check_tag = proto;
+   280	        } 
+   281	        
+   282	        if (callee.is_native()) {
+   283	            native_t fn = callee.as_native();
+   284	            if (ic->check_tag != (void*)fn) {
+   285	                ic->check_tag = (void*)fn;
+   286	            }
+   287	
+   288	            Value result = fn(&state->machine, argc, &regs[arg_start]);
+   289	            
+   290	            if (state->machine.has_error()) [[unlikely]] {
+   291	                state->error(std::string(state->machine.get_error_message()));
+   292	                state->machine.clear_error();
+   293	                return impl_PANIC(ip, regs, constants, state);
+   294	            }
+   295	
+   296	            if constexpr (!IsVoid) {
+   297	                if (dst != 0xFFFF) regs[dst] = result;
+   298	            }
+   299	            return ip;
+   300	        }
+   301	
+   302	        Value* ret_dest_ptr = nullptr;
+   303	        if constexpr (!IsVoid) {
+   304	            if (dst != 0xFFFF) ret_dest_ptr = &regs[dst];
+   305	        }
+   306	
+   307	        instance_t self = nullptr;
+   308	        function_t closure = nullptr;
+   309	        bool is_init = false;
+   310	
+   311	        if (callee.is_function()) {
+   312	            closure = callee.as_function();
+   313	        } 
+   314	        else if (callee.is_bound_method()) {
+   315	            bound_method_t bound = callee.as_bound_method();
+   316	            Value receiver = bound->get_receiver();
+   317	            Value method = bound->get_method();
+   318	
+   319	            if (method.is_native()) {
+   320	                native_t fn = method.as_native();
+   321	                
+   322	                std::vector<Value> args;
+   323	                args.reserve(argc + 1);
+   324	                args.push_back(receiver);
+   325	                
+   326	                for (size_t i = 0; i < argc; ++i) {
+   327	                    args.push_back(regs[arg_start + i]);
+   328	                }
+   329	
+   330	                Value result = fn(&state->machine, static_cast<int>(args.size()), args.data());
+   331	                
+   332	                if (state->machine.has_error()) {
+   333	                     return impl_PANIC(ip, regs, constants, state);
+   334	                }
+   335	
+   336	                if constexpr (!IsVoid) regs[dst] = result;
+   337	                return ip;
+   338	            }
+   339	            else if (method.is_function()) {
+   340	                closure = method.as_function();
+   341	                if (receiver.is_instance()) self = receiver.as_instance();
+   342	            }
+   343	        }
+   344	        else if (callee.is_class()) {
+   345	            class_t klass = callee.as_class();
+   346	            self = state->heap.new_instance(klass, state->heap.get_empty_shape());
+   347	            if (ret_dest_ptr) *ret_dest_ptr = Value(self);
+   348	            
+   349	            Value init_method = klass->get_method(state->heap.new_string("init"));
+   350	            if (init_method.is_function()) {
+   351	                closure = init_method.as_function();
+   352	                is_init = true;
+   353	            } else {
+   354	                return ip; 
+   355	            }
+   356	        } 
+   357	        else [[unlikely]] {
+   358	            state->ctx.current_frame_->ip_ = start_ip;
+   359	            state->error(std::format("Giá trị loại '{}' không thể gọi được (Not callable).", to_string(callee)));
+   360	            return impl_PANIC(ip, regs, constants, state);
+   361	        }
+   362	
+   363	        proto_t proto = closure->get_proto();
+   364	        size_t num_params = proto->get_num_registers();
+   365	
+   366	        if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
+   367	            state->ctx.current_frame_->ip_ = start_ip;
+   368	            state->error("Stack Overflow!");
+   369	            return impl_PANIC(ip, regs, constants, state);
+   370	        }
+   371	
+   372	        Value* new_base = state->ctx.stack_top_;
+   373	        size_t arg_offset = 0;
+   374	        
+   375	        if (self != nullptr && num_params > 0) {
+   376	            new_base[0] = Value(self);
+   377	            arg_offset = 1;
+   378	        }
+   379	
+   380	        for (size_t i = 0; i < argc; ++i) {
+   381	            if (arg_offset + i < num_params) {
+   382	                new_base[arg_offset + i] = regs[arg_start + i];
+   383	            }
+   384	        }
+   385	
+   386	        size_t filled_count = arg_offset + argc;
+   387	        if (filled_count > num_params) filled_count = num_params;
+   388	
+   389	        for (size_t i = filled_count; i < num_params; ++i) {
+   390	            new_base[i] = Value(null_t{});
+   391	        }
+   392	
+   393	        state->ctx.frame_ptr_++;
+   394	        *state->ctx.frame_ptr_ = CallFrame(
+   395	            closure,
+   396	            new_base,                          
+   397	            is_init ? nullptr : ret_dest_ptr,  
+   398	            ip                                 
+   399	        );
+   400	
+   401	        state->ctx.current_regs_ = new_base;
+   402	        state->ctx.stack_top_ += num_params;
+   403	        state->ctx.current_frame_ = state->ctx.frame_ptr_;
+   404	        state->update_pointers(); 
+   405	
+   406	        return state->instruction_base;
+   407	    }
+   408	
+   409	    [[gnu::always_inline]] inline static const uint8_t* impl_CALL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   410	        return do_call<false>(ip, regs, constants, state);
+   411	    }
+   412	
+   413	    [[gnu::always_inline]] inline static const uint8_t* impl_CALL_VOID(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   414	        return do_call<true>(ip, regs, constants, state);
+   415	    }
+   416	
+   417	[[gnu::always_inline]] 
+   418	static const uint8_t* impl_TAIL_CALL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   419	    const uint8_t* start_ip = ip - 1;
+   420	
+   421	    uint16_t dst = read_u16(ip); (void)dst;
+   422	    uint16_t fn_reg = read_u16(ip);
+   423	    uint16_t arg_start = read_u16(ip);
+   424	    uint16_t argc = read_u16(ip);
+   425	    
+   426	    ip += 16;
+   427	
+   428	    Value& callee = regs[fn_reg];
+   429	    if (!callee.is_function()) [[unlikely]] {
+   430	        state->ctx.current_frame_->ip_ = start_ip;
+   431	        state->error("TAIL_CALL: Target không phải là Function.");
+   432	        return nullptr;
+   433	    }
+   434	
+   435	    function_t closure = callee.as_function();
+   436	    proto_t proto = closure->get_proto();
+   437	    size_t num_params = proto->get_num_registers();
+   438	
+   439	    size_t current_base_idx = regs - state->ctx.stack_;
+   440	    meow::close_upvalues(state->ctx, current_base_idx);
+   441	
+   442	    size_t copy_count = (argc < num_params) ? argc : num_params;
+   443	
+   444	    for (size_t i = 0; i < copy_count; ++i) {
+   445	        regs[i] = regs[arg_start + i];
+   446	    }
+   447	
+   448	    for (size_t i = copy_count; i < num_params; ++i) {
+   449	        regs[i] = Value(null_t{});
+   450	    }
+   451	
+   452	    CallFrame* current_frame = state->ctx.frame_ptr_;
+   453	    current_frame->function_ = closure;
+   454	    
+   455	    state->ctx.stack_top_ = regs + num_params;
+   456	    state->update_pointers();
+   457	
+   458	    return proto->get_chunk().get_code();
+   459	}
+   460	
+   461	} // namespace meow::handlers
 
 
 // =============================================================================

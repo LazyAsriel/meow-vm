@@ -12,20 +12,13 @@
 
 namespace meow::utils {
 
-// --- 1. Layout Definition (Integrated) ---
 struct NanboxLayout {
     static constexpr uint64_t EXP_MASK     = 0x7FF0000000000000ULL;
     static constexpr uint64_t TAG_MASK     = 0x0007000000000000ULL;
     static constexpr uint64_t PAYLOAD_MASK = 0x0000FFFFFFFFFFFFULL;
-    
-    // QNAN_POS: 0111 1111 1111 1...
     static constexpr uint64_t QNAN_POS     = 0x7FF8000000000000ULL; 
-    // QNAN_NEG: 1111 1111 1111 1...
     static constexpr uint64_t QNAN_NEG     = 0xFFF8000000000000ULL; 
-    
     static constexpr uint64_t VALUELESS    = 0xFFFFFFFFFFFFFFFFULL;
-
-    // --- Shift offset ---
     static constexpr unsigned TAG_SHIFT    = 48;
 
     [[nodiscard]] static consteval uint64_t make_tag(uint64_t index) noexcept {
@@ -54,13 +47,12 @@ struct all_nanboxable_impl<detail::type_list<Ts...>> {
          std::is_same_v<std::decay_t<Ts>, std::monostate> || BoolLike<Ts>)) && ...);
 };
 
-// Internal alias
 using Layout = NanboxLayout;
 
-inline uint64_t to_bits(double d) { return std::bit_cast<uint64_t>(d); }
-inline double from_bits(uint64_t u) { return std::bit_cast<double>(u); }
+[[gnu::always_inline]] inline uint64_t to_bits(double d) noexcept { return std::bit_cast<uint64_t>(d); }
+[[gnu::always_inline]] inline double from_bits(uint64_t u) noexcept { return std::bit_cast<double>(u); }
 
-inline bool is_double(uint64_t b) { 
+[[gnu::always_inline]] inline bool is_double(uint64_t b) noexcept { 
     return (b & Layout::EXP_MASK) != Layout::EXP_MASK; 
 }
 
@@ -73,7 +65,6 @@ class NaNBoxedVariant {
 
 public:
     using inner_types = flat_list;
-    // --- 2. Expose Layout Traits ---
     using layout_traits = NanboxLayout;
 
     static constexpr std::size_t npos = static_cast<std::size_t>(-1);
@@ -87,7 +78,7 @@ public:
     }
 
     NaNBoxedVariant(const NaNBoxedVariant&) = default;
-    NaNBoxedVariant(NaNBoxedVariant&& o) noexcept : bits_(o.bits_) { o.bits_ = Layout::VALUELESS; }
+    NaNBoxedVariant(NaNBoxedVariant&& other) noexcept : bits_(other.bits_) { other.bits_ = Layout::VALUELESS; }
 
     template <typename T>
     requires (detail::type_list_index_of<std::decay_t<T>, flat_list>::value != detail::invalid_index)
@@ -111,23 +102,24 @@ public:
         return *this;
     }
 
-    [[nodiscard]] std::size_t index() const noexcept {        
+    [[nodiscard]] [[gnu::always_inline]]
+    std::size_t index() const noexcept {        
         if (is_double(bits_)) return dbl_idx;
         return static_cast<std::size_t>((bits_ >> Layout::TAG_SHIFT) & 0x7);
     }
 
-    [[nodiscard]] __attribute__((always_inline))
+    [[nodiscard]] [[gnu::always_inline]]
     uint64_t raw_tag() const noexcept {
         return bits_ & Layout::TAG_MASK;
     }
 
-    __attribute__((always_inline))
+    [[gnu::always_inline]]
     void set_raw(uint64_t raw_bits) noexcept {
         bits_ = raw_bits;
     }
 
     template <typename T>
-    [[nodiscard]] __attribute__((always_inline))
+    [[nodiscard]] [[gnu::always_inline]]
     bool holds_both(const NaNBoxedVariant& other) const noexcept {
         using U = std::decay_t<T>;
         
@@ -151,8 +143,7 @@ public:
         }
     }
 
-    // --- 3. Branchless Type Check ---
-    [[nodiscard]] __attribute__((always_inline)) 
+    [[nodiscard]] [[gnu::always_inline]] 
     bool has_same_type_as(const NaNBoxedVariant& other) const noexcept {
         const uint64_t a = bits_;
         const uint64_t b = other.bits_;
@@ -163,10 +154,10 @@ public:
         return same_category & ((!a_is_nan) | same_tag);
     }
 
-    [[nodiscard]] __attribute__((always_inline)) 
+    [[nodiscard]] [[gnu::always_inline]] 
     uint64_t raw() const noexcept { return bits_; }
 
-    [[nodiscard]] __attribute__((always_inline))
+    [[nodiscard]] [[gnu::always_inline]]
     static NaNBoxedVariant from_raw(uint64_t raw_bits) noexcept {
         NaNBoxedVariant v;
         v.bits_ = raw_bits;
@@ -210,9 +201,9 @@ public:
         return const_cast<NaNBoxedVariant*>(this)->get_if<T>();
     }
 
-    void swap(NaNBoxedVariant& o) noexcept { std::swap(bits_, o.bits_); }
-    bool operator==(const NaNBoxedVariant& o) const { return bits_ == o.bits_; }
-    bool operator!=(const NaNBoxedVariant& o) const { return bits_ != o.bits_; }
+    void swap(NaNBoxedVariant& other) noexcept { std::swap(bits_, other.bits_); }
+    bool operator==(const NaNBoxedVariant& other) const { return bits_ == other.bits_; }
+    bool operator!=(const NaNBoxedVariant& other) const { return bits_ != other.bits_; }
 
     template <typename Self, typename Visitor>
     decltype(auto) visit(this Self&& self, Visitor&& vis) {
@@ -225,6 +216,7 @@ private:
     uint64_t bits_;
 
     template <typename T>
+    [[gnu::always_inline]]
     static uint64_t encode(std::size_t idx, T v) noexcept {
         using U = std::decay_t<T>;
         
@@ -259,6 +251,7 @@ private:
     }
 
     template <typename T>
+    [[gnu::always_inline]]
     static T decode(uint64_t bits) noexcept {
         using U = std::decay_t<T>;
         if constexpr (DoubleLike<U>) return from_bits(bits);
@@ -274,19 +267,8 @@ private:
         else return U{};
     }
 
-    template <typename Visitor, std::size_t... Is>
-    decltype(auto) visit_table(Visitor&& vis, std::size_t idx, std::index_sequence<Is...>) const {
-        using R = std::invoke_result_t<Visitor, typename detail::nth_type<0, flat_list>::type>;
-        static constexpr std::array<R (*)(uint64_t, Visitor&&), count> table = {{
-            [](uint64_t b, Visitor&& v) -> R {
-                return std::forward<Visitor>(v)(decode<typename detail::nth_type<Is, flat_list>::type>(b));
-            }...
-        }};
-        return table[idx](bits_, std::forward<Visitor>(vis));
-    }
-
     template <std::size_t I, typename Visitor>
-    __attribute__((always_inline))
+    [[gnu::always_inline, gnu::hot]]
     decltype(auto) visit_recursive(Visitor&& vis, std::size_t idx) const {
         if (idx == I) {
             using T = typename detail::nth_type<I, flat_list>::type;
@@ -300,24 +282,8 @@ private:
         }
     }
 
-    template <std::size_t Begin, std::size_t End, typename Visitor>
-    __attribute__((always_inline))
-    decltype(auto) visit_binary(Visitor&& vis, std::size_t idx) const {
-        if constexpr (Begin + 1 == End) {
-            using T = typename detail::nth_type<Begin, flat_list>::type;
-            return std::forward<Visitor>(vis)(decode<T>(bits_)); 
-        } else {
-            constexpr std::size_t Middle = Begin + (End - Begin) / 2;
-            if (idx < Middle) {
-                return visit_binary<Begin, Middle>(std::forward<Visitor>(vis), idx);
-            } else {
-                return visit_binary<Middle, End>(std::forward<Visitor>(vis), idx);
-            }
-        }
-    }
-
     template <typename Visitor>
-    __attribute__((always_inline))
+    [[gnu::always_inline, gnu::hot]]
     decltype(auto) visit_impl(Visitor&& vis, std::size_t idx) const {
         
         switch (idx) {
