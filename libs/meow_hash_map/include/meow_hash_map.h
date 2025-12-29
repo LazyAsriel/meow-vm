@@ -1,30 +1,71 @@
 #pragma once
 
-#include <concepts>
+#include <cstdint>
+#include <cstring>
 #include <functional>
 #include <type_traits>
-#include <utility>
-#include <cstdint>
 #include <bit>
-#include <cstring>
-#include <new>
-#include <limits>
 #include <memory>
-#include <cmath>
+#include <new>
+#include <utility>
+#include <limits>
+#include <concepts>
+#include <iterator>
 
 namespace meow {
 
 namespace detail {
+    static constexpr uint64_t LO_BITS = 0x0101010101010101ULL;
+    static constexpr uint64_t HI_BITS = 0x8080808080808080ULL;
+    static constexpr size_t GROUP_SIZE = 8;
+    
+    alignas(64) static constexpr int8_t EMPTY_GROUP[16] = {
+        (int8_t)0x80, (int8_t)0x80, (int8_t)0x80, (int8_t)0x80,
+        (int8_t)0x80, (int8_t)0x80, (int8_t)0x80, (int8_t)0x80,
+        (int8_t)0x80, (int8_t)0x80, (int8_t)0x80, (int8_t)0x80,
+        (int8_t)0x80, (int8_t)0x80, (int8_t)0x80, (int8_t)0x80
+    };
+
+    enum : int8_t {
+        CTRL_EMPTY    = static_cast<int8_t>(0x80),
+        CTRL_DELETED  = static_cast<int8_t>(0xFE),
+        CTRL_SENTINEL = static_cast<int8_t>(0xFF)
+    };
+
+    struct Group {
+        uint64_t val;
+        
+        [[gnu::always_inline]] inline static Group load(const int8_t* pos) noexcept {
+            uint64_t v;
+            std::memcpy(&v, pos, sizeof(uint64_t));
+            return {v};
+        }
+        
+        [[gnu::always_inline]] inline uint64_t match_empty() const noexcept {
+            return val & HI_BITS;
+        }
+        
+        [[gnu::always_inline]] inline uint64_t match(int8_t h2) const noexcept {
+            uint64_t x = val ^ (static_cast<uint8_t>(h2) * LO_BITS);
+            return (x - LO_BITS) & ~x & HI_BITS;
+        }
+    };
+
+    [[gnu::always_inline]] inline int count_trailing_zeros(uint64_t mask) noexcept {
+        if constexpr (std::endian::native == std::endian::little) return std::countr_zero(mask);
+        else return std::countl_zero(mask);
+    }
+
     template <typename T>
     struct FastHash {
-        [[nodiscard]] static constexpr uint64_t mix(uint64_t v) noexcept {
-            v ^= v >> 33; v *= 0xff51afd7ed558ccdULL;
-            v ^= v >> 33; v *= 0xc4ceb9fe1a85ec53ULL;
-            v ^= v >> 33; return v;
+        [[gnu::always_inline]] inline static constexpr uint64_t mix(uint64_t A, uint64_t B) noexcept {
+            __uint128_t r = A; r *= B;
+            return static_cast<uint64_t>(r) ^ static_cast<uint64_t>(r >> 64);
         }
-        [[nodiscard]] uint64_t operator()(const T& key) const noexcept {
-            if constexpr (std::is_integral_v<T> || std::is_pointer_v<T>) return mix(static_cast<uint64_t>(key));
-            else return mix(std::hash<T>{}(key));
+        [[gnu::always_inline]] inline uint64_t operator()(const T& key) const noexcept {
+            if constexpr (std::is_integral_v<T> || std::is_pointer_v<T>) {
+                return mix(static_cast<uint64_t>(key) ^ 0x9E3779B97F4A7C15ULL, 0xBF58476D1CE4E5B9ULL);
+            } else return std::hash<T>{}(key);
         }
     };
 }
@@ -40,279 +81,219 @@ class hash_map {
 public:
     using value_type = std::pair<Key, T>;
     using size_type = std::size_t;
+    using allocator_type = Allocator;
 
 private:
-    struct Metadata {
-        uint64_t hash;
-        int16_t psl;
+    using AllocTraits = std::allocator_traits<Allocator>;
+    using ByteAllocator = typename AllocTraits::template rebind_alloc<uint8_t>;
+    using ByteAllocTraits = std::allocator_traits<ByteAllocator>;
+
+    struct Layout {
+        size_t ctrl_offset;
+        size_t slots_offset;
+        size_t total_bytes;
     };
 
-    using AllocTraits = std::allocator_traits<Allocator>;
-    using ByteAlloc = typename AllocTraits::template rebind_alloc<std::byte>;
+    [[gnu::always_inline]] inline static Layout calc_layout(size_type mask) {
+        size_type capacity = mask;
+        size_type n = capacity + 1 + detail::GROUP_SIZE;        
+        constexpr size_t CACHE_LINE = 64;
+        constexpr size_t SLOT_ALIGN = (alignof(value_type) > CACHE_LINE) ? alignof(value_type) : CACHE_LINE;
 
-    Metadata* meta_ = nullptr;
+        size_t slots_off = (n + SLOT_ALIGN - 1) & ~(SLOT_ALIGN - 1);
+        size_t slots_sz = (capacity + 1) * sizeof(value_type);
+        
+        return {0, slots_off, slots_off + slots_sz};
+    }
+
+    int8_t* ctrl_ = const_cast<int8_t*>(detail::EMPTY_GROUP);
     value_type* slots_ = nullptr;
+    uint8_t* raw_allocation_ = nullptr;
     
-    size_type mask_ = 0;
     size_type size_ = 0;
     size_type capacity_ = 0;
-    int16_t max_psl_ = 0;
-    
+
     [[no_unique_address]] Hash hasher_;
     [[no_unique_address]] KeyEqual equal_;
-    [[no_unique_address]] ByteAlloc allocator_;
+    [[no_unique_address]] ByteAllocator allocator_;
+
+    [[gnu::always_inline]] inline static int8_t h2(uint64_t hash) noexcept {
+        return static_cast<int8_t>(hash >> 57) & 0x7F;
+    }
 
 public:
-    hash_map() noexcept = default;
+    hash_map() noexcept(std::is_nothrow_default_constructible_v<ByteAllocator>) = default;
 
-    explicit hash_map(size_type n, const Allocator& alloc = Allocator()) noexcept 
+    explicit hash_map(size_type n, const Allocator& alloc = Allocator()) 
         : allocator_(alloc) {
         if (n > 0) reserve(n);
     }
 
-    ~hash_map() noexcept {
-        if (capacity_ > 0) deallocate_layout(meta_, slots_, capacity_);
-    }
+    ~hash_map() { destroy_layout(); }
 
-    hash_map(hash_map&& other) noexcept 
-        : meta_(other.meta_), slots_(other.slots_),
-          mask_(other.mask_), size_(other.size_), capacity_(other.capacity_),
-          max_psl_(other.max_psl_), allocator_(std::move(other.allocator_)) {
-        other.meta_ = nullptr; other.slots_ = nullptr;
-        other.size_ = 0; other.capacity_ = 0;
-    }
+    template<typename K>
+    [[gnu::hot]] [[gnu::always_inline]] inline
+    auto find(this auto&& self, const K& key) noexcept -> decltype(&self.slots_[0].second) {
+        if (self.capacity_ == 0) [[unlikely]] return nullptr;
 
-    hash_map& operator=(hash_map&& other) noexcept {
-        if (this == &other) return *this;
-        if (capacity_ > 0) deallocate_layout(meta_, slots_, capacity_);
-        
-        meta_ = other.meta_; slots_ = other.slots_;
-        mask_ = other.mask_; size_ = other.size_;
-        capacity_ = other.capacity_; max_psl_ = other.max_psl_;
-        allocator_ = std::move(other.allocator_);
-        
-        other.meta_ = nullptr; other.slots_ = nullptr;
-        other.size_ = 0; other.capacity_ = 0;
-        return *this;
-    }
-
-    // --- LOOKUP ---
-
-    [[nodiscard]] __attribute__((always_inline)) 
-    T* find(const Key& key) noexcept {
-        if (size_ == 0) [[unlikely]] return nullptr;
-
-        const uint64_t h = hasher_(key);
-        size_type idx = h & mask_;
-        int16_t dist = 0;
-        
-        const Metadata* __restrict local_meta = meta_;
+        const uint64_t hash = self.hasher_(key);
+        const int8_t target_h2 = h2(hash);
+        const size_type mask = self.capacity_;
+        size_type idx = hash & mask;
 
         while (true) {
-            const auto& m = local_meta[idx];
-            if (dist > m.psl) return nullptr;
-            if (m.hash == h) {
-                if (equal_(slots_[idx].first, key)) {
-                    return &slots_[idx].second;
+            auto group = detail::Group::load(self.ctrl_ + idx);
+            uint64_t match_mask = group.match(target_h2);
+
+            while (match_mask) {
+                int bit_idx = detail::count_trailing_zeros(match_mask);
+                size_type actual_idx = (idx + (bit_idx >> 3)) & mask;
+                
+                if (self.equal_(self.slots_[actual_idx].first, key)) {
+                    return &self.slots_[actual_idx].second;
                 }
+                match_mask &= (match_mask - 1);
             }
-            idx = (idx + 1) & mask_;
-            dist++;
+            
+            if (group.match_empty() != 0) [[likely]] return nullptr;
+            
+            idx = (idx + detail::GROUP_SIZE) & mask;
         }
     }
 
-    [[nodiscard]] bool contains(const Key& key) const noexcept {
-        return const_cast<hash_map*>(this)->find(key) != nullptr;
+    [[nodiscard]] [[gnu::always_inline]] inline bool contains(const Key& key) const noexcept { 
+        return find(key) != nullptr; 
     }
 
-    T& operator[](Key&& key) noexcept {
-        return *try_emplace_impl(std::move(key));
-    }
-    
-    T& operator[](const Key& key) noexcept {
-        return *try_emplace_impl(key);
+    template<typename K, typename... Args>
+    [[gnu::hot]] T& try_emplace(K&& key, Args&&... args) {
+        if (size_ >= capacity_ * 7 / 8) [[unlikely]] {
+            rehash(capacity_ == 0 ? 7 : (capacity_ * 2) + 1);
+        }
+
+        const uint64_t hash = hasher_(key);
+        const int8_t target_h2 = h2(hash);
+        const size_type mask = capacity_;
+        
+        size_type idx = hash & mask;
+        size_type target_idx = size_type(-1); 
+
+        while (true) {
+            auto group = detail::Group::load(ctrl_ + idx);
+            uint64_t match_mask = group.match(target_h2);
+
+            while (match_mask) {
+                size_type actual_idx = (idx + (detail::count_trailing_zeros(match_mask) >> 3)) & mask;
+                if (equal_(slots_[actual_idx].first, key)) {
+                    return slots_[actual_idx].second;
+                }
+                match_mask &= (match_mask - 1);
+            }
+            
+            uint64_t empty_mask = group.match_empty();
+            if (empty_mask != 0) [[likely]] {
+                target_idx = (idx + (detail::count_trailing_zeros(empty_mask) >> 3)) & mask;
+                break; 
+            }
+            idx = (idx + detail::GROUP_SIZE) & mask;
+        }
+
+        std::construct_at(&slots_[target_idx], 
+            std::piecewise_construct,
+            std::forward_as_tuple(std::forward<K>(key)),
+            std::forward_as_tuple(std::forward<Args>(args)...));
+            
+        ctrl_[target_idx] = target_h2;
+        size_++;
+        return slots_[target_idx].second;
     }
 
-    template <typename... Args>
-    std::pair<T*, bool> try_emplace(Key&& key, Args&&... args) noexcept {
-        T* ptr = try_emplace_impl(std::move(key), std::forward<Args>(args)...);
-        return {ptr, true};
-    }
-    
-    template <typename... Args>
-    std::pair<T*, bool> try_emplace(const Key& key, Args&&... args) noexcept {
-        T* ptr = try_emplace_impl(key, std::forward<Args>(args)...);
-        return {ptr, true};
-    }
+    T& operator[](const Key& key) { return try_emplace(key); }
+    T& operator[](Key&& key) { return try_emplace(std::move(key)); }
 
-    void reserve(size_type n) noexcept {
-        if (n == 0) return;
-        size_type new_cap = std::bit_ceil(static_cast<size_type>(n * 1.1f)); 
-        if (new_cap < 16) new_cap = 16;
-        if (new_cap > capacity_) rehash(new_cap);
+    void reserve(size_type n) {
+        if (n <= size_) return;
+        n = std::bit_ceil(n); 
+        if (n < 8) n = 8;
+        rehash(n - 1);
     }
 
     void clear() noexcept {
         if (size_ == 0) return;
-        for (size_type i = 0; i < capacity_; ++i) {
-            if (meta_[i].psl >= 0) {
-                meta_[i].psl = -1;
-                slots_[i].~value_type();
+        
+        if constexpr (!std::is_trivially_destructible_v<value_type>) {
+            for (size_type i = 0; i <= capacity_; ++i) {
+                if (static_cast<uint8_t>(ctrl_[i]) < 0x80) {
+                    std::destroy_at(&slots_[i]);
+                }
             }
         }
-        size_ = 0; max_psl_ = 0;
+
+        if (capacity_ > 0) {
+            std::memset(ctrl_, detail::CTRL_EMPTY, capacity_ + 1 + detail::GROUP_SIZE);
+        }
+        size_ = 0;
     }
 
 private:
-    void allocate_layout(size_type cap, Metadata*& out_meta, value_type*& out_slots) noexcept {
-        size_type meta_bytes = cap * sizeof(Metadata);
-        size_type slot_bytes = cap * sizeof(value_type);
-        size_type align_offset = (alignof(value_type) - (meta_bytes % alignof(value_type))) % alignof(value_type);
-        
-        size_type total_bytes = meta_bytes + align_offset + slot_bytes;
-        
-        std::byte* raw = allocator_.allocate(total_bytes); // Nếu fail -> terminate
-        
-        out_meta = reinterpret_cast<Metadata*>(raw);
-        out_slots = reinterpret_cast<value_type*>(raw + meta_bytes + align_offset);
-
-        for(size_type i=0; i<cap; ++i) out_meta[i].psl = -1;
+    [[gnu::cold]] void destroy_layout() {
+        if (!raw_allocation_) return;
+        clear();
+        Layout l = calc_layout(capacity_);
+        ByteAllocTraits::deallocate(allocator_, raw_allocation_, l.total_bytes);
     }
 
-    void deallocate_layout(Metadata* m, value_type* s, size_type cap) noexcept {
-        for (size_type i = 0; i < cap; ++i) {
-            if (m[i].psl >= 0) s[i].~value_type();
-        }
+    [[gnu::cold]] void rehash(size_type new_mask) {
+        Layout l = calc_layout(new_mask);
+        uint8_t* raw = ByteAllocTraits::allocate(allocator_, l.total_bytes);
         
-        size_type meta_bytes = cap * sizeof(Metadata);
-        size_type slot_bytes = cap * sizeof(value_type);
-        size_type align_offset = (alignof(value_type) - (meta_bytes % alignof(value_type))) % alignof(value_type);
-        
-        allocator_.deallocate(reinterpret_cast<std::byte*>(m), meta_bytes + align_offset + slot_bytes);
-    }
+        int8_t* new_ctrl = reinterpret_cast<int8_t*>(raw);
+        value_type* new_slots = reinterpret_cast<value_type*>(raw + l.slots_offset);
 
-    void rehash(size_type new_cap) noexcept {
-        Metadata* new_meta = nullptr;
-        value_type* new_slots = nullptr;
-        
-        allocate_layout(new_cap, new_meta, new_slots);
+        std::memset(new_ctrl, detail::CTRL_EMPTY, new_mask + 1 + detail::GROUP_SIZE);
 
-        Metadata* old_meta = meta_;
+        int8_t* old_ctrl = ctrl_;
         value_type* old_slots = slots_;
+        uint8_t* old_raw = raw_allocation_;
         size_type old_cap = capacity_;
 
-        meta_ = new_meta;
+        ctrl_ = new_ctrl;
         slots_ = new_slots;
-        capacity_ = new_cap;
-        mask_ = new_cap - 1;
-        size_ = 0;
-        max_psl_ = 0;
+        raw_allocation_ = raw;
+        capacity_ = new_mask;
 
-        if (old_meta) {
-            for (size_type i = 0; i < old_cap; ++i) {
-                if (old_meta[i].psl >= 0) {
-                    insert_move_on_rehash(std::move(old_slots[i]), old_meta[i].hash);
+        if (old_raw) {
+            for (size_type i = 0; i <= old_cap; ++i) {
+                if (static_cast<uint8_t>(old_ctrl[i]) < 0x80) {
+                    auto& key = old_slots[i].first;
+                    uint64_t hash = hasher_(key);
+                    int8_t target_h2 = h2(hash);
+                    size_type idx = hash & new_mask;
+
+                    while (true) {
+                        auto group = detail::Group::load(new_ctrl + idx);
+                        uint64_t empty_mask = group.match_empty();
+                        if (empty_mask) {
+                            size_type target_idx = (idx + (detail::count_trailing_zeros(empty_mask) >> 3)) & new_mask;
+                            
+                            std::construct_at(&new_slots[target_idx], std::move(old_slots[i]));
+                            new_ctrl[target_idx] = target_h2;
+                            break;
+                        }
+                        idx = (idx + detail::GROUP_SIZE) & new_mask;
+                    }
+
+                    if constexpr (!std::is_trivially_destructible_v<value_type>) {
+                        std::destroy_at(&old_slots[i]);
+                    }
                 }
             }
-            for(size_type i=0; i<old_cap; ++i) old_meta[i].psl = -1;
             
-            size_type meta_bytes = old_cap * sizeof(Metadata);
-            size_type align_offset = (alignof(value_type) - (meta_bytes % alignof(value_type))) % alignof(value_type);
-            allocator_.deallocate(reinterpret_cast<std::byte*>(old_meta), 
-                                  meta_bytes + align_offset + old_cap * sizeof(value_type));
+            Layout old_l = calc_layout(old_cap);
+            ByteAllocTraits::deallocate(allocator_, old_raw, old_l.total_bytes);
         }
-    }
-
-    void insert_move_on_rehash(value_type&& val, uint64_t h) noexcept {
-        size_type idx = h & mask_;
-        int16_t curr_psl = 0;
         
-        value_type curr_val = std::move(val);
-        uint64_t curr_h = h;
-
-        while (true) {
-            if (meta_[idx].psl == -1) {
-                new (&slots_[idx]) value_type(std::move(curr_val));
-                meta_[idx].hash = curr_h;
-                meta_[idx].psl = curr_psl;
-                size_++;
-                if (curr_psl > max_psl_) max_psl_ = curr_psl;
-                return;
-            }
-
-            if (curr_psl > meta_[idx].psl) {
-                std::swap(curr_val, slots_[idx]);
-                std::swap(curr_h, meta_[idx].hash);
-                std::swap(curr_psl, meta_[idx].psl);
-                if (curr_psl > max_psl_) max_psl_ = curr_psl;
-            }
-            idx = (idx + 1) & mask_;
-            curr_psl++;
-        }
-    }
-
-    template <typename K, typename... Args>
-    T* try_emplace_impl(K&& key, Args&&... args) noexcept {
-        if (size_ + 1 > capacity_ * 0.9) [[unlikely]] {
-            rehash(capacity_ == 0 ? 16 : capacity_ * 2);
-        }
-
-        uint64_t h = hasher_(key);
-        size_type idx = h & mask_;
-        int16_t dist = 0;
-
-        while (true) {
-            if (dist > meta_[idx].psl) break; 
-            if (meta_[idx].hash == h && equal_(slots_[idx].first, key)) {
-                return &slots_[idx].second;
-            }
-            idx = (idx + 1) & mask_;
-            dist++;
-        }
-
-        idx = h & mask_;
-        int16_t curr_psl = 0;
-        uint64_t curr_h = h;
-
-        alignas(value_type) std::byte temp_storage[sizeof(value_type)];
-        value_type* curr_val_ptr = reinterpret_cast<value_type*>(temp_storage);
-        
-        new (curr_val_ptr) value_type(std::piecewise_construct,
-                                     std::forward_as_tuple(std::forward<K>(key)),
-                                     std::forward_as_tuple(std::forward<Args>(args)...));
-
-        T* result_ptr = nullptr;
-        bool is_first = true;
-
-        while (true) {
-            if (meta_[idx].psl == -1) {
-                new (&slots_[idx]) value_type(std::move(*curr_val_ptr));
-                meta_[idx].hash = curr_h;
-                meta_[idx].psl = curr_psl;
-                
-                size_++;
-                if (curr_psl > max_psl_) max_psl_ = curr_psl;
-                
-                if (is_first) result_ptr = &slots_[idx].second;
-                curr_val_ptr->~value_type();
-                return is_first ? result_ptr : &slots_[idx].second;
-            }
-
-            if (curr_psl > meta_[idx].psl) {
-                std::swap(curr_h, meta_[idx].hash);
-                std::swap(curr_psl, meta_[idx].psl);
-                std::swap(*curr_val_ptr, slots_[idx]);
-                
-                if (is_first) {
-                    result_ptr = &slots_[idx].second;
-                    is_first = false;
-                }
-                
-                if (curr_psl > max_psl_) max_psl_ = curr_psl;
-            }
-            idx = (idx + 1) & mask_;
-            curr_psl++;
-        }
+        std::memcpy(ctrl_ + (new_mask + 1), ctrl_, detail::GROUP_SIZE);
     }
 };
 
