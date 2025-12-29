@@ -148,7 +148,7 @@ HOT_HANDLER impl_NOT(const uint8_t* ip, Value* regs, const Value* constants, VMS
         val = Value(val.as_float() + 1.0);
     }
     else [[unlikely]] {
-        state->error("INC: Toán hạng phải là số (Int/Real).");
+        state->error("INC: Toán hạng phải là số (Int/Real).", ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     return ip;
@@ -165,7 +165,7 @@ HOT_HANDLER impl_NOT(const uint8_t* ip, Value* regs, const Value* constants, VMS
         val = Value(val.as_float() - 1.0);
     } 
     else [[unlikely]] {
-        state->error("DEC: Toán hạng phải là số (Int/Real).");
+        state->error("DEC: Toán hạng phải là số (Int/Real).", ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     return ip;

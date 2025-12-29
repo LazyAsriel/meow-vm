@@ -62,7 +62,7 @@ namespace meow::handlers {
     Value val = constants[proto_idx];
     if (!val.is_proto()) [[unlikely]] {
         state->ctx.current_frame_->ip_ = ip - 5;
-        state->error("CLOSURE: Constant index " + std::to_string(proto_idx) + " is not a Proto");
+        state->error("CLOSURE: Constant index " + std::to_string(proto_idx) + " is not a Proto", ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     proto_t proto = val.as_proto();

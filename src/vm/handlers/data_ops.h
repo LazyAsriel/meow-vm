@@ -101,13 +101,13 @@ static const uint8_t* impl_NEW_HASH(const uint8_t* ip, Value* regs, const Value*
 
     if (src.is_array()) {
         if (!key.is_int()) {
-            state->error("Array index phải là số nguyên.");
+            state->error("Array index phải là số nguyên.", ip);
             return impl_PANIC(ip, regs, constants, state);
         }
         array_t arr = src.as_array();
         int64_t idx = key.as_int();
         // if (idx < 0 || static_cast<size_t>(idx) >= arr->size()) {
-        //     state->error("Array index out of bounds.");
+        //     state->error("Array index out of bounds.", ip);
         //     return impl_PANIC(ip, regs, constants, state);
         // }
         // regs[dst] = arr->get(idx);
@@ -137,13 +137,13 @@ static const uint8_t* impl_NEW_HASH(const uint8_t* ip, Value* regs, const Value*
     }
     else if (src.is_string()) {
         if (!key.is_int()) {
-            state->error("String index phải là số nguyên.");
+            state->error("String index phải là số nguyên.", ip);
             return impl_PANIC(ip, regs, constants, state);
         }
         string_t str = src.as_string();
         int64_t idx = key.as_int();
         if (idx < 0 || static_cast<size_t>(idx) >= str->size()) {
-            state->error("String index out of bounds.");
+            state->error("String index out of bounds.", ip);
             return impl_PANIC(ip, regs, constants, state);
         }
         char c = str->get(idx);
@@ -152,7 +152,7 @@ static const uint8_t* impl_NEW_HASH(const uint8_t* ip, Value* regs, const Value*
 
     else if (src.is_instance()) {
         if (!key.is_string()) {
-            state->error("Instance index key phải là chuỗi (tên thuộc tính/phương thức).");
+            state->error("Instance index key phải là chuỗi (tên thuộc tính/phương thức).", ip);
             return impl_PANIC(ip, regs, constants, state);
         }
         
@@ -189,7 +189,7 @@ static const uint8_t* impl_NEW_HASH(const uint8_t* ip, Value* regs, const Value*
     }
 
     else {
-        state->error("Không thể dùng toán tử index [] trên kiểu dữ liệu này.");
+        state->error("Không thể dùng toán tử index [] trên kiểu dữ liệu này.", ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     return ip;
@@ -206,13 +206,13 @@ static const uint8_t* impl_NEW_HASH(const uint8_t* ip, Value* regs, const Value*
 
     if (src.is_array()) {
         if (!key.is_int()) {
-            state->error("Array index phải là số nguyên.");
+            state->error("Array index phải là số nguyên.", ip);
             return impl_PANIC(ip, regs, constants, state);
         }
         array_t arr = src.as_array();
         int64_t idx = key.as_int();
         if (idx < 0) {
-            state->error("Array index không được âm.");
+            state->error("Array index không được âm.", ip);
             return impl_PANIC(ip, regs, constants, state);
         }
         if (static_cast<size_t>(idx) >= arr->size()) {
@@ -239,7 +239,7 @@ static const uint8_t* impl_NEW_HASH(const uint8_t* ip, Value* regs, const Value*
     } 
         else if (src.is_instance()) {
         if (!key.is_string()) {
-            state->error("Instance set index key phải là chuỗi.");
+            state->error("Instance set index key phải là chuỗi.", ip);
             return impl_PANIC(ip, regs, constants, state);
         }
         
@@ -266,7 +266,7 @@ static const uint8_t* impl_NEW_HASH(const uint8_t* ip, Value* regs, const Value*
         }
     }
     else {
-        state->error("Không thể gán index [] trên kiểu dữ liệu này.");
+        state->error("Không thể gán index [] trên kiểu dữ liệu này.", ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     return ip;

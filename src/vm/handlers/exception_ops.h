@@ -8,7 +8,7 @@ namespace meow::handlers {
     uint16_t reg = read_u16(ip);
     (void)constants;
     Value& val = regs[reg];
-    state->error(to_string(val));
+    state->error(to_string(val), ip);
     return impl_PANIC(ip, regs, constants, state);
 }
 

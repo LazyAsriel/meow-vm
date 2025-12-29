@@ -29,13 +29,13 @@ static const uint8_t* impl_GET_EXPORT(const uint8_t* ip, Value* regs, const Valu
     string_t name = constants[name_idx].as_string();
     
     if (!mod_val.is_module()) [[unlikely]] {
-        state->error("GET_EXPORT: Toán hạng không phải là Module.");
+        state->error("GET_EXPORT: Toán hạng không phải là Module.", ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     
     module_t mod = mod_val.as_module();
     if (!mod->has_export(name)) [[unlikely]] {
-        state->error("Module không export '" + std::string(name->c_str()) + "'.");
+        state->error("Module không export '" + std::string(name->c_str()) + "'.", ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     
@@ -53,7 +53,7 @@ static const uint8_t* impl_IMPORT_ALL(const uint8_t* ip, Value* regs, const Valu
     if (auto src_mod = mod_val.as_if_module()) {
         state->current_module->import_all_export(src_mod);
     } else [[unlikely]] {
-        state->error("IMPORT_ALL: Register không chứa Module.");
+        state->error("IMPORT_ALL: Register không chứa Module.", ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     return ip;
@@ -87,11 +87,11 @@ static const uint8_t* impl_IMPORT_MODULE(const uint8_t* ip, Value* regs, const V
     size_t num_regs = main_proto->get_num_registers();
 
     if (!state->ctx.check_frame_overflow()) [[unlikely]] {
-        state->error("Call Stack Overflow (too many imports)!");
+        state->error("Call Stack Overflow (too many imports)!", ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     if (!state->ctx.check_overflow(num_regs)) [[unlikely]] {
-        state->error("Register Stack Overflow at import!");
+        state->error("Register Stack Overflow at import!", ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     

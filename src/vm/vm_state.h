@@ -30,16 +30,25 @@ struct VMState {
     std::string error_msg;
     bool has_error_ = false;
 
-    void error(std::string_view msg) noexcept {
+    void error(std::string_view msg, const uint8_t* current_ip = nullptr) noexcept {
         std::cerr << "Runtime Error: " << msg << "\n";
         error_msg = msg;
         has_error_ = true;
+        
         if (ctx.current_frame_ && ctx.current_frame_->function_) {
             const auto& chunk = ctx.current_frame_->function_->get_proto()->get_chunk();
-            size_t ip = ctx.current_frame_->ip_ - chunk.get_code();
-            std::cerr << disassemble_around(chunk, ip, 3);
+            
+            const uint8_t* real_ip = current_ip ? current_ip : ctx.current_frame_->ip_;
+
+            if (real_ip >= chunk.get_code() && real_ip < chunk.get_code() + chunk.get_code_size()) {
+                size_t offset = real_ip - chunk.get_code();
+                std::cerr << disassemble_around(chunk, offset, 3);
+            } else {
+                std::cerr << "[Debug] IP lệch pha (Out of bounds) - Không thể in code trace.\n";
+            }
         }
     }
+
     bool has_error() const noexcept { return has_error_; }
     void clear_error() noexcept { has_error_ = false; error_msg.clear(); }
     std::string_view get_error_message() const noexcept { return error_msg; }

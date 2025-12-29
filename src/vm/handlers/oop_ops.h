@@ -177,7 +177,7 @@ static const uint8_t* impl_INVOKE(const uint8_t* ip, Value* regs, const Value* c
          } else {
              // Trường hợp hiếm: Primitive trả về BoundMethod hoặc Closure
              // ... xử lý tương tự ...
-             state->error("INVOKE: Primitive method type not supported yet.");
+             state->error("INVOKE: Primitive method type not supported yet.", ip);
              return impl_PANIC(start_ip, regs, constants, state);
          }
 
@@ -187,7 +187,7 @@ static const uint8_t* impl_INVOKE(const uint8_t* ip, Value* regs, const Value* c
     }
 
     // Nếu vẫn không tìm thấy -> Lỗi
-    state->error(std::format("INVOKE: Method '{}' not found on object '{}'.", name->c_str(), to_string(receiver)));
+    state->error(std::format("INVOKE: Method '{}' not found on object '{}'.", name->c_str(), to_string(receiver)), ip);
     return impl_PANIC(start_ip, regs, constants, state);
 }
 
@@ -211,7 +211,7 @@ static const uint8_t* impl_NEW_INSTANCE(const uint8_t* ip, Value* regs, const Va
     uint16_t class_reg = read_u16(ip);
     Value& class_val = regs[class_reg];
     if (!class_val.is_class()) [[unlikely]] {
-        state->error("NEW_INSTANCE: Toán hạng không phải là Class.");
+        state->error("NEW_INSTANCE: Toán hạng không phải là Class.", ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     regs[dst] = Value(state->heap.new_instance(class_val.as_class(), state->heap.get_empty_shape()));
@@ -232,7 +232,7 @@ static const uint8_t* impl_GET_PROP(const uint8_t* ip, Value* regs, const Value*
 
     if (obj.is_null()) [[unlikely]] {
         state->ctx.current_frame_->ip_ = start_ip;
-        state->error(std::format("Runtime Error: Cannot read property '{}' of null.", name->c_str()));
+        state->error(std::format("Runtime Error: Cannot read property '{}' of null.", name->c_str()), ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     
@@ -375,7 +375,7 @@ static const uint8_t* impl_SET_PROP(const uint8_t* ip, Value* regs, const Value*
     }
     else {
         state->ctx.current_frame_->ip_ = start_ip;
-        state->error(std::format("SET_PROP: Cannot set property '{}' on type '{}'.", name->c_str(), to_string(obj)));
+        state->error(std::format("SET_PROP: Cannot set property '{}' on type '{}'.", name->c_str(), to_string(obj)), ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     return ip;
@@ -392,11 +392,11 @@ static const uint8_t* impl_SET_METHOD(const uint8_t* ip, Value* regs, const Valu
     Value& method_val = regs[method_reg];
     
     if (!class_val.is_class()) [[unlikely]] {
-        state->error("SET_METHOD: Target must be a Class.");
+        state->error("SET_METHOD: Target must be a Class.", ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     if (!method_val.is_function() && !method_val.is_native()) [[unlikely]] {
-        state->error("SET_METHOD: Value must be a Function or Native.");
+        state->error("SET_METHOD: Value must be a Function or Native.", ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     class_val.as_class()->set_method(name, method_val);
@@ -414,7 +414,7 @@ static const uint8_t* impl_INHERIT(const uint8_t* ip, Value* regs, const Value* 
     Value& super_val = regs[super_reg];
     
     if (!sub_val.is_class() || !super_val.is_class()) [[unlikely]] {
-        state->error("INHERIT: Both operands must be Classes.");
+        state->error("INHERIT: Both operands must be Classes.", ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     
@@ -434,7 +434,7 @@ static const uint8_t* impl_GET_SUPER(const uint8_t* ip, Value* regs, const Value
     
     if (!receiver_val.is_instance()) [[unlikely]] {
         state->ctx.current_frame_->ip_ = start_ip;
-        state->error("GET_SUPER: 'super' is only valid inside an instance method.");
+        state->error("GET_SUPER: 'super' is only valid inside an instance method.", ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     
@@ -444,7 +444,7 @@ static const uint8_t* impl_GET_SUPER(const uint8_t* ip, Value* regs, const Value
     
     if (!super) {
         state->ctx.current_frame_->ip_ = start_ip;
-        state->error("GET_SUPER: Class has no superclass.");
+        state->error("GET_SUPER: Class has no superclass.", ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     
@@ -458,7 +458,7 @@ static const uint8_t* impl_GET_SUPER(const uint8_t* ip, Value* regs, const Value
     }
     
     state->ctx.current_frame_->ip_ = start_ip;
-    state->error(std::format("GET_SUPER: Method '{}' not found in superclass.", name->c_str()));
+    state->error(std::format("GET_SUPER: Method '{}' not found in superclass.", name->c_str()), ip);
     return impl_PANIC(ip, regs, constants, state);
 }
 

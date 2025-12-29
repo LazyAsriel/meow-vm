@@ -44,8 +44,12 @@ namespace meow::handlers {
 
         // 1. Check Stack Overflow
         if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
-            state->ctx.current_frame_->ip_ = err_ip;
-            state->error("Stack Overflow!");
+            // Dòng này thực ra không cần thiết nữa nếu state->error đã nhận tham số thứ 2
+            // state->ctx.current_frame_->ip_ = err_ip; 
+            
+            // FIX: Dùng 'err_ip' thay vì 'ip'
+            state->error("Stack Overflow!", err_ip); 
+            
             return nullptr; // Báo hiệu lỗi
         }
 
@@ -129,7 +133,7 @@ namespace meow::handlers {
 
     [[gnu::always_inline]]
     inline static const uint8_t* impl_UNIMPL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-        state->error("Opcode chưa được hỗ trợ (UNIMPL)");
+        state->error("Opcode chưa được hỗ trợ (UNIMPL)", ip);
         return impl_PANIC(ip, regs, constants, state);
     }
 
@@ -245,7 +249,7 @@ namespace meow::handlers {
                 
                 if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
                     state->ctx.current_frame_->ip_ = start_ip;
-                    state->error("Stack Overflow!");
+                    state->error("Stack Overflow!", ip);
                     return impl_PANIC(ip, regs, constants, state);
                 }
 
@@ -288,7 +292,7 @@ namespace meow::handlers {
             Value result = fn(&state->machine, argc, &regs[arg_start]);
             
             if (state->machine.has_error()) [[unlikely]] {
-                state->error(std::string(state->machine.get_error_message()));
+                state->error(std::string(state->machine.get_error_message()), ip);
                 state->machine.clear_error();
                 return impl_PANIC(ip, regs, constants, state);
             }
@@ -356,7 +360,7 @@ namespace meow::handlers {
         } 
         else [[unlikely]] {
             state->ctx.current_frame_->ip_ = start_ip;
-            state->error(std::format("Giá trị loại '{}' không thể gọi được (Not callable).", to_string(callee)));
+            state->error(std::format("Giá trị loại '{}' không thể gọi được (Not callable).", to_string(callee)), ip);
             return impl_PANIC(ip, regs, constants, state);
         }
 
@@ -365,7 +369,7 @@ namespace meow::handlers {
 
         if (!state->ctx.check_frame_overflow() || !state->ctx.check_overflow(num_params)) [[unlikely]] {
             state->ctx.current_frame_->ip_ = start_ip;
-            state->error("Stack Overflow!");
+            state->error("Stack Overflow!", ip);
             return impl_PANIC(ip, regs, constants, state);
         }
 
@@ -428,7 +432,7 @@ static const uint8_t* impl_TAIL_CALL(const uint8_t* ip, Value* regs, const Value
     Value& callee = regs[fn_reg];
     if (!callee.is_function()) [[unlikely]] {
         state->ctx.current_frame_->ip_ = start_ip;
-        state->error("TAIL_CALL: Target không phải là Function.");
+        state->error("TAIL_CALL: Target không phải là Function.", ip);
         return nullptr;
     }
 
