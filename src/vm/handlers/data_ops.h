@@ -189,7 +189,7 @@ static const uint8_t* impl_NEW_HASH(const uint8_t* ip, Value* regs, const Value*
     }
 
     else {
-        state->error("Không thể dùng toán tử index [] trên kiểu dữ liệu này.", ip);
+        state->error("Không thể dùng toán tử index [] trên src = " + to_string(src) + " với key = " + to_string(key), ip);
         return impl_PANIC(ip, regs, constants, state);
     }
     return ip;
