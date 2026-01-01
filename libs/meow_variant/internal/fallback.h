@@ -204,7 +204,8 @@ public:
 
     template <typename T>
     decltype(auto) safe_get() const {
-        if (!holds<T>()) throw std::bad_variant_access();
+        // if (!holds<T>()) throw std::bad_variant_access();
+        if (!holds<T>()) [[unlikely]] std::abort();
         return unsafe_get<T>();
     }
 

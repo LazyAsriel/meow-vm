@@ -26,14 +26,6 @@ struct NanboxLayout {
     }
 };
 
-#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && \
-    (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) && \
-    (defined(__x86_64__) || defined(_M_X64) || defined(__aarch64__))
-    #define MEOW_LITTLE_64 1
-#else
-    #define MEOW_LITTLE_64 0
-#endif
-
 template <typename T> concept PointerLike = std::is_pointer_v<std::decay_t<T>>;
 template <typename T> concept IntegralLike = std::is_integral_v<std::decay_t<T>> && !std::is_same_v<std::decay_t<T>, bool>;
 template <typename T> concept DoubleLike = std::is_floating_point_v<std::decay_t<T>>;
@@ -174,7 +166,8 @@ public:
 
     template <typename T>
     [[nodiscard]] std::decay_t<T> safe_get() const {
-        if (!holds<T>()) throw std::bad_variant_access();
+        // if (!holds<T>()) [[unlikely]] throw std::bad_variant_access();
+        if (!holds<T>()) [[unlikely]] std::abort();
         return decode<std::decay_t<T>>(bits_);
     }
 

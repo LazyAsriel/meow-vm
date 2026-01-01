@@ -1,168 +1,182 @@
 #include <meow/masm/lexer.h>
 #include <meow/bytecode/op_codes.h>
-#include <cctype>
-#include <string_view>
-#include <utility>
+#include <meow_enum.h> 
+#include <cstring>
+#include <array>
 
 namespace meow::masm {
 
 std::unordered_map<std::string_view, meow::OpCode> OP_MAP;
 
-namespace {
-    template <auto V> consteval std::string_view get_raw_name() {
-#if defined(__clang__) || defined(__GNUC__)
-        return __PRETTY_FUNCTION__;
-#elif defined(_MSC_VER)
-        return __FUNCSIG__;
-#else
-        return "";
-#endif
-    }
-    template <auto V> consteval std::string_view get_enum_name() {
-        constexpr std::string_view raw = get_raw_name<V>();
-#if defined(__clang__) || defined(__GNUC__)
-        constexpr auto end_pos = raw.size() - 1;
-        constexpr auto last_colon = raw.find_last_of(':', end_pos);
-        if (last_colon == std::string_view::npos) return ""; 
-        return raw.substr(last_colon + 1, end_pos - (last_colon + 1));
-#else
-        return "UNKNOWN";
-#endif
-    }
-    template <size_t... Is> void build_map_impl(std::index_sequence<Is...>) {
-        (..., (OP_MAP[get_enum_name<static_cast<meow::OpCode>(Is)>()] = static_cast<meow::OpCode>(Is)));
+[[gnu::cold]] void init_op_map() {
+    if (!OP_MAP.empty()) [[likely]] return;
+    OP_MAP.reserve(128); 
+    for (auto op : meow::enum_values<meow::OpCode>()) {
+        std::string_view name = meow::enum_name(op);
+        if (name.empty() || name == "TOTAL_OPCODES") continue;
+        OP_MAP[name] = op;
     }
 }
 
-void init_op_map() {
-    if (!OP_MAP.empty()) return;
-    constexpr size_t Count = static_cast<size_t>(meow::OpCode::TOTAL_OPCODES);
-    build_map_impl(std::make_index_sequence<Count>{});
-    OP_MAP.erase("__BEGIN_OPERATOR__");
-    OP_MAP.erase("__END_OPERATOR__");
+enum CharType : uint8_t {
+    CT_NONE=0, CT_SPACE=1, CT_ALPHA=2, CT_DIGIT=4, CT_IDENT=8, CT_QUOTE=16, CT_NL=32
+};
+
+static constexpr std::array<uint8_t, 256> CHAR_TABLE = []() {
+    std::array<uint8_t, 256> table = {0};
+    table[' '] = CT_SPACE; table['\t'] = CT_SPACE; table['\r'] = CT_SPACE;
+    table['\n'] = CT_NL;
+    for (int i='0'; i<='9'; ++i) table[i] |= CT_DIGIT | CT_IDENT;
+    for (int i='a'; i<='z'; ++i) table[i] |= CT_ALPHA | CT_IDENT;
+    for (int i='A'; i<='Z'; ++i) table[i] |= CT_ALPHA | CT_IDENT;
+    table['_'] |= CT_ALPHA | CT_IDENT;
+    table['@'] |= CT_ALPHA | CT_IDENT; 
+    table['/'] |= CT_IDENT; table['-'] |= CT_IDENT; table['.'] |= CT_IDENT;
+    table['"'] |= CT_QUOTE; table['\'']|= CT_QUOTE;
+    return table;
+}();
+
+Lexer::Lexer(std::string_view src) noexcept 
+    : src_(src), cursor_(src.data()), end_(src.data() + src.size()), line_start_(src.data()) 
+{
+    if (OP_MAP.empty()) [[unlikely]] init_op_map();
 }
 
-std::vector<Token> Lexer::tokenize() {
-    std::vector<Token> tokens;
-    while (!is_at_end()) {
-        char c = peek();
-        if (isspace(c)) {
-            if (c == '\n') line_++;
-            advance();
+Token Lexer::next_token() {
+    const auto* table = CHAR_TABLE.data();
+
+    while (cursor_ < end_) [[likely]] {
+        uint8_t type = table[static_cast<uint8_t>(*cursor_)];
+
+        if (type & CT_SPACE) { cursor_++; continue; }
+
+        if (type & CT_NL) {
+            line_++;
+            cursor_++;
+            line_start_ = cursor_;
             continue;
         }
-        
-        // Xử lý các loại comment và annotation bắt đầu bằng '#'
-        if (c == '#') {
-            if (peek(1) == '^') {
-                // Debug Info: #^ "file" line:col
-                advance(); advance(); // Consume #^
-                tokens.push_back(scan_debug_info());
-            } 
-            else if (peek(1) == '@') {
-                // Annotation: #@ directive
-                advance(); advance(); // Consume #@
-                tokens.push_back(scan_annotation());
-            } 
-            else {
-                // Comment thường: bỏ qua đến hết dòng
-                while (peek() != '\n' && !is_at_end()) advance();
+
+        if (type & CT_ALPHA) {
+            const char* start = cursor_;
+            do { cursor_++; } while (cursor_ < end_ && (table[static_cast<uint8_t>(*cursor_)] & CT_IDENT));
+            
+            if (cursor_ < end_ && *cursor_ == ':') {
+                uint32_t col = static_cast<uint32_t>(start - line_start_ + 1);
+                Token t{TokenType::LABEL_DEF, {start, static_cast<size_t>(cursor_ - start)}, line_, col, 0};
+                cursor_++;
+                return t;
             }
-            continue;
+
+            std::string_view text(start, cursor_ - start);
+            uint16_t payload = 0;
+            TokenType tk_type = TokenType::IDENTIFIER;
+
+            if (text[0] >= 'A' && text[0] <= 'Z') {
+                if (auto it = OP_MAP.find(text); it != OP_MAP.end()) {
+                    tk_type = TokenType::OPCODE;
+                    payload = static_cast<uint16_t>(it->second);
+                }
+            }
+            return {tk_type, text, line_, static_cast<uint32_t>(start - line_start_ + 1), payload};
         }
 
-        if (c == '.') { tokens.push_back(scan_directive()); continue; }
-        if (c == '"' || c == '\'') { tokens.push_back(scan_string()); continue; }
-        if (isdigit(c) || (c == '-' && isdigit(peek(1)))) { tokens.push_back(scan_number()); continue; }
-        if (isalpha(c) || c == '_' || c == '@') { tokens.push_back(scan_identifier()); continue; }
-        advance();
+        if (*cursor_ == '.') {
+            const char* start = cursor_;
+            cursor_++;
+            while (cursor_ < end_ && (table[static_cast<uint8_t>(*cursor_)] & CT_IDENT)) cursor_++;
+            
+            size_t len = cursor_ - start;
+            TokenType tk_type = TokenType::IDENTIFIER;
+            if (len > 4) {
+                 switch (len) {
+                    case 5: if (std::memcmp(start, ".func", 5)==0) tk_type = TokenType::DIR_FUNC; break;
+                    case 6: if (std::memcmp(start, ".const", 6)==0) tk_type = TokenType::DIR_CONST; break;
+                    case 8: if (std::memcmp(start, ".endfunc", 8)==0) tk_type = TokenType::DIR_ENDFUNC;
+                            else if (std::memcmp(start, ".upvalue", 8)==0) tk_type = TokenType::DIR_UPVALUE; break;
+                    case 9: if (std::memcmp(start, ".upvalues", 9)==0) tk_type = TokenType::DIR_UPVALUES; break;
+                    case 10: if (std::memcmp(start, ".registers", 10)==0) tk_type = TokenType::DIR_REGISTERS; break;
+                 }
+            }
+            return {tk_type, {start, len}, line_, static_cast<uint32_t>(start - line_start_ + 1), 0};
+        }
+
+        if (type & CT_DIGIT) {
+            const char* start = cursor_;
+            if (*cursor_ == '0' && cursor_ + 1 < end_ && (*(cursor_+1) | 32) == 'x') {
+                cursor_ += 2;
+                while (cursor_ < end_) {
+                    char c = *cursor_;
+                    if ((c >= '0' && c <= '9') || ((c|32) >= 'a' && (c|32) <= 'f')) cursor_++;
+                    else break;
+                }
+                return {TokenType::NUMBER_INT, {start, static_cast<size_t>(cursor_ - start)}, line_, static_cast<uint32_t>(start - line_start_ + 1), 0};
+            }
+            
+            bool is_float = false;
+            while (cursor_ < end_ && (table[static_cast<uint8_t>(*cursor_)] & CT_DIGIT)) cursor_++;
+            if (cursor_ < end_ && *cursor_ == '.') {
+                is_float = true;
+                cursor_++;
+                while (cursor_ < end_ && (table[static_cast<uint8_t>(*cursor_)] & CT_DIGIT)) cursor_++;
+            }
+            return {is_float ? TokenType::NUMBER_FLOAT : TokenType::NUMBER_INT, {start, static_cast<size_t>(cursor_ - start)}, line_, static_cast<uint32_t>(start - line_start_ + 1), 0};
+        }
+
+        if (*cursor_ == '-') {
+             if (cursor_ + 1 < end_ && (table[static_cast<uint8_t>(*(cursor_+1))] & CT_DIGIT)) {
+                 const char* start = cursor_;
+                 cursor_++; 
+                 bool is_float = false;
+                 while (cursor_ < end_ && (table[static_cast<uint8_t>(*cursor_)] & CT_DIGIT)) cursor_++;
+                 if (cursor_ < end_ && *cursor_ == '.') {
+                    is_float = true;
+                    cursor_++;
+                    while (cursor_ < end_ && (table[static_cast<uint8_t>(*cursor_)] & CT_DIGIT)) cursor_++;
+                 }
+                 return {is_float ? TokenType::NUMBER_FLOAT : TokenType::NUMBER_INT, {start, static_cast<size_t>(cursor_ - start)}, line_, static_cast<uint32_t>(start - line_start_ + 1), 0};
+             }
+             const char* start = cursor_;
+             do { cursor_++; } while (cursor_ < end_ && (table[static_cast<uint8_t>(*cursor_)] & CT_IDENT));
+             return {TokenType::IDENTIFIER, {start, static_cast<size_t>(cursor_ - start)}, line_, static_cast<uint32_t>(start - line_start_ + 1), 0};
+        }
+
+        if (type & CT_QUOTE) {
+            const char* start = cursor_;
+            char quote = *cursor_;
+            cursor_++;
+            while (cursor_ < end_ && *cursor_ != quote) {
+                if (*cursor_ == '\\') cursor_ += 2; 
+                else cursor_++;
+            }
+            if (cursor_ < end_) cursor_++;
+            return {TokenType::STRING, {start, static_cast<size_t>(cursor_ - start)}, line_, static_cast<uint32_t>(start - line_start_ + 1), 0};
+        }
+
+        if (*cursor_ == '#') {
+             if (cursor_ + 1 < end_) {
+                char next = *(cursor_ + 1);
+                if (next == '^' || next == '@') {
+                    bool is_dbg = (next == '^');
+                    cursor_ += 2;
+                    while (cursor_ < end_ && (table[static_cast<uint8_t>(*cursor_)] & CT_SPACE)) cursor_++;
+                    const char* start = cursor_;
+                    if (is_dbg) while (cursor_ < end_ && *cursor_ != '\n') cursor_++;
+                    else while (cursor_ < end_ && (table[static_cast<uint8_t>(*cursor_)] & CT_IDENT)) cursor_++;
+                    
+                    return {is_dbg ? TokenType::DEBUG_INFO : TokenType::ANNOTATION, {start, static_cast<size_t>(cursor_ - start)}, line_, static_cast<uint32_t>(start - line_start_ + 1), 0};
+                }
+             }
+             while (cursor_ < end_ && *cursor_ != '\n') cursor_++;
+             continue;
+        }
+
+        Token err{TokenType::UNKNOWN, {cursor_, 1}, line_, static_cast<uint32_t>(cursor_ - line_start_ + 1), 0};
+        cursor_++;
+        return err;
     }
-    tokens.push_back({TokenType::END_OF_FILE, "", line_});
-    return tokens;
-}
 
-bool Lexer::is_at_end() const { return pos_ >= src_.size(); }
-char Lexer::peek(int offset) const { 
-    if (pos_ + offset >= src_.size()) return '\0';
-    return src_[pos_ + offset]; 
-}
-char Lexer::advance() { return src_[pos_++]; }
-
-// Quét phần còn lại của dòng làm nội dung debug
-Token Lexer::scan_debug_info() {
-    size_t start = pos_;
-    while (peek() != '\n' && !is_at_end()) {
-        advance();
-    }
-    return {TokenType::DEBUG_INFO, src_.substr(start, pos_ - start), line_};
-}
-
-// Quét từ khóa annotation (bỏ qua khoảng trắng đầu)
-Token Lexer::scan_annotation() {
-    while (peek() == ' ' || peek() == '\t') advance(); // Skip space
-    
-    size_t start = pos_;
-    while (isalnum(peek()) || peek() == '_') advance();
-    
-    return {TokenType::ANNOTATION, src_.substr(start, pos_ - start), line_};
-}
-
-Token Lexer::scan_directive() {
-    size_t start = pos_;
-    advance(); 
-    while (isalnum(peek()) || peek() == '_' || peek() == '-' || peek() == '/' || peek() == '.') advance();
-    std::string_view text = src_.substr(start, pos_ - start);
-    TokenType type = TokenType::IDENTIFIER; 
-    
-    if (text == ".func") type = TokenType::DIR_FUNC;
-    else if (text == ".endfunc") type = TokenType::DIR_ENDFUNC;
-    else if (text == ".registers") type = TokenType::DIR_REGISTERS;
-    else if (text == ".upvalues") type = TokenType::DIR_UPVALUES;
-    else if (text == ".upvalue") type = TokenType::DIR_UPVALUE;
-    else if (text == ".const") type = TokenType::DIR_CONST;
-    return {type, text, line_};
-}
-
-Token Lexer::scan_string() {
-    char quote = advance();
-    size_t start = pos_ - 1; 
-    while (peek() != quote && !is_at_end()) {
-        if (peek() == '\\') advance();
-        advance();
-    }
-    if (!is_at_end()) advance();
-    return {TokenType::STRING, src_.substr(start, pos_ - start), line_};
-}
-
-Token Lexer::scan_number() {
-    size_t start = pos_;
-    if (peek() == '-') advance();
-    if (peek() == '0' && (peek(1) == 'x' || peek(1) == 'X')) {
-        advance(); advance();
-        while (isxdigit(peek())) advance();
-        return {TokenType::NUMBER_INT, src_.substr(start, pos_ - start), line_};
-    }
-    bool is_float = false;
-    while (isdigit(peek())) advance();
-    if (peek() == '.' && isdigit(peek(1))) {
-        is_float = true;
-        advance();
-        while (isdigit(peek())) advance();
-    }
-    return {is_float ? TokenType::NUMBER_FLOAT : TokenType::NUMBER_INT, src_.substr(start, pos_ - start), line_};
-}
-
-Token Lexer::scan_identifier() {
-    size_t start = pos_;
-    while (isalnum(peek()) || peek() == '_' || peek() == '@' || peek() == '/' || peek() == '-' || peek() == '.') advance();
-    
-    if (peek() == ':') {
-        advance(); 
-        return {TokenType::LABEL_DEF, src_.substr(start, pos_ - start - 1), line_};
-    }
-    std::string_view text = src_.substr(start, pos_ - start);
-    if (OP_MAP.count(text)) return {TokenType::OPCODE, text, line_};
-    return {TokenType::IDENTIFIER, text, line_};
+    return {TokenType::END_OF_FILE, {}, line_, 0, 0};
 }
 
 } // namespace meow::masm

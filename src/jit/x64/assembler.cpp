@@ -8,18 +8,21 @@ Assembler::Assembler(uint8_t* buffer, size_t capacity)
     : buffer_(buffer), capacity_(capacity), size_(0) {}
 
 void Assembler::emit(uint8_t b) {
-    if (size_ >= capacity_) throw std::runtime_error("JIT Buffer Overflow");
+    // if (size_ >= capacity_) [[unlikely]] throw std::runtime_error("JIT Buffer Overflow");
+    if (size_ >= capacity_) [[unlikely]] std::abort();
     buffer_[size_++] = b;
 }
 
 void Assembler::emit_u32(uint32_t v) {
-    if (size_ + 4 > capacity_) throw std::runtime_error("JIT Buffer Overflow");
+    // if (size_ + 4 > capacity_) [[unlikely]] throw std::runtime_error("JIT Buffer Overflow");
+    if (size_ + 4 > capacity_) [[unlikely]] std::abort();
     std::memcpy(buffer_ + size_, &v, 4);
     size_ += 4;
 }
 
 void Assembler::emit_u64(uint64_t v) {
-    if (size_ + 8 > capacity_) throw std::runtime_error("JIT Buffer Overflow");
+    // if (size_ + 8 > capacity_) [[unlikely]] throw std::runtime_error("JIT Buffer Overflow");
+    if (size_ + 8 > capacity_) [[unlikely]] std::abort();
     std::memcpy(buffer_ + size_, &v, 8);
     size_ += 8;
 }

@@ -86,320 +86,316 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
 
     std::format_to(std::back_inserter(line), "{:<16}", get_opcode_name(op));
 
-    try {
-        switch (op) {
-            // --- CONSTANTS ---
-            case OpCode::LOAD_CONST: {
-                uint16_t dst = read_u16(code, ip);
-                uint16_t idx = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{}, [{}]", dst, idx);
-                if (idx < chunk.get_pool_size()) {
-                    std::format_to(std::back_inserter(line), " ({})", value_to_string(chunk.get_constant(idx)));
-                }
-                break;
+    switch (op) {
+        // --- CONSTANTS ---
+        case OpCode::LOAD_CONST: {
+            uint16_t dst = read_u16(code, ip);
+            uint16_t idx = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, [{}]", dst, idx);
+            if (idx < chunk.get_pool_size()) {
+                std::format_to(std::back_inserter(line), " ({})", value_to_string(chunk.get_constant(idx)));
             }
-            case OpCode::LOAD_INT: {
-                uint16_t dst = read_u16(code, ip);
-                int64_t val = std::bit_cast<int64_t>(read_u64(code, ip));
-                std::format_to(std::back_inserter(line), "r{}, {}", dst, val);
-                break;
-            }
-            case OpCode::LOAD_FLOAT: {
-                uint16_t dst = read_u16(code, ip);
-                double val = read_f64(code, ip);
-                std::format_to(std::back_inserter(line), "r{}, {:.6g}", dst, val);
-                break;
-            }
-            case OpCode::LOAD_NULL:
-            case OpCode::LOAD_TRUE:
-            case OpCode::LOAD_FALSE: {
-                uint16_t dst = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{}", dst);
-                break;
-            }
-            case OpCode::LOAD_INT_B: {
-                uint8_t dst = read_u8(code, ip);
-                int8_t val = static_cast<int8_t>(read_u8(code, ip));
-                std::format_to(std::back_inserter(line), "r{}, {}", dst, val);
-                break;
-            }
-
-            // --- MOVES ---
-            case OpCode::MOVE: {
-                uint16_t dst = read_u16(code, ip);
-                uint16_t src = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{}, r{}", dst, src);
-                break;
-            }
-            case OpCode::MOVE_B: {
-                uint8_t dst = read_u8(code, ip);
-                uint8_t src = read_u8(code, ip);
-                std::format_to(std::back_inserter(line), "r{}, r{}", dst, src);
-                break;
-            }
-
-            // --- MATH / BINARY (STANDARD) ---
-            case OpCode::ADD: case OpCode::SUB: case OpCode::MUL: case OpCode::DIV:
-            case OpCode::MOD: case OpCode::POW:
-            case OpCode::EQ: case OpCode::NEQ: case OpCode::GT: case OpCode::GE:
-            case OpCode::LT: case OpCode::LE:
-            case OpCode::BIT_AND: case OpCode::BIT_OR: case OpCode::BIT_XOR:
-            case OpCode::LSHIFT: case OpCode::RSHIFT: {
-                uint16_t dst = read_u16(code, ip);
-                uint16_t r1 = read_u16(code, ip);
-                uint16_t r2 = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{}, r{}, r{}", dst, r1, r2);
-                break;
-            }
-
-            // --- MATH / BINARY (BYTE OPTIMIZED) ---
-            case OpCode::ADD_B: case OpCode::SUB_B: case OpCode::MUL_B: case OpCode::DIV_B:
-            case OpCode::MOD_B:
-            case OpCode::EQ_B: case OpCode::NEQ_B: case OpCode::GT_B: case OpCode::GE_B:
-            case OpCode::LT_B: case OpCode::LE_B: {
-                uint8_t dst = read_u8(code, ip);
-                uint8_t r1 = read_u8(code, ip);
-                uint8_t r2 = read_u8(code, ip);
-                std::format_to(std::back_inserter(line), "r{}, r{}, r{}", dst, r1, r2);
-                break;
-            }
-
-            // --- UNARY ---
-            case OpCode::NEG: case OpCode::NOT: case OpCode::BIT_NOT: {
-                uint16_t dst = read_u16(code, ip);
-                uint16_t src = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{}, r{}", dst, src);
-                break;
-            }
-            case OpCode::INC: case OpCode::DEC: case OpCode::THROW: {
-                uint16_t reg = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{}", reg);
-                break;
-            }
-
-            // --- GLOBALS / UPVALUES ---
-            case OpCode::GET_GLOBAL: {
-                uint16_t dst = read_u16(code, ip);
-                uint16_t idx = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{}, g[{}]", dst, idx);
-                if (idx < chunk.get_pool_size()) std::format_to(std::back_inserter(line), " ({})", value_to_string(chunk.get_constant(idx)));
-                break;
-            }
-            case OpCode::SET_GLOBAL: {
-                uint16_t idx = read_u16(code, ip);
-                uint16_t src = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "g[{}], r{}", idx, src);
-                if (idx < chunk.get_pool_size()) std::format_to(std::back_inserter(line), " ({})", value_to_string(chunk.get_constant(idx)));
-                break;
-            }
-            case OpCode::GET_UPVALUE: {
-                uint16_t dst = read_u16(code, ip);
-                uint16_t idx = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{}, uv[{}]", dst, idx);
-                break;
-            }
-            case OpCode::SET_UPVALUE: {
-                uint16_t idx = read_u16(code, ip);
-                uint16_t src = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "uv[{}], r{}", idx, src);
-                break;
-            }
-            case OpCode::CLOSURE: {
-                uint16_t dst = read_u16(code, ip);
-                uint16_t idx = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{}, <proto {}>", dst, idx);
-                break;
-            }
-            case OpCode::CLOSE_UPVALUES: {
-                uint16_t slot = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "stack>={}", slot);
-                break;
-            }
-
-            // --- JUMPS ---
-            case OpCode::JUMP: {
-                uint16_t offset = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "-> {:04d}", offset);
-                break;
-            }
-            case OpCode::SETUP_TRY: {
-                uint16_t offset = read_u16(code, ip);
-                uint16_t err_reg = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "try -> {:04d}, catch=r{}", offset, err_reg);
-                break;
-            }
-            case OpCode::JUMP_IF_FALSE:
-            case OpCode::JUMP_IF_TRUE: {
-                uint16_t cond = read_u16(code, ip);
-                uint16_t offset = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{} ? -> {:04d}", cond, offset);
-                break;
-            }
-            case OpCode::JUMP_IF_FALSE_B:
-            case OpCode::JUMP_IF_TRUE_B: {
-                uint8_t cond = read_u8(code, ip);
-                uint16_t offset = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{} ? -> {:04d}", cond, offset);
-                break;
-            }
-
-            // --- CALLS  ---
-            case OpCode::CALL: {
-                uint16_t dst = read_u16(code, ip);
-                uint16_t fn = read_u16(code, ip);
-                uint16_t arg = read_u16(code, ip);
-                uint16_t argc = read_u16(code, ip);
-                
-                std::format_to(std::back_inserter(line), "r{} = r{}(argc={}, args=r{})", dst, fn, argc, arg);
-                
-                ip += CALL_IC_SIZE; 
-                break;
-            }
-            case OpCode::CALL_VOID: {
-                uint16_t fn = read_u16(code, ip);
-                uint16_t arg = read_u16(code, ip);
-                uint16_t argc = read_u16(code, ip);
-
-                std::format_to(std::back_inserter(line), "void r{}(argc={}, args=r{})", fn, argc, arg);
-                
-                ip += CALL_IC_SIZE;
-                break;
-            }
-            case OpCode::TAIL_CALL: {
-                uint16_t dst = read_u16(code, ip); (void)dst;
-                uint16_t fn = read_u16(code, ip);
-                uint16_t arg = read_u16(code, ip);
-                uint16_t argc = read_u16(code, ip);
-
-                std::format_to(std::back_inserter(line), "tail r{}(argc={}, args=r{})", fn, argc, arg);
-                
-                ip += CALL_IC_SIZE;
-                break;
-            }
-            case OpCode::RETURN: {
-                uint16_t reg = read_u16(code, ip);
-                if (reg == 0xFFFF) line += "void";
-                else std::format_to(std::back_inserter(line), "r{}", reg);
-                break;
-            }
-
-            // --- STRUCTURES & OOP ---
-            case OpCode::NEW_ARRAY:
-            case OpCode::NEW_HASH: {
-                uint16_t dst = read_u16(code, ip);
-                uint16_t start = read_u16(code, ip);
-                uint16_t count = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{}, start=r{}, count={}", dst, start, count);
-                break;
-            }
-            case OpCode::GET_INDEX: {
-                uint16_t dst = read_u16(code, ip);
-                uint16_t src = read_u16(code, ip);
-                uint16_t key = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{} = r{}[r{}]", dst, src, key);
-                break;
-            }
-            case OpCode::SET_INDEX: {
-                uint16_t src = read_u16(code, ip);
-                uint16_t key = read_u16(code, ip);
-                uint16_t val = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{}[r{}] = r{}", src, key, val);
-                break;
-            }
-            case OpCode::NEW_CLASS: {
-                uint16_t dst = read_u16(code, ip);
-                uint16_t idx = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{}, name=[{}]", dst, idx);
-                break;
-            }
-            case OpCode::NEW_INSTANCE: {
-                uint16_t dst = read_u16(code, ip);
-                uint16_t cls = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{}, class=r{}", dst, cls);
-                break;
-            }
-            case OpCode::GET_PROP: {
-                uint16_t dst = read_u16(code, ip);
-                uint16_t obj = read_u16(code, ip);
-                uint16_t idx = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{} = r{}.[{}]", dst, obj, idx);
-                
-                ip += 48; 
-                break;
-            }
-            case OpCode::SET_PROP: {
-                uint16_t obj = read_u16(code, ip);
-                uint16_t idx = read_u16(code, ip);
-                uint16_t val = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{}.[{}] = r{}", obj, idx, val);
-                
-                ip += 48;
-                break;
-            }
-            case OpCode::SET_METHOD: {
-                uint16_t cls = read_u16(code, ip);
-                uint16_t idx = read_u16(code, ip);
-                uint16_t mth = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{}.methods[{}] = r{}", cls, idx, mth);
-                break;
-            }
-            case OpCode::INHERIT: {
-                uint16_t sub = read_u16(code, ip);
-                uint16_t sup = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "sub=r{}, super=r{}", sub, sup);
-                break;
-            }
-            case OpCode::GET_SUPER: {
-                uint16_t dst = read_u16(code, ip);
-                uint16_t idx = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{}, name=[{}]", dst, idx);
-                break;
-            }
-
-            // --- MODULES ---
-            case OpCode::IMPORT_MODULE: {
-                uint16_t dst = read_u16(code, ip);
-                uint16_t idx = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{}, path=[{}]", dst, idx);
-                break;
-            }
-            case OpCode::EXPORT: {
-                uint16_t idx = read_u16(code, ip);
-                uint16_t src = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "exports[{}] = r{}", idx, src);
-                break;
-            }
-            case OpCode::GET_EXPORT: {
-                uint16_t dst = read_u16(code, ip);
-                uint16_t mod = read_u16(code, ip);
-                uint16_t idx = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{} = r{}::[{}]", dst, mod, idx);
-                break;
-            }
-            case OpCode::IMPORT_ALL: {
-                uint16_t mod = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "module=r{}", mod);
-                break;
-            }
-
-            // --- OTHERS ---
-            case OpCode::GET_KEYS:
-            case OpCode::GET_VALUES: {
-                uint16_t dst = read_u16(code, ip);
-                uint16_t src = read_u16(code, ip);
-                std::format_to(std::back_inserter(line), "r{}, from=r{}", dst, src);
-                break;
-            }
-            case OpCode::HALT:
-            case OpCode::POP_TRY:
-                break; // No operands
-
-            default:
-                line += "<unknown_operands>";
-                break;
+            break;
         }
-    } catch (...) {
-        line += " <DECODE_ERROR>";
+        case OpCode::LOAD_INT: {
+            uint16_t dst = read_u16(code, ip);
+            int64_t val = std::bit_cast<int64_t>(read_u64(code, ip));
+            std::format_to(std::back_inserter(line), "r{}, {}", dst, val);
+            break;
+        }
+        case OpCode::LOAD_FLOAT: {
+            uint16_t dst = read_u16(code, ip);
+            double val = read_f64(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, {:.6g}", dst, val);
+            break;
+        }
+        case OpCode::LOAD_NULL:
+        case OpCode::LOAD_TRUE:
+        case OpCode::LOAD_FALSE: {
+            uint16_t dst = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}", dst);
+            break;
+        }
+        case OpCode::LOAD_INT_B: {
+            uint8_t dst = read_u8(code, ip);
+            int8_t val = static_cast<int8_t>(read_u8(code, ip));
+            std::format_to(std::back_inserter(line), "r{}, {}", dst, val);
+            break;
+        }
+
+        // --- MOVES ---
+        case OpCode::MOVE: {
+            uint16_t dst = read_u16(code, ip);
+            uint16_t src = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, r{}", dst, src);
+            break;
+        }
+        case OpCode::MOVE_B: {
+            uint8_t dst = read_u8(code, ip);
+            uint8_t src = read_u8(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, r{}", dst, src);
+            break;
+        }
+
+        // --- MATH / BINARY (STANDARD) ---
+        case OpCode::ADD: case OpCode::SUB: case OpCode::MUL: case OpCode::DIV:
+        case OpCode::MOD: case OpCode::POW:
+        case OpCode::EQ: case OpCode::NEQ: case OpCode::GT: case OpCode::GE:
+        case OpCode::LT: case OpCode::LE:
+        case OpCode::BIT_AND: case OpCode::BIT_OR: case OpCode::BIT_XOR:
+        case OpCode::LSHIFT: case OpCode::RSHIFT: {
+            uint16_t dst = read_u16(code, ip);
+            uint16_t r1 = read_u16(code, ip);
+            uint16_t r2 = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, r{}, r{}", dst, r1, r2);
+            break;
+        }
+
+        // --- MATH / BINARY (BYTE OPTIMIZED) ---
+        case OpCode::ADD_B: case OpCode::SUB_B: case OpCode::MUL_B: case OpCode::DIV_B:
+        case OpCode::MOD_B:
+        case OpCode::EQ_B: case OpCode::NEQ_B: case OpCode::GT_B: case OpCode::GE_B:
+        case OpCode::LT_B: case OpCode::LE_B: {
+            uint8_t dst = read_u8(code, ip);
+            uint8_t r1 = read_u8(code, ip);
+            uint8_t r2 = read_u8(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, r{}, r{}", dst, r1, r2);
+            break;
+        }
+
+        // --- UNARY ---
+        case OpCode::NEG: case OpCode::NOT: case OpCode::BIT_NOT: {
+            uint16_t dst = read_u16(code, ip);
+            uint16_t src = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, r{}", dst, src);
+            break;
+        }
+        case OpCode::INC: case OpCode::DEC: case OpCode::THROW: {
+            uint16_t reg = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}", reg);
+            break;
+        }
+
+        // --- GLOBALS / UPVALUES ---
+        case OpCode::GET_GLOBAL: {
+            uint16_t dst = read_u16(code, ip);
+            uint16_t idx = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, g[{}]", dst, idx);
+            if (idx < chunk.get_pool_size()) std::format_to(std::back_inserter(line), " ({})", value_to_string(chunk.get_constant(idx)));
+            break;
+        }
+        case OpCode::SET_GLOBAL: {
+            uint16_t idx = read_u16(code, ip);
+            uint16_t src = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "g[{}], r{}", idx, src);
+            if (idx < chunk.get_pool_size()) std::format_to(std::back_inserter(line), " ({})", value_to_string(chunk.get_constant(idx)));
+            break;
+        }
+        case OpCode::GET_UPVALUE: {
+            uint16_t dst = read_u16(code, ip);
+            uint16_t idx = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, uv[{}]", dst, idx);
+            break;
+        }
+        case OpCode::SET_UPVALUE: {
+            uint16_t idx = read_u16(code, ip);
+            uint16_t src = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "uv[{}], r{}", idx, src);
+            break;
+        }
+        case OpCode::CLOSURE: {
+            uint16_t dst = read_u16(code, ip);
+            uint16_t idx = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, <proto {}>", dst, idx);
+            break;
+        }
+        case OpCode::CLOSE_UPVALUES: {
+            uint16_t slot = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "stack>={}", slot);
+            break;
+        }
+
+        // --- JUMPS ---
+        case OpCode::JUMP: {
+            uint16_t offset = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "-> {:04d}", offset);
+            break;
+        }
+        case OpCode::SETUP_TRY: {
+            uint16_t offset = read_u16(code, ip);
+            uint16_t err_reg = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "try -> {:04d}, catch=r{}", offset, err_reg);
+            break;
+        }
+        case OpCode::JUMP_IF_FALSE:
+        case OpCode::JUMP_IF_TRUE: {
+            uint16_t cond = read_u16(code, ip);
+            uint16_t offset = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{} ? -> {:04d}", cond, offset);
+            break;
+        }
+        case OpCode::JUMP_IF_FALSE_B:
+        case OpCode::JUMP_IF_TRUE_B: {
+            uint8_t cond = read_u8(code, ip);
+            uint16_t offset = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{} ? -> {:04d}", cond, offset);
+            break;
+        }
+
+        // --- CALLS  ---
+        case OpCode::CALL: {
+            uint16_t dst = read_u16(code, ip);
+            uint16_t fn = read_u16(code, ip);
+            uint16_t arg = read_u16(code, ip);
+            uint16_t argc = read_u16(code, ip);
+            
+            std::format_to(std::back_inserter(line), "r{} = r{}(argc={}, args=r{})", dst, fn, argc, arg);
+            
+            ip += CALL_IC_SIZE; 
+            break;
+        }
+        case OpCode::CALL_VOID: {
+            uint16_t fn = read_u16(code, ip);
+            uint16_t arg = read_u16(code, ip);
+            uint16_t argc = read_u16(code, ip);
+
+            std::format_to(std::back_inserter(line), "void r{}(argc={}, args=r{})", fn, argc, arg);
+            
+            ip += CALL_IC_SIZE;
+            break;
+        }
+        case OpCode::TAIL_CALL: {
+            uint16_t dst = read_u16(code, ip); (void)dst;
+            uint16_t fn = read_u16(code, ip);
+            uint16_t arg = read_u16(code, ip);
+            uint16_t argc = read_u16(code, ip);
+
+            std::format_to(std::back_inserter(line), "tail r{}(argc={}, args=r{})", fn, argc, arg);
+            
+            ip += CALL_IC_SIZE;
+            break;
+        }
+        case OpCode::RETURN: {
+            uint16_t reg = read_u16(code, ip);
+            if (reg == 0xFFFF) line += "void";
+            else std::format_to(std::back_inserter(line), "r{}", reg);
+            break;
+        }
+
+        // --- STRUCTURES & OOP ---
+        case OpCode::NEW_ARRAY:
+        case OpCode::NEW_HASH: {
+            uint16_t dst = read_u16(code, ip);
+            uint16_t start = read_u16(code, ip);
+            uint16_t count = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, start=r{}, count={}", dst, start, count);
+            break;
+        }
+        case OpCode::GET_INDEX: {
+            uint16_t dst = read_u16(code, ip);
+            uint16_t src = read_u16(code, ip);
+            uint16_t key = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{} = r{}[r{}]", dst, src, key);
+            break;
+        }
+        case OpCode::SET_INDEX: {
+            uint16_t src = read_u16(code, ip);
+            uint16_t key = read_u16(code, ip);
+            uint16_t val = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}[r{}] = r{}", src, key, val);
+            break;
+        }
+        case OpCode::NEW_CLASS: {
+            uint16_t dst = read_u16(code, ip);
+            uint16_t idx = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, name=[{}]", dst, idx);
+            break;
+        }
+        case OpCode::NEW_INSTANCE: {
+            uint16_t dst = read_u16(code, ip);
+            uint16_t cls = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, class=r{}", dst, cls);
+            break;
+        }
+        case OpCode::GET_PROP: {
+            uint16_t dst = read_u16(code, ip);
+            uint16_t obj = read_u16(code, ip);
+            uint16_t idx = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{} = r{}.[{}]", dst, obj, idx);
+            
+            ip += 48; 
+            break;
+        }
+        case OpCode::SET_PROP: {
+            uint16_t obj = read_u16(code, ip);
+            uint16_t idx = read_u16(code, ip);
+            uint16_t val = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}.[{}] = r{}", obj, idx, val);
+            
+            ip += 48;
+            break;
+        }
+        case OpCode::SET_METHOD: {
+            uint16_t cls = read_u16(code, ip);
+            uint16_t idx = read_u16(code, ip);
+            uint16_t mth = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}.methods[{}] = r{}", cls, idx, mth);
+            break;
+        }
+        case OpCode::INHERIT: {
+            uint16_t sub = read_u16(code, ip);
+            uint16_t sup = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "sub=r{}, super=r{}", sub, sup);
+            break;
+        }
+        case OpCode::GET_SUPER: {
+            uint16_t dst = read_u16(code, ip);
+            uint16_t idx = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, name=[{}]", dst, idx);
+            break;
+        }
+
+        // --- MODULES ---
+        case OpCode::IMPORT_MODULE: {
+            uint16_t dst = read_u16(code, ip);
+            uint16_t idx = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, path=[{}]", dst, idx);
+            break;
+        }
+        case OpCode::EXPORT: {
+            uint16_t idx = read_u16(code, ip);
+            uint16_t src = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "exports[{}] = r{}", idx, src);
+            break;
+        }
+        case OpCode::GET_EXPORT: {
+            uint16_t dst = read_u16(code, ip);
+            uint16_t mod = read_u16(code, ip);
+            uint16_t idx = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{} = r{}::[{}]", dst, mod, idx);
+            break;
+        }
+        case OpCode::IMPORT_ALL: {
+            uint16_t mod = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "module=r{}", mod);
+            break;
+        }
+
+        // --- OTHERS ---
+        case OpCode::GET_KEYS:
+        case OpCode::GET_VALUES: {
+            uint16_t dst = read_u16(code, ip);
+            uint16_t src = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, from=r{}", dst, src);
+            break;
+        }
+        case OpCode::HALT:
+        case OpCode::POP_TRY:
+            break; // No operands
+
+        default:
+            line += "<unknown_operands>";
+            break;
     }
 
     return {line, ip};

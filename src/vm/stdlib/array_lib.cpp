@@ -83,19 +83,15 @@ static Value resize(Machine* vm, int argc, Value* argv) {
         vm->error(std::format("New size too large ({}). Max allowed: {}", input_size, MAX_ARRAY_CAPACITY));
         return Value(null_t{});
     }
-
-    try {
-        size_t old_size = self->size();
-        size_t new_size = static_cast<size_t>(input_size);
-        self->resize(new_size);
-        
-        if (new_size > old_size && !fill_val.is_null()) {
-            for(size_t i = old_size; i < new_size; ++i) {
-                self->set(i, fill_val);
-            }
+    
+    size_t old_size = self->size();
+    size_t new_size = static_cast<size_t>(input_size);
+    self->resize(new_size);
+    
+    if (new_size > old_size && !fill_val.is_null()) {
+        for(size_t i = old_size; i < new_size; ++i) {
+            self->set(i, fill_val);
         }
-    } catch (const std::exception& e) {
-        vm->error("Out of memory during array resize.");
     }
 
     return Value(null_t{});

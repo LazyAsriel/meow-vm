@@ -1,63 +1,60 @@
 #pragma once
 #include "common.h"
+#include "lexer.h" 
 #include <vector>
-#include <string>
+#include <iostream>
 #include <unordered_map>
 
 namespace meow::masm {
 
 class Assembler {
-    const std::vector<Token>& tokens_;
-    size_t current_ = 0;
+public:
+    // [THAY ĐỔI] Nhận Lexer reference thay vì vector
+    explicit Assembler(Lexer& lexer) noexcept;
+
+    [[nodiscard]] Status assemble();
+    [[nodiscard]] Status assemble_to_file(const std::string& output_file);
+    
+    // Hàm ghi file trực tiếp ra stream (Zero-copy buffer)
+    void write_binary(std::ostream& out);
+
+private:
+    Lexer& lexer_;        // Tham chiếu đến Lexer để kéo token
+    Token current_token_; // Bộ đệm 1 token (Lookahead = 1)
     
     std::vector<Prototype> protos_;
     Prototype* curr_proto_ = nullptr;
     std::unordered_map<std::string, uint32_t> proto_name_map_;
-
-    // --- State Management ---
-    // Trạng thái cờ toàn cục (áp dụng cho các hàm mới tạo)
     ProtoFlags global_flags_ = ProtoFlags::NONE;
 
-public:
-    explicit Assembler(const std::vector<Token>& tokens);
-
-    std::vector<uint8_t> assemble();
-    void assemble_to_file(const std::string& output_file);
-    static int get_arity(meow::OpCode op);
-
-private:
-    Token peek() const;
-    Token previous() const;
-    bool is_at_end() const;
-    Token advance();
-    Token consume(TokenType type, const std::string& msg);
-
-    // Parsing
-    void parse_statement();
-    void parse_func();
-    void parse_registers();
-    void parse_upvalues_decl();
-    void parse_upvalue_def();
-    void parse_const();
-    void parse_label();
-    void parse_instruction();
+    // Các hàm tiện ích truy cập token hiện tại
+    [[gnu::always_inline]] Token peek() const { return current_token_; }
+    [[gnu::always_inline]] bool is_at_end() const { return current_token_.type == TokenType::END_OF_FILE; }
     
-    // --- Annotation Handler ---
-    void parse_annotation(); 
+    // Lấy token hiện tại và nạp token tiếp theo từ Lexer
+    Token advance(); 
+    
+    [[nodiscard]] Status consume(TokenType type, ErrorCode err, Token* out_token = nullptr);
 
-    void optimize();
+    // Các hàm parse (giữ nguyên logic)
+    Status parse_statement();
+    Status parse_func();
+    Status parse_registers();
+    Status parse_upvalues_decl();
+    Status parse_upvalue_def();
+    Status parse_const();
+    Status parse_label();
+    Status parse_instruction();
+    Status parse_annotation(); 
+
     std::string parse_string_literal(std::string_view sv);
+    Status link_proto_refs();
+    Status patch_labels();
 
-    // Emit bytecode helpers
-    void emit_byte(uint8_t b);
-    void emit_u16(uint16_t v);
-    void emit_u32(uint32_t v);
-    void emit_u64(uint64_t v);
-
-    // Finalize
-    void link_proto_refs();
-    void patch_labels();
-    std::vector<uint8_t> serialize_binary();
+    inline void emit_byte(uint8_t b);
+    inline void emit_u16(uint16_t v);
+    inline void emit_u32(uint32_t v);
+    inline void emit_u64(uint64_t v);
 };
 
 } // namespace meow::masm

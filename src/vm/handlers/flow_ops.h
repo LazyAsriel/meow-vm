@@ -16,6 +16,12 @@ namespace meow::handlers {
         uint16_t offset; 
     } __attribute__((packed));
 
+    struct JumpCompArgs { 
+        uint16_t lhs;    // Register trái
+        uint16_t rhs;    // Register phải
+        uint16_t offset; // Vị trí nhảy (tương đối so với instruction base)
+    } __attribute__((packed));
+
     struct CallIC {
         void* check_tag;
         void* destination;
@@ -461,5 +467,42 @@ static const uint8_t* impl_TAIL_CALL(const uint8_t* ip, Value* regs, const Value
 
     return proto->get_chunk().get_code();
 }
+
+#define IMPL_CMP_JUMP(OP_NAME, OP_ENUM, OPERATOR) \
+    [[gnu::always_inline]] \
+    inline static const uint8_t* impl_##OP_NAME(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
+        const auto& args = *reinterpret_cast<const JumpCompArgs*>(ip); \
+        Value& left = regs[args.lhs]; \
+        Value& right = regs[args.rhs]; \
+        bool condition = false; \
+        \
+        /* 1. Fast Path: Integer */ \
+        if (left.holds_both<int_t>(right)) [[likely]] { \
+            condition = (left.as_int() OPERATOR right.as_int()); \
+        } \
+        /* 2. Fast Path: Float */ \
+        else if (left.holds_both<float_t>(right)) { \
+            condition = (left.as_float() OPERATOR right.as_float()); \
+        } \
+        /* 3. Slow Path: Objects, Strings, Mixed types */ \
+        else [[unlikely]] { \
+            /* Tận dụng lại logic tìm operator trong utils.h/math_ops.h */ \
+            Value res = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
+            condition = meow::to_bool(res); \
+        } \
+        \
+        if (condition) return state->instruction_base + args.offset; \
+        return ip + sizeof(JumpCompArgs); \
+    }
+
+// Tạo các hàm handler:
+IMPL_CMP_JUMP(JUMP_IF_EQ, EQ, ==)
+IMPL_CMP_JUMP(JUMP_IF_NEQ, NEQ, !=)
+IMPL_CMP_JUMP(JUMP_IF_LT, LT, <)
+IMPL_CMP_JUMP(JUMP_IF_LE, LE, <=)
+IMPL_CMP_JUMP(JUMP_IF_GT, GT, >)
+IMPL_CMP_JUMP(JUMP_IF_GE, GE, >=)
+
+#undef IMPL_CMP_JUMP
 
 } // namespace meow::handlers

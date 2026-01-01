@@ -67,7 +67,16 @@ static const uint8_t* impl_IMPORT_MODULE(const uint8_t* ip, Value* regs, const V
     string_t path = constants[path_idx].as_string();
     string_t importer_path = state->current_module ? state->current_module->get_file_path() : nullptr;
     
-    module_t mod = state->modules.load_module(path, importer_path);
+    auto load_result = state->modules.load_module(path, importer_path);
+
+    if (load_result.failed()) {
+        auto err = load_result.error();
+        state->error(std::format("Runtime Error: Cannot import module '{}'. Error Code: {}", 
+                                 path->c_str(), static_cast<int>(err.code())), ip);
+        return impl_PANIC(ip, regs, constants, state);
+    }
+
+    module_t mod = load_result.value();
     regs[dst] = Value(mod);
 
     if (mod->is_executed() || mod->is_executing()) {

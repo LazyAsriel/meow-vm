@@ -52,9 +52,13 @@ static inline Value find_primitive_method(VMState* state, const Value& obj, stri
     else if (obj.is_hash_table()) mod_name = "object";
     
     if (mod_name) {
-        module_t mod = state->modules.load_module(state->heap.new_string(mod_name), nullptr);
-        if (mod && mod->has_export(name)) {
-            return mod->get_export(name);
+        auto load_result = state->modules.load_module(state->heap.new_string(mod_name), nullptr);
+        
+        if (load_result.ok()) {
+            module_t mod = load_result.value();
+            if (mod && mod->has_export(name)) {
+                return mod->get_export(name);
+            }
         }
     }
     return Value(null_t{});

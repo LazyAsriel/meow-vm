@@ -1,31 +1,23 @@
 #pragma once
 #include "common.h"
-#include <vector>
+#include <string_view>
 
 namespace meow::masm {
 
 class Lexer {
-    std::string_view src_;
-    size_t pos_ = 0;
-    size_t line_ = 1;
-
 public:
-    explicit Lexer(std::string_view src) : src_(src) {}
-    std::vector<Token> tokenize();
+    explicit Lexer(std::string_view src) noexcept;
+    
+    // [MỚI] Hàm này chỉ lấy đúng 1 token tiếp theo rồi dừng
+    Token next_token();
 
 private:
-    bool is_at_end() const;
-    char peek(int offset = 0) const;
-    char advance();
-    
-    Token scan_directive();
-    Token scan_string();
-    Token scan_number();
-    Token scan_identifier();
-    
-    // --- Hàm mới ---
-    Token scan_debug_info(); // Xử lý #^
-    Token scan_annotation(); // Xử lý #@
+    std::string_view src_;
+    // [MỚI] Trạng thái được lưu giữ giữa các lần gọi
+    const char* cursor_;
+    const char* end_;
+    const char* line_start_;
+    uint32_t line_ = 1;
 };
 
 } // namespace meow::masm

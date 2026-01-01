@@ -21,11 +21,11 @@ public:
 
     [[nodiscard]] constexpr arena* source() const noexcept { return source_; }
 
-    [[nodiscard]] __attribute__((always_inline)) T* allocate(std::size_t n) {
+    [[nodiscard]] [[gnu::always_inline]] T* allocate(std::size_t n) {
         return static_cast<T*>(source_->allocate(n * sizeof(T), alignof(T)));
     }
 
-    __attribute__((always_inline)) void deallocate(T*, std::size_t) noexcept {}
+    [[gnu::always_inline]] void deallocate(T*, std::size_t) noexcept {}
     
     friend bool operator==(const allocator& a, const allocator& b) noexcept {
         return a.source_ == b.source_;

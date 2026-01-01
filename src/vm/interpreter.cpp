@@ -45,62 +45,68 @@ namespace {
 
     struct TableInitializer {
         TableInitializer() {
+            // 1. Mặc định gán tất cả là UNIMPL (An toàn)
             for (int i = 0; i < 256; ++i) {
                 dispatch_table[i] = op_wrapper<OpCode::HALT, handlers::impl_UNIMPL>;
             }
 
+            // Macro giúp code ngắn gọn
             #define reg(NAME) dispatch_table[static_cast<size_t>(OpCode::NAME)] = op_wrapper<OpCode::NAME, handlers::impl_##NAME>
             
-            // Load / Move
+            // --- CORE OPS ---
             reg(LOAD_CONST); reg(LOAD_NULL); reg(LOAD_TRUE); reg(LOAD_FALSE);
             reg(LOAD_INT); reg(LOAD_FLOAT); reg(MOVE);
-
             reg(INC); reg(DEC);
 
-            // Math
+            // --- MATH (Standard) ---
             reg(ADD); reg(SUB); reg(MUL); reg(DIV); reg(MOD); reg(POW);
             reg(EQ); reg(NEQ); reg(GT); reg(GE); reg(LT); reg(LE);
             reg(NEG); reg(NOT);
+            
+            // --- BITWISE (Chỉ cần bản chuẩn, không cần _B) ---
             reg(BIT_AND); reg(BIT_OR); reg(BIT_XOR); reg(BIT_NOT);
             reg(LSHIFT); reg(RSHIFT);
 
-            // Variables / Memory
+            // --- MEMORY & SCOPE ---
             reg(GET_GLOBAL); reg(SET_GLOBAL);
             reg(GET_UPVALUE); reg(SET_UPVALUE);
             reg(CLOSURE); reg(CLOSE_UPVALUES);
 
-            // Control Flow
+            // --- FLOW CONTROL ---
             reg(JUMP); reg(JUMP_IF_FALSE); reg(JUMP_IF_TRUE);
             reg(CALL); reg(CALL_VOID); reg(RETURN); reg(HALT);
+            reg(TAIL_CALL);
 
-            // Data Structures
+            // --- DATA STRUCTURES ---
             reg(NEW_ARRAY); reg(NEW_HASH);
             reg(GET_INDEX); reg(SET_INDEX);
             reg(GET_KEYS); reg(GET_VALUES);
 
-            // OOP
+            // --- OOP ---
             reg(NEW_CLASS); reg(NEW_INSTANCE);
             reg(GET_PROP); reg(SET_PROP); reg(SET_METHOD);
             reg(INHERIT); reg(GET_SUPER);
-
             reg(INVOKE);
 
-            // Exception
+            // --- EXCEPTION & MODULE ---
             reg(THROW); reg(SETUP_TRY); reg(POP_TRY);
-
-            // Modules
             reg(IMPORT_MODULE); reg(EXPORT); reg(GET_EXPORT); reg(IMPORT_ALL);
 
-            reg(TAIL_CALL);
-
+            // --- OPTIMIZATION 1: MATH _B ---
+            // (Giữ lại vì bạn đã có macro trong math_ops.h, nếu chưa thì bỏ luôn cũng được)
             reg(ADD_B); reg(SUB_B); reg(MUL_B); reg(DIV_B); reg(MOD_B);
             reg(EQ_B); reg(NEQ_B); reg(GT_B); reg(GE_B); reg(LT_B); reg(LE_B);
             
-            reg(JUMP_IF_TRUE_B); 
-            reg(JUMP_IF_FALSE_B);
+            // --- OPTIMIZATION 2: FUSED COMPARE & JUMP (Nên dùng!) ---
+            // Hiệu năng cao, code ngắn (dùng Macro IMPL_CMP_JUMP đã viết)
+            reg(JUMP_IF_EQ); reg(JUMP_IF_NEQ);
+            reg(JUMP_IF_GT); reg(JUMP_IF_GE);
+            reg(JUMP_IF_LT); reg(JUMP_IF_LE);
             
-            reg(JUMP_IF_TRUE_B); 
-            reg(JUMP_IF_FALSE_B);
+            // --- CÁC OPCODE ĐÃ BỎ ĐỂ GIẢM PHỨC TẠP ---
+            // MOVE_B, LOAD_INT_B
+            // BIT_AND_B, BIT_OR_B... (Bitwise ít dùng, tối ưu không bõ)
+            // JUMP_IF_TRUE_B... (Logic jump byte offset không tiết kiệm được bao nhiêu)
 
             #undef reg
         }

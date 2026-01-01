@@ -254,14 +254,10 @@ Value JsonParser::parse_number() {
 
     std::string num_str(json_.substr(start, pos_ - start));
     
-    try {
-        if (is_float) {
-            return Value(std::stod(num_str));
-        } else {
-            return Value(static_cast<int64_t>(std::stoll(num_str)));
-        }
-    } catch (...) {
-        return report_error();
+    if (is_float) {
+        return Value(std::stod(num_str));
+    } else {
+        return Value(static_cast<int64_t>(std::stoll(num_str)));
     }
 }
 

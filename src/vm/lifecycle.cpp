@@ -41,54 +41,51 @@ void Machine::interpret() noexcept {
 
 bool Machine::prepare() noexcept {
     std::filesystem::path full_path = std::filesystem::path(args_.entry_point_directory_) / args_.entry_path_;
-    
     auto path_str = heap_->new_string(full_path.string());
     auto importer_str = heap_->new_string(""); 
 
-    try {
-        module_t main_module = mod_manager_->load_module(path_str, importer_str);
+    auto main_res = mod_manager_->load_module(path_str, importer_str);
 
-        if (!main_module) {
-            error("Could not load entry module (module is null).");
-            return false;
-        }
-
-        auto native_name = heap_->new_string("native");
-        module_t native_mod = mod_manager_->load_module(native_name, importer_str);
-        
-        if (native_mod) [[likely]] {
-            main_module->import_all_global(native_mod);
-        } else {
-            std::println("Warning: Could not inject 'native' module.");
-        }
-
-        proto_t main_proto = main_module->get_main_proto();
-        function_t main_func = heap_->new_function(main_proto);
-
-        context_->reset();
-
-        size_t num_regs = main_proto->get_num_registers();
-        if (!context_->check_overflow(num_regs)) [[unlikely]] {
-            error("Stack Overflow: Không đủ bộ nhớ khởi chạy main.");
-            return false;
-        }
-
-        *context_->frame_ptr_ = CallFrame(
-            main_func, 
-            context_->stack_,
-            nullptr,
-            main_proto->get_chunk().get_code()
-        );
-
-        context_->current_regs_ = context_->stack_;
-        context_->stack_top_ += num_regs; 
-        
-        context_->current_frame_ = context_->frame_ptr_;
-        
-        return true; 
-
-    } catch (const std::exception& e) {
-        error(std::format("Fatal error during preparation: {}", e.what()));
+    if (main_res.failed()) {
+        auto err = main_res.error();
+        error(std::format("Fatal error: Could not load entry module '{}'. Error Code: {}", 
+                            full_path.string(), static_cast<int>(err.code())));
         return false;
     }
+
+    module_t main_module = main_res.value();
+
+    auto native_name = heap_->new_string("native");
+    auto native_res = mod_manager_->load_module(native_name, importer_str);
+    
+    if (native_res.ok()) [[likely]] {
+        main_module->import_all_global(native_res.value());
+    } else {
+        std::println("Warning: Could not inject 'native' module. Standard library may be missing.");
+    }
+
+    proto_t main_proto = main_module->get_main_proto();
+    function_t main_func = heap_->new_function(main_proto);
+
+    context_->reset();
+
+    size_t num_regs = main_proto->get_num_registers();
+    if (!context_->check_overflow(num_regs)) [[unlikely]] {
+        error("Stack Overflow: Not enough memory to launch main.");
+        return false;
+    }
+
+    *context_->frame_ptr_ = CallFrame(
+        main_func, 
+        context_->stack_,
+        nullptr,
+        main_proto->get_chunk().get_code()
+    );
+
+    context_->current_regs_ = context_->stack_;
+    context_->stack_top_ += num_regs; 
+    
+    context_->current_frame_ = context_->frame_ptr_;
+    
+    return true;
 }

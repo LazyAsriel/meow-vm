@@ -9,7 +9,7 @@
     {
       "name": "debug",
       "displayName": "Fast Debug (Clang + ccache, no sanitizer)",
-      "description": "Fast iterative development preset. Uses ccache, no sanitizers, O0 for fastest compile/startup.",
+      "description": "Fast iterative development preset. Uses ccache, no sanitizers, O0 for fastest compile/startup. Disabled Exceptions & RTTI.",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/debug",
       "cacheVariables": {
@@ -17,20 +17,20 @@
         "CMAKE_CXX_COMPILER": "clang++",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "YES",
         "CMAKE_CXX_COMPILER_LAUNCHER": "ccache",
-        "CMAKE_CXX_FLAGS_DEBUG": "-g3 -O0 -Wall -Wextra -Wpedantic -Wno-gnu-label-as-value -Wno-c99-designator -fno-omit-frame-pointer"
+        "CMAKE_CXX_FLAGS_DEBUG": "-g3 -O0 -Wall -Wextra -Wpedantic -Wno-gnu-label-as-value -Wno-c99-designator -fno-omit-frame-pointer -fno-exceptions -fno-rtti"
       }
     },
     {
       "name": "release",
       "displayName": "Release Build (Clang)",
-      "description": "Optimized release build for performance.",
+      "description": "Optimized release build for performance. Disabled Exceptions & RTTI.",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_CXX_COMPILER": "clang++",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "YES",
-        "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG -march=native -flto -Wno-gnu-label-as-value -fno-omit-frame-pointer -g3",
+        "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG -march=native -flto -Wno-gnu-label-as-value -fno-omit-frame-pointer -g3 -fno-exceptions -fno-rtti",
         "CMAKE_CXX_COMPILER_LAUNCHER": "ccache"
       }
     }

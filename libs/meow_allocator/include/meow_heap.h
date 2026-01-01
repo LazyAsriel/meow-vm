@@ -36,7 +36,7 @@ private:
         return (total_size + MIN_ALIGN - 1) >> MIN_ALIGN_SHIFT;
     }
 
-    [[nodiscard]] __attribute__((always_inline)) void* allocate_impl(size_t total_size) {
+    [[nodiscard]] [[gnu::always_inline]] void* allocate_impl(size_t total_size) {
         if (total_size > MAX_SMALL_OBJ_SIZE + META_SIZE) [[unlikely]] {
              return std::aligned_alloc(alignof(std::max_align_t), total_size);
         }
@@ -73,7 +73,7 @@ public:
     }
 
     template <typename T, typename... Args>
-    [[nodiscard]] __attribute__((always_inline)) T* create(Args&&... args) {
+    [[nodiscard]] [[gnu::always_inline]] T* create(Args&&... args) {
         constexpr size_t data_size = sizeof(T);
         constexpr size_t total_size = META_SIZE + data_size;
 
@@ -90,7 +90,7 @@ public:
     }
 
     template <typename T, typename... Args>
-    [[nodiscard]] __attribute__((always_inline)) T* create_varsize(size_t extra_bytes, Args&&... args) {
+    [[nodiscard]] [[gnu::always_inline]] T* create_varsize(size_t extra_bytes, Args&&... args) {
         size_t data_size = sizeof(T) + extra_bytes;
         size_t total_size = META_SIZE + data_size;
         
@@ -106,7 +106,7 @@ public:
     }
 
     template <typename T>
-    __attribute__((always_inline)) void destroy(T* obj) {
+    [[gnu::always_inline]] void destroy(T* obj) {
         if (!obj) return;
         
         std::destroy_at(obj);
@@ -117,7 +117,7 @@ public:
         deallocate_raw(meta, total_size);
     }
 
-    __attribute__((always_inline)) void deallocate_raw(ObjectMeta* meta, size_t total_size) {
+    [[gnu::always_inline]] void deallocate_raw(ObjectMeta* meta, size_t total_size) {
         if (total_size > MAX_SMALL_OBJ_SIZE + META_SIZE) [[unlikely]] {
             std::free(meta);
             return;
@@ -131,7 +131,7 @@ public:
 
     // --- Array Support ---
     template <typename T>
-    [[nodiscard]] __attribute__((always_inline)) T* allocate_array(size_t count) {
+    [[nodiscard]] [[gnu::always_inline]] T* allocate_array(size_t count) {
         if (count == 0) return nullptr;
         
         size_t data_size = sizeof(T) * count;
@@ -146,7 +146,7 @@ public:
     }
 
     template <typename T>
-    __attribute__((always_inline)) void deallocate_array(T* ptr) {
+    [[gnu::always_inline]] void deallocate_array(T* ptr) {
         if (!ptr) return;
         
         ObjectMeta* meta = reinterpret_cast<ObjectMeta*>(reinterpret_cast<uint8_t*>(ptr) - META_SIZE);
@@ -156,7 +156,7 @@ public:
     }
 
     template <typename T>
-    [[nodiscard]] __attribute__((always_inline)) meow::allocator<T> get_allocator() const noexcept {
+    [[nodiscard]] [[gnu::always_inline]] meow::allocator<T> get_allocator() const noexcept {
         return meow::allocator<T>(arena_);
     }
 };

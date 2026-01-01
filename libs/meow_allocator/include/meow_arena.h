@@ -44,7 +44,7 @@ public:
     }
 
     // --- HOT PATH: Inline tối đa ---
-    [[nodiscard]] __attribute__((always_inline)) void* allocate(std::size_t bytes, std::size_t align = alignof(std::max_align_t)) {
+    [[nodiscard]] [[gnu::always_inline]] void* allocate(std::size_t bytes, std::size_t align = alignof(std::max_align_t)) {
         // C++23 hint: Giả định alignment luôn là lũy thừa của 2
         [[assume((align & (align - 1)) == 0)]];
 
@@ -61,7 +61,7 @@ public:
     }
 
     // Reset cực nhanh: Chỉ tua lại con trỏ, không free bộ nhớ
-    __attribute__((always_inline)) void reset() {
+    [[gnu::always_inline]] void reset() {
         current_ = head_;
         if (current_) [[likely]] {
             ptr_ = current_->data_start;
@@ -116,7 +116,8 @@ private:
         std::size_t alloc_size = std::max(default_block_size_, bytes + actual_data_offset + align);
         
         void* mem = std::aligned_alloc(alignof(std::max_align_t), alloc_size);
-        if (!mem) [[unlikely]] throw std::bad_alloc();
+        // if (!mem) [[unlikely]] throw std::bad_alloc();
+        if (!mem) [[unlikely]] std::abort();
 
         auto* new_block = static_cast<BlockHeader*>(mem);
         

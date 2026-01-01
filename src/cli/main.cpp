@@ -2,14 +2,11 @@
 #include <filesystem>
 #include <print>
 #include <vector>
-#include <cstring>
 #include <string>
-#include <fstream>
 
 #include <meow/machine.h>
 #include <meow/config.h>
-#include <meow/masm/assembler.h>
-#include <meow/masm/lexer.h>
+#include <meow/masm/utils.h> 
 
 namespace fs = std::filesystem;
 using namespace meow;
@@ -30,12 +27,15 @@ enum class Mode {
 };
 
 int main(int argc, char* argv[]) {
+    std::ios::sync_with_stdio(false);
+
     if (argc < 2) {
         print_usage();
         return 1;
     }
 
     std::vector<std::string> args;
+    args.reserve(argc);
     for(int i=1; i<argc; ++i) args.push_back(argv[i]);
 
     if (args[0] == "--version" || args[0] == "-v") {
@@ -77,60 +77,39 @@ int main(int argc, char* argv[]) {
     }
 
     if (mode == Mode::SourceAsm) {
-        std::ifstream f(input_file, std::ios::ate);
-        std::streamsize size = f.tellg();
-        f.seekg(0, std::ios::beg);
-        std::string source(size, '\0');
-        if (!f.read(&source[0], size)) {
-             std::println(stderr, "Read error: {}", input_file);
-             return 1;
+        masm::init_op_map();
+
+        fs::path src_path(input_file);
+        fs::path bin_path = src_path;
+        bin_path.replace_extension(".meowc");
+
+        masm::Status s = masm::compile_file(input_file, bin_path.string());
+        
+        if (s.is_err()) {
+            return 1; 
         }
 
-        try {
-            masm::init_op_map();
-            masm::Lexer lexer(source);
-            auto tokens = lexer.tokenize(); 
-            masm::Assembler assembler(tokens);
-            std::vector<uint8_t> bytecode = assembler.assemble();
-            fs::path src_path(input_file);
-            fs::path bin_path = src_path;
-            bin_path.replace_extension(".meowc");
-            
-            std::ofstream out(bin_path, std::ios::binary);
-            out.write(reinterpret_cast<const char*>(bytecode.data()), bytecode.size());
-            out.close();
-            
-            input_file = bin_path.string();
-            
-        } catch (const std::exception& e) {
-            std::println(stderr, "[Assembly Error] {}", e.what());
-            return 1;
+        input_file = bin_path.string();
+    }
+    
+    std::vector<char*> clean_argv;
+    clean_argv.reserve(argc);
+    clean_argv.push_back(argv[0]); // Program name
+
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "-b" || arg == "--bytecode" || arg == "-c" || arg == "--compile") {
+            continue; 
         }
+        clean_argv.push_back(argv[i]);
     }
 
-    try {
-        std::vector<char*> clean_argv;
-        clean_argv.push_back(argv[0]);
-
-        for (int i = 1; i < argc; ++i) {
-            std::string arg = argv[i];
-            if (arg == "-b" || arg == "--bytecode" || arg == "-c" || arg == "--compile") {
-                continue; 
-            }
-            clean_argv.push_back(argv[i]);
-        }
-
-        fs::path abs_path = fs::absolute(input_file);
-        std::string root_dir = abs_path.parent_path().string();
-        std::string entry_file = abs_path.filename().string();
-        
-        Machine vm(root_dir, entry_file, static_cast<int>(clean_argv.size()), clean_argv.data()); 
-        vm.interpret();
-        
-    } catch (const std::exception& e) {
-        std::println(stderr, "VM Runtime Error: {}", e.what());
-        return 1;
-    }
+    fs::path abs_path = fs::absolute(input_file);
+    std::string root_dir = abs_path.parent_path().string();
+    std::string entry_file = abs_path.filename().string();
+    
+    Machine vm(root_dir, entry_file, static_cast<int>(clean_argv.size()), clean_argv.data()); 
+    vm.interpret();
 
     return 0;
 }

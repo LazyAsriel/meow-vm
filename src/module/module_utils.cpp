@@ -23,61 +23,46 @@ static inline std::string to_lower_copy(std::string s) noexcept {
 }
 
 std::filesystem::path get_executable_dir() noexcept {
-    try {
 #if defined(_WIN32)
-        char buf[MAX_PATH];
-        DWORD len = GetModuleFileNameA(NULL, buf, MAX_PATH);
-        if (len == 0) return std::filesystem::current_path();
-        return std::filesystem::path(std::string(buf, static_cast<size_t>(len))).parent_path();
+    char buf[MAX_PATH];
+    DWORD len = GetModuleFileNameA(NULL, buf, MAX_PATH);
+    if (len == 0) return std::filesystem::current_path();
+    return std::filesystem::path(std::string(buf, static_cast<size_t>(len))).parent_path();
 #elif defined(__APPLE__)
-        uint32_t size = 0;
-        if (_NSGetExecutablePath(nullptr, &size) != 0 && size == 0) return std::filesystem::current_path();
-        std::vector<char> buf(size ? size : 1);
-        if (_NSGetExecutablePath(buf.data(), &size) != 0) return std::filesystem::current_path();
-        return std::filesystem::absolute(std::filesystem::path(buf.data())).parent_path();
+    uint32_t size = 0;
+    if (_NSGetExecutablePath(nullptr, &size) != 0 && size == 0) return std::filesystem::current_path();
+    std::vector<char> buf(size ? size : 1);
+    if (_NSGetExecutablePath(buf.data(), &size) != 0) return std::filesystem::current_path();
+    return std::filesystem::absolute(std::filesystem::path(buf.data())).parent_path();
 #else
-        char buf[PATH_MAX];
-        ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
-        if (len == -1) return std::filesystem::current_path();
-        buf[len] = '\0';
-        return std::filesystem::path(std::string(buf, static_cast<size_t>(len))).parent_path();
+    char buf[PATH_MAX];
+    ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+    if (len == -1) return std::filesystem::current_path();
+    buf[len] = '\0';
+    return std::filesystem::path(std::string(buf, static_cast<size_t>(len))).parent_path();
 #endif
-    } catch (...) {
-        return std::filesystem::current_path();
-    }
 }
 
 std::filesystem::path normalize_path(const std::filesystem::path& p) noexcept {
-    try {
-        if (p.empty()) return p;
-        return std::filesystem::absolute(p).lexically_normal();
-    } catch (...) {
-        return p;
-    }
+    if (p.empty()) return p;
+    return std::filesystem::absolute(p).lexically_normal();
 }
 
 bool file_exists(const std::filesystem::path& p) noexcept {
-    try {
-        return std::filesystem::exists(p);
-    } catch (...) {
-        return false;
-    }
+    return std::filesystem::exists(p);
 }
 
 std::string read_first_non_empty_line_trimmed(const std::filesystem::path& path) noexcept {
-    try {
-        std::ifstream in(path);
-        if (!in) return std::string();
-        std::string line;
-        while (std::getline(in, line)) {
-            // trim both ends
-            auto ltrim = [](std::string& s) { s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); })); };
-            auto rtrim = [](std::string& s) { s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end()); };
-            rtrim(line);
-            ltrim(line);
-            if (!line.empty()) return line;
-        }
-    } catch (...) {
+    std::ifstream in(path);
+    if (!in) return std::string();
+    std::string line;
+    while (std::getline(in, line)) {
+        // trim both ends
+        auto ltrim = [](std::string& s) { s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) { return !std::isspace(ch); })); };
+        auto rtrim = [](std::string& s) { s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end()); };
+        rtrim(line);
+        ltrim(line);
+        if (!line.empty()) return line;
     }
     return std::string();
 }
@@ -125,113 +110,102 @@ static std::unordered_map<cache_key, std::filesystem::path, key_hash> s_root_cac
 }
 
 std::filesystem::path detect_root_cached(const std::string& config_filename, const std::string& token, bool treat_bin_as_parent, std::function<std::filesystem::path()> exe_dir_provider) noexcept {
-    try {
-        cache_key k{config_filename, token, treat_bin_as_parent};
-        {
-            std::lock_guard<std::mutex> lk(s_cache_mutex);
-            auto it = s_root_cache.find(k);
-            if (it != s_root_cache.end()) return it->second;
-        }
+    cache_key k{config_filename, token, treat_bin_as_parent};
+    {
+        std::lock_guard<std::mutex> lk(s_cache_mutex);
+        auto it = s_root_cache.find(k);
+        if (it != s_root_cache.end()) return it->second;
+    }
 
-        std::filesystem::path exe_dir = exe_dir_provider();
-        if (!config_filename.empty()) {
-            std::filesystem::path config_path = exe_dir / config_filename;
-            if (file_exists(config_path)) {
-                std::string line = read_first_non_empty_line_trimmed(config_path);
-                if (!line.empty()) {
-                    std::string expanded = token.empty() ? line : expand_token(line, token, exe_dir);
-                    std::filesystem::path result = normalize_path(std::filesystem::path(expanded));
-                    {
-                        std::lock_guard<std::mutex> lk(s_cache_mutex);
-                        s_root_cache.emplace(k, result);
-                    }
-                    return result;
+    std::filesystem::path exe_dir = exe_dir_provider();
+    if (!config_filename.empty()) {
+        std::filesystem::path config_path = exe_dir / config_filename;
+        if (file_exists(config_path)) {
+            std::string line = read_first_non_empty_line_trimmed(config_path);
+            if (!line.empty()) {
+                std::string expanded = token.empty() ? line : expand_token(line, token, exe_dir);
+                std::filesystem::path result = normalize_path(std::filesystem::path(expanded));
+                {
+                    std::lock_guard<std::mutex> lk(s_cache_mutex);
+                    s_root_cache.emplace(k, result);
                 }
+                return result;
             }
         }
-
-        std::filesystem::path fallback = exe_dir;
-        if (treat_bin_as_parent && exe_dir.filename() == "bin") fallback = exe_dir.parent_path();
-        std::filesystem::path result = normalize_path(fallback);
-        {
-            std::lock_guard<std::mutex> lk(s_cache_mutex);
-            s_root_cache.emplace(k, result);
-        }
-        return result;
-    } catch (...) {
-        return std::filesystem::current_path();
     }
+
+    std::filesystem::path fallback = exe_dir;
+    if (treat_bin_as_parent && exe_dir.filename() == "bin") fallback = exe_dir.parent_path();
+    std::filesystem::path result = normalize_path(fallback);
+    {
+        std::lock_guard<std::mutex> lk(s_cache_mutex);
+        s_root_cache.emplace(k, result);
+    }
+    return result;
 }
 
 // -------------------- default search roots helper --------------------
 std::vector<std::filesystem::path> make_default_search_roots(const std::filesystem::path& root) noexcept {
     std::vector<std::filesystem::path> v;
-    try {
-        v.reserve(5);
-        v.push_back(normalize_path(root));
-        v.push_back(normalize_path(root / "lib"));
-        v.push_back(normalize_path(root / "stdlib"));
-        v.push_back(normalize_path(root / "bin" / "stdlib"));
-        v.push_back(normalize_path(root / "bin"));
-    } catch (...) {
-    }
+    v.reserve(5);
+    v.push_back(normalize_path(root));
+    v.push_back(normalize_path(root / "lib"));
+    v.push_back(normalize_path(root / "stdlib"));
+    v.push_back(normalize_path(root / "bin" / "stdlib"));
+    v.push_back(normalize_path(root / "bin"));
     return v;
 }
 
 std::string resolve_library_path_generic(const std::string& module_path, const std::string& importer, const std::string& entry_path, const std::vector<std::string>& forbidden_extensions,
                                          const std::vector<std::string>& candidate_extensions, const std::vector<std::filesystem::path>& search_roots, bool extra_relative_search) noexcept {
-    try {
-        std::filesystem::path candidate(module_path);
-        std::string ext = candidate.extension().string();
-        if (!ext.empty()) {
-            std::string ext_l = to_lower_copy(ext);
-            for (const auto& f : forbidden_extensions) {
-                if (ext_l == to_lower_copy(f)) return "";
-            }
-            if (candidate.is_absolute() && file_exists(candidate)) return normalize_path(candidate).string();
+    std::filesystem::path candidate(module_path);
+    std::string ext = candidate.extension().string();
+    if (!ext.empty()) {
+        std::string ext_l = to_lower_copy(ext);
+        for (const auto& f : forbidden_extensions) {
+            if (ext_l == to_lower_copy(f)) return "";
         }
+        if (candidate.is_absolute() && file_exists(candidate)) return normalize_path(candidate).string();
+    }
 
-        std::vector<std::filesystem::path> to_try;
-        to_try.reserve(8);
+    std::vector<std::filesystem::path> to_try;
+    to_try.reserve(8);
 
-        if (candidate.extension().empty() && !candidate_extensions.empty()) {
-            for (const auto& ce : candidate_extensions) {
-                std::filesystem::path p = candidate;
-                p.replace_extension(ce);
-                to_try.push_back(p);
-            }
-        } else {
-            to_try.push_back(candidate);
+    if (candidate.extension().empty() && !candidate_extensions.empty()) {
+        for (const auto& ce : candidate_extensions) {
+            std::filesystem::path p = candidate;
+            p.replace_extension(ce);
+            to_try.push_back(p);
         }
+    } else {
+        to_try.push_back(candidate);
+    }
 
-        for (const auto& root : search_roots) {
-            for (const auto& t : to_try) {
-                std::filesystem::path p = root / t;
-                if (file_exists(p)) return normalize_path(p).string();
-            }
+    for (const auto& root : search_roots) {
+        for (const auto& t : to_try) {
+            std::filesystem::path p = root / t;
+            if (file_exists(p)) return normalize_path(p).string();
         }
+    }
+
+    for (const auto& t : to_try) {
+        if (file_exists(t)) return normalize_path(t).string();
+    }
+
+    if (extra_relative_search) {
+        std::filesystem::path base_dir;
+        if (importer == entry_path)
+            base_dir = std::filesystem::path(entry_path);
+        else
+            base_dir = std::filesystem::path(importer).parent_path();
 
         for (const auto& t : to_try) {
-            if (file_exists(t)) return normalize_path(t).string();
+            std::filesystem::path p = normalize_path(base_dir / t);
+            if (file_exists(p)) return p.string();
         }
-
-        if (extra_relative_search) {
-            std::filesystem::path base_dir;
-            if (importer == entry_path)
-                base_dir = std::filesystem::path(entry_path);
-            else
-                base_dir = std::filesystem::path(importer).parent_path();
-
-            for (const auto& t : to_try) {
-                std::filesystem::path p = normalize_path(base_dir / t);
-                if (file_exists(p)) return p.string();
-            }
-        }
-
-        return "";
-    } catch (...) {
-        return "";
     }
+
+    return "";
 }
 
 std::string get_platform_library_extension() noexcept {

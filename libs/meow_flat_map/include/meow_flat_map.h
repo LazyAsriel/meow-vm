@@ -185,15 +185,10 @@ public:
 
         keys_.insert(it, std::move(key));
 
-        try {
-            if constexpr (std::is_nothrow_constructible_v<T, Args...>) {
-                values_.emplace(values_.begin() + idx, std::forward<Args>(args)...);
-            } else {
-                values_.emplace(values_.begin() + idx, std::forward<Args>(args)...);
-            }
-        } catch (...) {
-            keys_.erase(keys_.begin() + idx);
-            throw;
+        if constexpr (std::is_nothrow_constructible_v<T, Args...>) {
+            values_.emplace(values_.begin() + idx, std::forward<Args>(args)...);
+        } else {
+            values_.emplace(values_.begin() + idx, std::forward<Args>(args)...);
         }
 
         return {&values_[idx], true};
