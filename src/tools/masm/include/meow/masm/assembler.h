@@ -9,34 +9,29 @@ namespace meow::masm {
 
 class Assembler {
 public:
-    // [THAY ĐỔI] Nhận Lexer reference thay vì vector
     explicit Assembler(Lexer& lexer) noexcept;
 
     [[nodiscard]] Status assemble();
     [[nodiscard]] Status assemble_to_file(const std::string& output_file);
     
-    // Hàm ghi file trực tiếp ra stream (Zero-copy buffer)
     void write_binary(std::ostream& out);
 
 private:
-    Lexer& lexer_;        // Tham chiếu đến Lexer để kéo token
-    Token current_token_; // Bộ đệm 1 token (Lookahead = 1)
+    Lexer& lexer_;
+    Token current_token_;
     
     std::vector<Prototype> protos_;
     Prototype* curr_proto_ = nullptr;
     std::unordered_map<std::string, uint32_t> proto_name_map_;
     ProtoFlags global_flags_ = ProtoFlags::NONE;
 
-    // Các hàm tiện ích truy cập token hiện tại
     [[gnu::always_inline]] Token peek() const { return current_token_; }
     [[gnu::always_inline]] bool is_at_end() const { return current_token_.type == TokenType::END_OF_FILE; }
     
-    // Lấy token hiện tại và nạp token tiếp theo từ Lexer
     Token advance(); 
     
     [[nodiscard]] Status consume(TokenType type, ErrorCode err, Token* out_token = nullptr);
 
-    // Các hàm parse (giữ nguyên logic)
     Status parse_statement();
     Status parse_func();
     Status parse_registers();
@@ -46,6 +41,8 @@ private:
     Status parse_label();
     Status parse_instruction();
     Status parse_annotation(); 
+
+    Status parse_arg(ArgType type, OpCode op);
 
     std::string parse_string_literal(std::string_view sv);
     Status link_proto_refs();

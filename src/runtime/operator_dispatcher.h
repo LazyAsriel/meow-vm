@@ -10,7 +10,7 @@ class MemoryManager;
 constexpr size_t TYPE_BITS = 4;
 
 constexpr size_t OP_BITS_COMPACT = 5; 
-constexpr size_t OP_OFFSET = std::to_underlying(OpCode::__BEGIN_OPERATOR__) + 1;
+constexpr size_t OP_OFFSET = std::to_underlying(OpCode::ADD);
 
 constexpr size_t BINARY_TABLE_SIZE = (1 << OP_BITS_COMPACT) * (1 << TYPE_BITS) * (1 << TYPE_BITS);
 constexpr size_t UNARY_TABLE_SIZE  = (1 << OP_BITS_COMPACT) * (1 << TYPE_BITS);

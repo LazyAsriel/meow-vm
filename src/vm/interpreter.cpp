@@ -43,27 +43,29 @@ namespace {
         }
     }
 
-    struct TableInitializer {
+struct TableInitializer {
         TableInitializer() {
-            // 1. Mặc định gán tất cả là UNIMPL (An toàn)
+            // 1. Mặc định gán tất cả là UNIMPL (Unimplemented) để an toàn
             for (int i = 0; i < 256; ++i) {
                 dispatch_table[i] = op_wrapper<OpCode::HALT, handlers::impl_UNIMPL>;
             }
 
-            // Macro giúp code ngắn gọn
+            // Macro giúp code ngắn gọn, tự động map OpCode::NAME -> handlers::impl_NAME
             #define reg(NAME) dispatch_table[static_cast<size_t>(OpCode::NAME)] = op_wrapper<OpCode::NAME, handlers::impl_##NAME>
             
+            reg(NOP);
+
             // --- CORE OPS ---
             reg(LOAD_CONST); reg(LOAD_NULL); reg(LOAD_TRUE); reg(LOAD_FALSE);
             reg(LOAD_INT); reg(LOAD_FLOAT); reg(MOVE);
             reg(INC); reg(DEC);
 
-            // --- MATH (Standard) ---
+            // --- MATH (Standard 16-bit regs) ---
             reg(ADD); reg(SUB); reg(MUL); reg(DIV); reg(MOD); reg(POW);
             reg(EQ); reg(NEQ); reg(GT); reg(GE); reg(LT); reg(LE);
             reg(NEG); reg(NOT);
             
-            // --- BITWISE (Chỉ cần bản chuẩn, không cần _B) ---
+            // --- BITWISE (Standard 16-bit regs) ---
             reg(BIT_AND); reg(BIT_OR); reg(BIT_XOR); reg(BIT_NOT);
             reg(LSHIFT); reg(RSHIFT);
 
@@ -92,26 +94,42 @@ namespace {
             reg(THROW); reg(SETUP_TRY); reg(POP_TRY);
             reg(IMPORT_MODULE); reg(EXPORT); reg(GET_EXPORT); reg(IMPORT_ALL);
 
-            // --- OPTIMIZATION 1: MATH _B ---
-            // (Giữ lại vì bạn đã có macro trong math_ops.h, nếu chưa thì bỏ luôn cũng được)
+            // ============================================================
+            //                 OPTIMIZED OPCODES (Byte Operands)
+            // ============================================================
+
+            // --- OPT 1: MATH & LOGIC _B (8-bit regs) ---
             reg(ADD_B); reg(SUB_B); reg(MUL_B); reg(DIV_B); reg(MOD_B);
             reg(EQ_B); reg(NEQ_B); reg(GT_B); reg(GE_B); reg(LT_B); reg(LE_B);
             
-            // --- OPTIMIZATION 2: FUSED COMPARE & JUMP (Nên dùng!) ---
-            // Hiệu năng cao, code ngắn (dùng Macro IMPL_CMP_JUMP đã viết)
+            // --- OPT 2: BITWISE _B (8-bit regs) ---
+            reg(BIT_AND_B); reg(BIT_OR_B); reg(BIT_XOR_B); reg(BIT_NOT_B);
+            reg(LSHIFT_B); reg(RSHIFT_B);
+
+            // --- OPT 3: UNARY & DATA _B (8-bit regs) ---
+            reg(INC_B); reg(DEC_B);
+            reg(NEG_B); reg(NOT_B);
+            // reg(MOVE_B); 
+            // reg(LOAD_CONST_B); // Load hằng số index < 256 vào reg < 256
+            // reg(LOAD_INT_B); // (Bỏ comment nếu bạn đã implement handler này)
+
+            // --- OPT 4: FLOW CONTROL _B (8-bit regs) ---
+            reg(JUMP_IF_TRUE_B); reg(JUMP_IF_FALSE_B);
+
+            // --- OPT 5: FUSED COMPARE & JUMP (Standard 16-bit) ---
             reg(JUMP_IF_EQ); reg(JUMP_IF_NEQ);
             reg(JUMP_IF_GT); reg(JUMP_IF_GE);
             reg(JUMP_IF_LT); reg(JUMP_IF_LE);
-            
-            // --- CÁC OPCODE ĐÃ BỎ ĐỂ GIẢM PHỨC TẠP ---
-            // MOVE_B, LOAD_INT_B
-            // BIT_AND_B, BIT_OR_B... (Bitwise ít dùng, tối ưu không bõ)
-            // JUMP_IF_TRUE_B... (Logic jump byte offset không tiết kiệm được bao nhiêu)
+
+            // --- OPT 6: FUSED COMPARE & JUMP _B (8-bit regs) ---
+            reg(JUMP_IF_EQ_B); reg(JUMP_IF_NEQ_B);
+            reg(JUMP_IF_GT_B); reg(JUMP_IF_GE_B);
+            reg(JUMP_IF_LT_B); reg(JUMP_IF_LE_B);
 
             #undef reg
         }
     };
-    
+        
     static TableInitializer init_trigger;
 
 } // namespace anonymous

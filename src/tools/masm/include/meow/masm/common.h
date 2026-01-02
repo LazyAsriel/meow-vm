@@ -1,44 +1,29 @@
 #pragma once
+
 #include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
 #include <unordered_map>
+#include <variant> 
+#include <meow_variant.h> 
 #include <meow/bytecode/op_codes.h>
 
 namespace meow::masm {
 
-// --- Zero-Overhead Error System (8 Bytes) ---
+// --- 1. Zero-Overhead Error System (8 Bytes) ---
 
 enum class ErrorCode : uint8_t {
     OK = 0,
-    UNEXPECTED_TOKEN,
-    EXPECTED_FUNC_NAME,
-    EXPECTED_NUMBER,
-    EXPECTED_U16,
-    EXPECTED_INT64,
-    EXPECTED_DOUBLE,
-    EXPECTED_TYPE,
-    EXPECTED_SLOT,
-    EXPECTED_STRING,
-    UNKNOWN_OPCODE,
-    UNKNOWN_ANNOTATION,
-    UNKNOWN_CONSTANT,
-    UNDEFINED_LABEL,
-    UNDEFINED_PROTO_REF,
-    OUTSIDE_FUNC,
-    LABEL_REDEFINITION,
-    FILE_OPEN_FAILED,
-    WRITE_ERROR,
-    READ_ERROR,           
-    INDEX_OUT_OF_BOUNDS   
+    UNEXPECTED_TOKEN, EXPECTED_FUNC_NAME, EXPECTED_NUMBER, EXPECTED_U16,
+    EXPECTED_INT64, EXPECTED_DOUBLE, EXPECTED_TYPE, EXPECTED_SLOT,
+    EXPECTED_STRING, UNKNOWN_OPCODE, UNKNOWN_ANNOTATION, UNKNOWN_CONSTANT,
+    UNDEFINED_LABEL, UNDEFINED_PROTO_REF, OUTSIDE_FUNC, LABEL_REDEFINITION,
+    FILE_OPEN_FAILED, WRITE_ERROR, READ_ERROR, INDEX_OUT_OF_BOUNDS,
+    
+    REG_INDEX_TOO_LARGE, UNKNOWN_ARG_TYPE
 };
 
-// Layout 64-bit packed:
-// [0-7]   : ErrorCode (8 bits)
-// [8-39]  : Line (32 bits)
-// [40-55] : Col (16 bits)
-// [56-63] : Reserved (8 bits)
 struct Status {
     uint64_t raw = 0; 
 
@@ -54,17 +39,14 @@ struct Status {
 
     [[gnu::always_inline]] bool is_ok() const { return raw == 0; }
     [[gnu::always_inline]] bool is_err() const { return raw != 0; }
-    
     [[gnu::always_inline]] ErrorCode code() const { return static_cast<ErrorCode>(raw & 0xFF); }
     [[gnu::always_inline]] uint32_t line() const { return static_cast<uint32_t>((raw >> 8) & 0xFFFFFFFF); }
     [[gnu::always_inline]] uint32_t col() const { return static_cast<uint32_t>((raw >> 40) & 0xFFFF); }
 };
 
-// Macro check lỗi không branch (hoặc branch rất ít tốn kém)
-#define MASM_CHECK(stmt) \
-    { Status _s = (stmt); if (_s.raw != 0) [[unlikely]] return _s; }
+#define MASM_CHECK(stmt) { Status _s = (stmt); if (_s.raw != 0) [[unlikely]] return _s; }
 
-// --- Token Structures ---
+// --- 2. Token Structures ---
 
 enum class TokenType : uint8_t { 
     DIR_FUNC, DIR_ENDFUNC, DIR_REGISTERS, DIR_UPVALUES, DIR_UPVALUE, DIR_CONST,
@@ -76,13 +58,48 @@ enum class TokenType : uint8_t {
 
 struct Token {
     TokenType type;
-    std::string_view lexeme; // 16 bytes
+    std::string_view lexeme; 
     uint32_t line;
     uint32_t col;
     uint16_t payload = 0;
 };
 
-// --- Assembler Structures ---
+// --- 3. IR DEFINITIONS (Intermediate Representation) ---
+
+struct Reg { uint16_t id; bool operator==(const Reg& o) const { return id == o.id; } };
+struct StrIdx { uint32_t id; };
+struct ConstIdx { uint32_t id; };
+struct LabelIdx { uint32_t id; };
+struct JumpOffset { int32_t val; };
+
+using IrArg = meow::variant<
+    Reg, int64_t, double, 
+    StrIdx, ConstIdx, LabelIdx, JumpOffset
+>;
+
+struct Arg {
+    static IrArg None() { return {}; }
+    static IrArg R(uint16_t id) { return Reg{id}; }
+    static IrArg Int(int64_t v) { return v; }
+    static IrArg F(double v) { return v; }
+    static IrArg Str(uint32_t id) { return StrIdx{id}; }
+    static IrArg Const(uint32_t id) { return ConstIdx{id}; }
+    static IrArg Label(uint32_t id) { return LabelIdx{id}; }
+    static IrArg Off(int32_t v) { return JumpOffset{v}; }
+};
+
+struct IrInstruction {
+    meow::OpCode op;
+    uint8_t arg_count;
+    uint32_t line;
+    IrArg args[4]; 
+
+    IrInstruction() : op(meow::OpCode::NOP), arg_count(0), line(0) {
+        for(auto& a : args) a = Arg::None();
+    }
+};
+
+// --- 4. Assembler Structures ---
 
 extern std::unordered_map<std::string_view, meow::OpCode> OP_MAP;
 void init_op_map();
@@ -109,16 +126,18 @@ struct LineInfo {
     uint32_t file_idx;
 };
 
+// --- 5. ProtoFlags & Operators ---
+
 enum class ProtoFlags : uint8_t {
-    NONE = 0,
-    HAS_DEBUG_INFO = 1 << 0,
-    IS_VARARG      = 1 << 1
+    NONE = 0, HAS_DEBUG_INFO = 1 << 0, IS_VARARG = 1 << 1
 };
 
-inline ProtoFlags operator|(ProtoFlags a, ProtoFlags b) { return static_cast<ProtoFlags>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b)); }
-inline ProtoFlags operator&(ProtoFlags a, ProtoFlags b) { return static_cast<ProtoFlags>(static_cast<uint8_t>(a) & static_cast<uint8_t>(b)); }
-inline ProtoFlags operator~(ProtoFlags a) { return static_cast<ProtoFlags>(~static_cast<uint8_t>(a)); }
-inline bool has_flag(ProtoFlags flags, ProtoFlags check) { return (flags & check) != ProtoFlags::NONE; }
+[[nodiscard]] constexpr ProtoFlags operator|(ProtoFlags a, ProtoFlags b) { return (ProtoFlags)((uint8_t)a | (uint8_t)b); }
+[[nodiscard]] constexpr ProtoFlags operator&(ProtoFlags a, ProtoFlags b) { return (ProtoFlags)((uint8_t)a & (uint8_t)b); }
+[[nodiscard]] constexpr ProtoFlags operator^(ProtoFlags a, ProtoFlags b) { return (ProtoFlags)((uint8_t)a ^ (uint8_t)b); }
+[[nodiscard]] constexpr ProtoFlags operator~(ProtoFlags a) { return (ProtoFlags)(~(uint8_t)a); }
+
+[[nodiscard]] constexpr bool has_flag(ProtoFlags flags, ProtoFlags check) { return (flags & check) != ProtoFlags::NONE; }
 
 struct Prototype {
     std::string name;
@@ -130,7 +149,9 @@ struct Prototype {
     std::vector<UpvalueInfo> upvalues;
     std::vector<uint8_t> bytecode;
 
-    // Debug Info
+    std::vector<IrInstruction> ir_code;
+    std::vector<std::string> string_pool; 
+    
     std::vector<LineInfo> lines;
     std::vector<std::string> source_files;
     std::unordered_map<std::string, uint32_t> file_map; 
@@ -145,6 +166,10 @@ struct Prototype {
         source_files.push_back(file);
         file_map[file] = idx;
         return idx;
+    }
+    
+    size_t current_code_size() const {
+        return bytecode.size(); 
     }
 };
 

@@ -21,12 +21,15 @@ if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
     target_precompile_headers(meow_core PRIVATE "pch.h")
 endif()
 
-# add_subdirectory(jit)
-add_executable(meow-vm "cli/main.cpp")
-target_link_libraries(meow-vm PRIVATE meow_core masm_core meow::libs)
+if(NOT BUILD_BENCHMARKS)
+    message(STATUS "Building meow-vm CLI executable...")
+    add_executable(meow-vm "cli/main.cpp")
+    
+    target_link_libraries(meow-vm PRIVATE meow_core masm_core meow::libs)
 
-if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
-    target_precompile_headers(meow-vm PRIVATE "pch.h")
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
+        target_precompile_headers(meow-vm PRIVATE "pch.h")
+    endif()
+
+    add_subdirectory(tools/masm)
 endif()
-
-add_subdirectory(tools/masm)

@@ -8,14 +8,17 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(ENABLE_UNITY_BUILD "Enable Unity/Jumbo build" ON)
 option(BUILD_BENCHMARKS "Build benchmarks" OFF) 
+
 configure_file(
     "${PROJECT_SOURCE_DIR}/include/meow/config.h.in"
     "${PROJECT_BINARY_DIR}/include/meow/config.h"
 )
+
 add_subdirectory(libs)
+
 add_subdirectory(src)
 
-# if(BUILD_BENCHMARKS)
+if(BUILD_BENCHMARKS)
     message(STATUS "Benchmarks enabled")
     add_subdirectory(benchmarks)
-# endif()
+endif()

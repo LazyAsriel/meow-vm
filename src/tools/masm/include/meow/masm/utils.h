@@ -28,6 +28,10 @@ constexpr std::string_view get_error_msg(ErrorCode code) {
         case ErrorCode::WRITE_ERROR: return "Cannot write output file";
         case ErrorCode::INDEX_OUT_OF_BOUNDS: return "Index out of bounds";
         case ErrorCode::READ_ERROR: return "File read error";
+        
+        case ErrorCode::REG_INDEX_TOO_LARGE: return "Register index too large (max 255)";
+        case ErrorCode::UNKNOWN_ARG_TYPE: return "Unknown argument type";
+        
         default: return "Unknown error";
     }
 }

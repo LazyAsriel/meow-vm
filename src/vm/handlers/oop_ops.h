@@ -126,18 +126,19 @@ static const uint8_t* impl_INVOKE(const uint8_t* ip, Value* regs, const Value* c
                 
                 // B. Gọi Native Function
                 else if (method.is_native()) {
-                    // Native cần mảng liên tục [this, arg1, arg2...]
-                    // Vì 'receiver' và 'args' không nằm liền nhau trên stack (regs),
-                    // ta phải tạo buffer tạm.
-                    
-                    // Small optimization: Dùng stack C++ (alloca) hoặc vector nhỏ
-                    std::vector<Value> native_args;
-                    native_args.reserve(argc + 1);
-                    native_args.push_back(receiver); // this
-                    for(int i=0; i<argc; ++i) native_args.push_back(regs[arg_start + i]);
+                    constexpr size_t MAX_NATIVE_ARGS = 64;
+                    Value arg_buffer[MAX_NATIVE_ARGS];
 
-                    Value result = method.as_native()(&state->machine, native_args.size(), native_args.data());
-                    
+                    arg_buffer[0] = receiver;
+
+                    size_t copy_count = std::min(static_cast<size_t>(argc), MAX_NATIVE_ARGS - 1);
+
+                    if (copy_count > 0) [[likely]] {
+                        std::copy_n(regs + arg_start, copy_count, arg_buffer + 1);
+                    }
+
+                    Value result = method.as_native()(&state->machine, copy_count + 1, arg_buffer);
+
                     if (state->machine.has_error()) return impl_PANIC(start_ip, regs, constants, state);
                     
                     if (dst != 0xFFFF) regs[dst] = result;

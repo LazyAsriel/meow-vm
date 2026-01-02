@@ -51,15 +51,16 @@ using Layout = NanboxLayout;
 template <typename... Args>
 class NaNBoxedVariant {
     using flat_list = meow::utils::flattened_unique_t<Args...>;
+    static constexpr std::size_t npos = static_cast<std::size_t>(-1);
     static constexpr std::size_t count = detail::type_list_length<flat_list>::value;
     static constexpr std::size_t dbl_idx = detail::type_list_index_of<double, flat_list>::value;
     static constexpr bool use_extended_tag = (count > 8);
+    static constexpr bool has_double = (dbl_idx != npos);
+    static constexpr std::size_t num_tagged = count - (has_double ? 1 : 0);
 
 public:
     using inner_types = flat_list;
     using layout_traits = NanboxLayout;
-
-    static constexpr std::size_t npos = static_cast<std::size_t>(-1);
 
     NaNBoxedVariant() noexcept {
         if constexpr (std::is_same_v<typename detail::nth_type<0, flat_list>::type, std::monostate>) {
@@ -199,10 +200,32 @@ public:
     bool operator!=(const NaNBoxedVariant& other) const { return bits_ != other.bits_; }
 
     template <typename Self, typename Visitor>
+    [[gnu::always_inline]]
     decltype(auto) visit(this Self&& self, Visitor&& vis) {
-        std::size_t idx = self.index();
-        if (idx == npos) [[unlikely]] std::unreachable();
-        return self.visit_impl(std::forward<Visitor>(vis), idx);
+        if constexpr (has_double) {
+             if (is_double(self.bits_)) {
+                 return std::invoke(std::forward<Visitor>(vis), from_bits(self.bits_));
+             }
+        }
+
+        if constexpr (num_tagged == 1) {
+            constexpr std::size_t idx = []() consteval {
+                for(std::size_t i=0; i<count; ++i) if(i != dbl_idx) return i;
+                return std::size_t(0); 
+            }();
+            using T = typename detail::nth_type<idx, flat_list>::type;
+            
+            return std::invoke(std::forward<Visitor>(vis), self.template unsafe_get<T>());
+        }
+        else {
+            uint32_t tag = (self.bits_ >> Layout::TAG_SHIFT) & 0x7;
+            
+            if constexpr (use_extended_tag) {
+                 if (self.bits_ & 0x8000000000000000ULL) tag += 8;
+            }
+            
+            return self.visit_impl(std::forward<Visitor>(vis), tag);
+        }
     }
 
 private:
