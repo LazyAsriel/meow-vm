@@ -56,109 +56,84 @@ static const uint8_t* ERROR(
 
 namespace decode {
 
-    template <typename... Ts>
-    constexpr size_t total_size_v = (sizeof(Ts) + ...);
+    // =========================================================
+    // 1. WIRE FORMAT (PACKED)
+    // Dùng để ánh xạ dữ liệu thô từ Bytecode (Memory)
+    // =========================================================
+    template <typename... Ts> struct [[gnu::packed]] WireArgs;
 
-    template <typename T>
-    [[gnu::always_inline, gnu::hot]]
-    inline T read_one(const uint8_t*& ip) {
-        T val;
-        __builtin_memcpy(&val, ip, sizeof(T));
-        ip += sizeof(T);
-        return val;
-    }
+    template <typename T1> struct [[gnu::packed]] WireArgs<T1> { T1 v0; };
+    template <typename T1, typename T2> struct [[gnu::packed]] WireArgs<T1, T2> { T1 v0; T2 v1; };
+    template <typename T1, typename T2, typename T3> struct [[gnu::packed]] WireArgs<T1, T2, T3> { T1 v0; T2 v1; T3 v2; };
+    template <typename T1, typename T2, typename T3, typename T4> struct [[gnu::packed]] WireArgs<T1, T2, T3, T4> { T1 v0; T2 v1; T3 v2; T4 v3; };
+    template <typename T1, typename T2, typename T3, typename T4, typename T5> struct [[gnu::packed]] WireArgs<T1, T2, T3, T4, T5> { T1 v0; T2 v1; T3 v2; T4 v3; T5 v4; };
 
+    // =========================================================
+    // 2. REGISTER FORMAT (UNPACKED)
+    // Dùng để trả về giá trị (Register friendly -> Fast access)
+    // =========================================================
     template <typename... Ts> struct ArgPack;
-    template <typename T1> struct [[gnu::packed]] ArgPack<T1> { T1 v0; };
-    template <typename T1, typename T2> struct [[gnu::packed]] ArgPack<T1, T2> { T1 v0; T2 v1; };
-    template <typename T1, typename T2, typename T3> struct [[gnu::packed]] ArgPack<T1, T2, T3> { T1 v0; T2 v1; T3 v2; };
-    template <typename T1, typename T2, typename T3, typename T4> struct [[gnu::packed]] ArgPack<T1, T2, T3, T4> { T1 v0; T2 v1; T3 v2; T4 v3; };
-    template <typename T1, typename T2, typename T3, typename T4, typename T5> struct [[gnu::packed]] ArgPack<T1, T2, T3, T4, T5> { T1 v0; T2 v1; T3 v2; T4 v3; T5 v4; };
+
+    template <typename T1> 
+    struct ArgPack<T1> { 
+        T1 v0; 
+        // Constructor copy từ Wire sang Register
+        [[gnu::always_inline]] ArgPack(const WireArgs<T1>& w) : v0(w.v0) {}
+    };
+
+    template <typename T1, typename T2> 
+    struct ArgPack<T1, T2> { 
+        T1 v0; T2 v1;
+        [[gnu::always_inline]] ArgPack(const WireArgs<T1, T2>& w) : v0(w.v0), v1(w.v1) {}
+    };
+
+    template <typename T1, typename T2, typename T3> 
+    struct ArgPack<T1, T2, T3> { 
+        T1 v0; T2 v1; T3 v2;
+        [[gnu::always_inline]] ArgPack(const WireArgs<T1, T2, T3>& w) : v0(w.v0), v1(w.v1), v2(w.v2) {}
+    };
+
+    template <typename T1, typename T2, typename T3, typename T4> 
+    struct ArgPack<T1, T2, T3, T4> { 
+        T1 v0; T2 v1; T3 v2; T4 v3;
+        [[gnu::always_inline]] ArgPack(const WireArgs<T1, T2, T3, T4>& w) : v0(w.v0), v1(w.v1), v2(w.v2), v3(w.v3) {}
+    };
+
+    template <typename T1, typename T2, typename T3, typename T4, typename T5> 
+    struct ArgPack<T1, T2, T3, T4, T5> { 
+        T1 v0; T2 v1; T3 v2; T4 v3; T5 v4;
+        [[gnu::always_inline]] ArgPack(const WireArgs<T1, T2, T3, T4, T5>& w) : v0(w.v0), v1(w.v1), v2(w.v2), v3(w.v3), v4(w.v4) {}
+    };
+
+    // =========================================================
+    // 3. CORE DECODER
+    // =========================================================
+
+    template <typename... Ts>
+    constexpr size_t total_size_v = sizeof(WireArgs<Ts...>); // Dùng WireArgs để tính size chuẩn
+
+    template <typename... Ts>
+    constexpr size_t size_of_v = sizeof(WireArgs<Ts...>);
 
     template <typename... Ts>
     [[gnu::always_inline, gnu::hot]]
     inline auto args(const uint8_t*& ip) {
-        using PackedType = ArgPack<Ts...>;
-        PackedType val = *reinterpret_cast<const PackedType*>(ip);
-        ip += sizeof(PackedType);
-        return val;
+        using WireType = WireArgs<Ts...>;
+        using RetType  = ArgPack<Ts...>;
+        
+        // 1. Load thô từ bộ nhớ (Packed) -> Compiler biến thành MOV
+        WireType wire;
+        __builtin_memcpy(&wire, ip, sizeof(WireType));
+        
+        // 2. Tăng IP theo kích thước Packed (Logic cũ, không phá API)
+        ip += sizeof(WireType);
+        
+        // 3. Trả về dạng Unpacked (Constructor sẽ copy sang thanh ghi)
+        // Nhờ inlining, bước copy này "tan biến", chỉ còn lại dữ liệu trên thanh ghi.
+        return RetType(wire);
     }
 
-    template <typename... Ts>
-    [[gnu::always_inline, gnu::hot]]
-    inline const auto& view(const uint8_t* ip) {
-        using PackedType = ArgPack<Ts...>;
-        return *reinterpret_cast<const PackedType*>(ip);
-    }
-
-    template <typename... Ts>
-    [[gnu::always_inline, gnu::hot]]
-    inline ArgPack<Ts...> load(const uint8_t* ip) {
-        ArgPack<Ts...> val;
-        __builtin_memcpy(&val, ip, sizeof(val)); 
-        return val;
-    }
-
-    template <typename... Ts>
-    constexpr size_t size_of_v = sizeof(ArgPack<Ts...>);
-    
-    template <typename... Ts> struct ArgProxy;
-
-    template <typename T0>
-    struct ArgProxy<T0> {
-        const uint8_t* ip;
-        [[gnu::always_inline]] T0 v0() const { T0 v; __builtin_memcpy(&v, ip, sizeof(T0)); return v; }
-    };
-
-    template <typename T0, typename T1>
-    struct ArgProxy<T0, T1> {
-        const uint8_t* ip;
-        [[gnu::always_inline]] T0 v0() const { T0 v; __builtin_memcpy(&v, ip, sizeof(T0)); return v; }
-        [[gnu::always_inline]] T1 v1() const { T1 v; __builtin_memcpy(&v, ip + sizeof(T0), sizeof(T1)); return v; }
-    };
-
-    template <typename T0, typename T1, typename T2>
-    struct ArgProxy<T0, T1, T2> {
-        const uint8_t* ip;
-        static constexpr size_t O1 = sizeof(T0);
-        static constexpr size_t O2 = O1 + sizeof(T1);
-        [[gnu::always_inline]] T0 v0() const { T0 v; __builtin_memcpy(&v, ip,      sizeof(T0)); return v; }
-        [[gnu::always_inline]] T1 v1() const { T1 v; __builtin_memcpy(&v, ip + O1, sizeof(T1)); return v; }
-        [[gnu::always_inline]] T2 v2() const { T2 v; __builtin_memcpy(&v, ip + O2, sizeof(T2)); return v; }
-    };
-
-    template <typename T0, typename T1, typename T2, typename T3>
-    struct ArgProxy<T0, T1, T2, T3> {
-        const uint8_t* ip;
-        static constexpr size_t O1 = sizeof(T0);
-        static constexpr size_t O2 = O1 + sizeof(T1);
-        static constexpr size_t O3 = O2 + sizeof(T2);
-        [[gnu::always_inline]] T0 v0() const { T0 v; __builtin_memcpy(&v, ip,      sizeof(T0)); return v; }
-        [[gnu::always_inline]] T1 v1() const { T1 v; __builtin_memcpy(&v, ip + O1, sizeof(T1)); return v; }
-        [[gnu::always_inline]] T2 v2() const { T2 v; __builtin_memcpy(&v, ip + O2, sizeof(T2)); return v; }
-        [[gnu::always_inline]] T3 v3() const { T3 v; __builtin_memcpy(&v, ip + O3, sizeof(T3)); return v; }
-    };
-    
-    template <typename T0, typename T1, typename T2, typename T3, typename T4>
-    struct ArgProxy<T0, T1, T2, T3, T4> {
-        const uint8_t* ip;
-        static constexpr size_t O1 = sizeof(T0);
-        static constexpr size_t O2 = O1 + sizeof(T1);
-        static constexpr size_t O3 = O2 + sizeof(T2);
-        static constexpr size_t O4 = O3 + sizeof(T3);
-        [[gnu::always_inline]] T0 v0() const { T0 v; __builtin_memcpy(&v, ip,      sizeof(T0)); return v; }
-        [[gnu::always_inline]] T1 v1() const { T1 v; __builtin_memcpy(&v, ip + O1, sizeof(T1)); return v; }
-        [[gnu::always_inline]] T2 v2() const { T2 v; __builtin_memcpy(&v, ip + O2, sizeof(T2)); return v; }
-        [[gnu::always_inline]] T3 v3() const { T3 v; __builtin_memcpy(&v, ip + O3, sizeof(T3)); return v; }
-        [[gnu::always_inline]] T4 v4() const { T4 v; __builtin_memcpy(&v, ip + O4, sizeof(T4)); return v; }
-    };
-
-    template <typename... Ts>
-    [[gnu::always_inline]]
-    inline ArgProxy<Ts...> make(const uint8_t* ip) {
-        return ArgProxy<Ts...>{ip};
-    }
-    
+    // Helper cho cấu trúc struct IC, v.v.
     template <typename T>
     [[gnu::always_inline]]
     inline const T* as_struct(const uint8_t*& ip) {
@@ -166,5 +141,14 @@ namespace decode {
         ip += sizeof(T);
         return ptr;
     }
+
+    // Proxy (Giữ lại nếu cần, nhưng args giờ đã max speed)
+    template <typename... Ts>
+    [[gnu::always_inline]]
+    inline auto make(const uint8_t* ip) {
+        // Lưu ý: proxy giữ nguyên logic cũ, view vào packed memory
+        return reinterpret_cast<const WireArgs<Ts...>*>(ip);
+    }
+    
 } // namespace decode
 } // namespace meow::handlers

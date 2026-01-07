@@ -478,30 +478,34 @@ template <bool IsVoid>
     }
 
 #define IMPL_CMP_JUMP_B(OP_NAME, OP_ENUM, OPERATOR) \
-[[gnu::always_inline]] \
-inline static const uint8_t* impl_##OP_NAME##_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
-    /* [TỐI ƯU] Dùng Proxy (make) thay vì Structured Binding (view) */ \
-    auto args = decode::make<u8, u8, i16>(ip); \
+HOT_HANDLER impl_##OP_NAME##_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
+    /* 1. Decode siêu tốc */ \
+    /* args() đọc [u8 LHS, u8 RHS, i16 Offset] = 4 bytes */ \
+    /* ip tự động tăng 4 đơn vị */ \
+    auto [lhs, rhs, offset] = decode::args<u8, u8, i16>(ip); \
     \
-    /* v0() -> lhs, v1() -> rhs */ \
-    Value& left = regs[args.v0()]; \
-    Value& right = regs[args.v1()]; \
+    Value& left = regs[lhs]; \
+    Value& right = regs[rhs]; \
     \
     bool condition = false; \
-    if (left.holds_both<int_t>(right)) [[likely]] { condition = (left.as_int() OPERATOR right.as_int()); } \
-    else if (left.holds_both<float_t>(right)) { condition = (left.as_float() OPERATOR right.as_float()); } \
+    \
+    /* 2. Fast Path Comparison */ \
+    if (left.holds_both<int_t>(right)) [[likely]] { \
+        condition = (left.as_int() OPERATOR right.as_int()); \
+    } \
+    else if (left.holds_both<float_t>(right)) { \
+        condition = (left.as_float() OPERATOR right.as_float()); \
+    } \
     else [[unlikely]] { \
         Value res = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
         condition = meow::to_bool(res); \
     } \
     \
-    /* Tính size */ \
-    constexpr size_t INSTR_SIZE = decode::size_of_v<u8, u8, i16>; \
+    /* 3. Zero-Cost Branching */ \
+    /* Vì ip đã tăng sẵn tới lệnh kế tiếp, ta chỉ cần cộng offset */ \
+    if (condition) return ip + offset; \
     \
-    /* v2() là offset (i16) */ \
-    if (condition) return ip + INSTR_SIZE + args.v2(); \
-    \
-    return ip + INSTR_SIZE; \
+    return ip; \
 }
     IMPL_CMP_JUMP(JUMP_IF_EQ, EQ, ==)
     IMPL_CMP_JUMP(JUMP_IF_NEQ, NEQ, !=)

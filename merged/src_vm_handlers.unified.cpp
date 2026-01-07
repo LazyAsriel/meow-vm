@@ -669,16 +669,16 @@
    229	
    230	        // 1. Decode Arguments
    231	        if constexpr (!IsVoid) {
-   232	            auto args = decode::args<u16, u16, u16, u16>(ip);
-   233	            dst       = std::get<0>(args);
-   234	            fn_reg    = std::get<1>(args);
-   235	            arg_start = std::get<2>(args);
-   236	            argc      = std::get<3>(args);
+   232	            auto [d, f, s, c] = decode::args<u16, u16, u16, u16>(ip);
+   233	            dst       = d;
+   234	            fn_reg    = f;
+   235	            arg_start = s;
+   236	            argc      = c;
    237	        } else {
-   238	            auto args = decode::args<u16, u16, u16>(ip);
-   239	            fn_reg    = std::get<0>(args);
-   240	            arg_start = std::get<1>(args);
-   241	            argc      = std::get<2>(args);
+   238	            auto [f, s, c] = decode::args<u16, u16, u16>(ip);
+   239	            fn_reg    = f;
+   240	            arg_start = s;
+   241	            argc      = c;
    242	        }
    243	
    244	        // 2. Decode Inline Cache
@@ -917,41 +917,50 @@
    477	        return ip; \
    478	    }
    479	
-   480	    #define IMPL_CMP_JUMP_B(OP_NAME, OP_ENUM, OPERATOR) \
-   481	    [[gnu::always_inline]] \
-   482	    inline static const uint8_t* impl_##OP_NAME##_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
-   483	        auto [lhs, rhs, offset] = decode::args<u8, u8, i16>(ip); \
-   484	        Value& left = regs[lhs]; \
-   485	        Value& right = regs[rhs]; \
-   486	        bool condition = false; \
-   487	        if (left.holds_both<int_t>(right)) [[likely]] { condition = (left.as_int() OPERATOR right.as_int()); } \
-   488	        else if (left.holds_both<float_t>(right)) { condition = (left.as_float() OPERATOR right.as_float()); } \
-   489	        else [[unlikely]] { \
-   490	            Value res = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
-   491	            condition = meow::to_bool(res); \
-   492	        } \
-   493	        if (condition) return ip + offset; \
-   494	        return ip; \
-   495	    }
-   496	
-   497	    IMPL_CMP_JUMP(JUMP_IF_EQ, EQ, ==)
-   498	    IMPL_CMP_JUMP(JUMP_IF_NEQ, NEQ, !=)
-   499	    IMPL_CMP_JUMP(JUMP_IF_LT, LT, <)
-   500	    IMPL_CMP_JUMP(JUMP_IF_LE, LE, <=)
-   501	    IMPL_CMP_JUMP(JUMP_IF_GT, GT, >)
-   502	    IMPL_CMP_JUMP(JUMP_IF_GE, GE, >=)
-   503	
-   504	    IMPL_CMP_JUMP_B(JUMP_IF_EQ, EQ, ==)
-   505	    IMPL_CMP_JUMP_B(JUMP_IF_NEQ, NEQ, !=)
-   506	    IMPL_CMP_JUMP_B(JUMP_IF_LT, LT, <)
-   507	    IMPL_CMP_JUMP_B(JUMP_IF_LE, LE, <=)
-   508	    IMPL_CMP_JUMP_B(JUMP_IF_GT, GT, >)
-   509	    IMPL_CMP_JUMP_B(JUMP_IF_GE, GE, >=)
-   510	
-   511	    #undef IMPL_CMP_JUMP
-   512	    #undef IMPL_CMP_JUMP_B
-   513	
-   514	} // namespace meow::handlers
+   480	#define IMPL_CMP_JUMP_B(OP_NAME, OP_ENUM, OPERATOR) \
+   481	[[gnu::always_inline]] \
+   482	inline static const uint8_t* impl_##OP_NAME##_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
+   483	    /* [TỐI ƯU] Dùng Proxy (make) thay vì Structured Binding (view) */ \
+   484	    auto args = decode::make<u8, u8, i16>(ip); \
+   485	    \
+   486	    /* v0() -> lhs, v1() -> rhs */ \
+   487	    Value& left = regs[args.v0()]; \
+   488	    Value& right = regs[args.v1()]; \
+   489	    \
+   490	    bool condition = false; \
+   491	    if (left.holds_both<int_t>(right)) [[likely]] { condition = (left.as_int() OPERATOR right.as_int()); } \
+   492	    else if (left.holds_both<float_t>(right)) { condition = (left.as_float() OPERATOR right.as_float()); } \
+   493	    else [[unlikely]] { \
+   494	        Value res = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
+   495	        condition = meow::to_bool(res); \
+   496	    } \
+   497	    \
+   498	    /* Tính size */ \
+   499	    constexpr size_t INSTR_SIZE = decode::size_of_v<u8, u8, i16>; \
+   500	    \
+   501	    /* v2() là offset (i16) */ \
+   502	    if (condition) return ip + INSTR_SIZE + args.v2(); \
+   503	    \
+   504	    return ip + INSTR_SIZE; \
+   505	}
+   506	    IMPL_CMP_JUMP(JUMP_IF_EQ, EQ, ==)
+   507	    IMPL_CMP_JUMP(JUMP_IF_NEQ, NEQ, !=)
+   508	    IMPL_CMP_JUMP(JUMP_IF_LT, LT, <)
+   509	    IMPL_CMP_JUMP(JUMP_IF_LE, LE, <=)
+   510	    IMPL_CMP_JUMP(JUMP_IF_GT, GT, >)
+   511	    IMPL_CMP_JUMP(JUMP_IF_GE, GE, >=)
+   512	
+   513	    IMPL_CMP_JUMP_B(JUMP_IF_EQ, EQ, ==)
+   514	    IMPL_CMP_JUMP_B(JUMP_IF_NEQ, NEQ, !=)
+   515	    IMPL_CMP_JUMP_B(JUMP_IF_LT, LT, <)
+   516	    IMPL_CMP_JUMP_B(JUMP_IF_LE, LE, <=)
+   517	    IMPL_CMP_JUMP_B(JUMP_IF_GT, GT, >)
+   518	    IMPL_CMP_JUMP_B(JUMP_IF_GE, GE, >=)
+   519	
+   520	    #undef IMPL_CMP_JUMP
+   521	    #undef IMPL_CMP_JUMP_B
+   522	
+   523	} // namespace meow::handlers
 
 
 // =============================================================================
@@ -1178,20 +1187,20 @@
    218	
    219	// Bản 8-bit
    220	HOT_HANDLER impl_INC_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   221	    // 1 * u8 = 1 byte
-   222	    auto [reg_idx] = decode::args<u8>(ip);
-   223	    Value& val = regs[reg_idx];
+   221	    auto args = decode::make<u8>(ip);
+   222	    
+   223	    Value& val = regs[args.v0()];
    224	
    225	    if (val.holds<int64_t>()) [[likely]] {
    226	        val.unsafe_set<int64_t>(val.unsafe_get<int64_t>() + 1);
    227	    } else if (val.holds<double>()) {
    228	        val.unsafe_set<double>(val.unsafe_get<double>() + 1.0);
    229	    } else [[unlikely]] {
-   230	        // Đã đọc 1 byte -> Offset = 1
-   231	        return ERROR<1>(ip, regs, constants, state, 1 /*TYPE_ERR*/, "INC requires Number");
-   232	    }
-   233	
-   234	    return ip;
+   230	        return ERROR<1>(ip, regs, constants, state, 1, "INC requires Number");
+   231	    }
+   232	
+   233	    // Lazy return
+   234	    return ip + decode::size_of_v<u8>;
    235	}
    236	
    237	HOT_HANDLER impl_DEC_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
@@ -1560,367 +1569,360 @@
    111	
    112	[[gnu::always_inline]] 
    113	static const uint8_t* impl_INVOKE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   114	    // 1. Decode Arguments: 5 * u16 = 10 bytes
-   115	    // (dst, obj_reg, name_idx, arg_start, argc)
-   116	    auto args = decode::args<u16, u16, u16, u16, u16>(ip);
-   117	    u16 dst       = std::get<0>(args);
-   118	    u16 obj_reg   = std::get<1>(args);
-   119	    u16 name_idx  = std::get<2>(args);
-   120	    u16 arg_start = std::get<3>(args);
-   121	    u16 argc      = std::get<4>(args);
-   122	    
-   123	    // 2. Inline Cache (Tự động tính size dựa trên architecture)
-   124	    InlineCache* ic = const_cast<InlineCache*>(decode::as_struct<InlineCache>(ip));
-   125	    
-   126	    // IP lúc này đã trỏ sang lệnh tiếp theo (Next IP)
-   127	    const uint8_t* next_ip = ip; 
-   128	    
-   129	    // Tính offset để báo lỗi (10 byte args + Size IC)
-   130	    constexpr size_t ErrOffset = 10 + sizeof(InlineCache);
-   131	
-   132	    Value& receiver = regs[obj_reg];
-   133	    string_t name = constants[name_idx].as_string();
-   134	
-   135	    // 3. Instance Method Call (Fast Path)
-   136	    if (receiver.is_instance()) [[likely]] {
-   137	        instance_t inst = receiver.as_instance();
-   138	        class_t k = inst->get_class();
-   139	                
-   140	        while (k) {
-   141	            if (k->has_method(name)) {
-   142	                Value method = k->get_method(name);
-   143	                
-   144	                if (method.is_function()) {
-   145	                    const uint8_t* jump_target = push_call_frame(
-   146	                        state, method.as_function(), argc, &regs[arg_start], &receiver,
-   147	                        (dst == 0xFFFF) ? nullptr : &regs[dst], next_ip, ip - ErrOffset - 1 // Error IP (approx)
-   148	                    );
-   149	                    if (!jump_target) return impl_PANIC(ip, regs, constants, state);
-   150	                    return jump_target;
-   151	                }
-   152	                else if (method.is_native()) {
-   153	                    constexpr size_t MAX_NATIVE_ARGS = 64;
-   154	                    Value arg_buffer[MAX_NATIVE_ARGS];
-   155	                    arg_buffer[0] = receiver;
-   156	                    size_t copy_count = std::min(static_cast<size_t>(argc), MAX_NATIVE_ARGS - 1);
-   157	                    if (copy_count > 0) std::copy_n(regs + arg_start, copy_count, arg_buffer + 1);
-   158	
-   159	                    Value result = method.as_native()(&state->machine, copy_count + 1, arg_buffer);
-   160	                    if (state->machine.has_error()) return impl_PANIC(ip, regs, constants, state);
-   161	                    if (dst != 0xFFFF) regs[dst] = result;
-   162	                    return next_ip;
-   163	                }
-   164	                break;
-   165	            }
-   166	            k = k->get_super();
-   167	        }
-   168	    }
-   169	
-   170	    // 4. Primitive Method Call (Optimized Stack Allocation)
-   171	    Value method_val = find_primitive_method_slow(state, receiver, name); 
-   172	    
-   173	    if (!method_val.is_null()) [[likely]] {         
-   174	         if (method_val.is_native()) {
-   175	             constexpr size_t MAX_NATIVE_ARGS = 64;
-   176	             Value arg_buffer[MAX_NATIVE_ARGS];
-   177	
-   178	             arg_buffer[0] = receiver; 
-   179	             size_t copy_count = std::min(static_cast<size_t>(argc), MAX_NATIVE_ARGS - 1);
-   180	             if (copy_count > 0) std::copy_n(regs + arg_start, copy_count, arg_buffer + 1);
-   181	
-   182	             Value result = method_val.as_native()(&state->machine, copy_count + 1, arg_buffer);
-   183	
-   184	             if (state->machine.has_error()) return impl_PANIC(ip, regs, constants, state);
-   185	             if (dst != 0xFFFF) regs[dst] = result;
-   186	             return next_ip;
-   187	         } else {
-   188	             return ERROR<ErrOffset>(ip, regs, constants, state, ERR_METHOD, "Primitive method must be native");
-   189	         }
-   190	    }
-   191	
-   192	    return ERROR<ErrOffset>(ip, regs, constants, state, ERR_METHOD, 
-   193	                            "Method '{}' not found on object '{}'.", name->c_str(), to_string(receiver));
-   194	}
-   195	
-   196	[[gnu::always_inline]] 
-   197	static const uint8_t* impl_NEW_CLASS(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   198	    // 2 * u16 = 4 bytes -> Load u32
-   199	    auto [dst, name_idx] = decode::args<u16, u16>(ip);
-   200	    regs[dst] = Value(state->heap.new_class(constants[name_idx].as_string()));
-   201	    return ip;
-   202	}
-   203	
-   204	[[gnu::always_inline]] 
-   205	static const uint8_t* impl_NEW_INSTANCE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   206	    // 2 * u16 = 4 bytes -> Load u32
-   207	    auto [dst, class_reg] = decode::args<u16, u16>(ip);
-   208	    Value& class_val = regs[class_reg];
-   209	    
-   210	    if (!class_val.is_class()) [[unlikely]] {
-   211	        return ERROR<4>(ip, regs, constants, state, ERR_INHERIT, "NEW_INSTANCE: Operand is not a Class");
-   212	    }
-   213	    regs[dst] = Value(state->heap.new_instance(class_val.as_class(), state->heap.get_empty_shape()));
-   214	    return ip;
-   215	}
-   216	
-   217	[[gnu::always_inline]] 
-   218	static const uint8_t* impl_GET_PROP(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   219	    // 1. Decode Args: 3 * u16 = 6 bytes -> Load u64
-   220	    auto [dst, obj_reg, name_idx] = decode::args<u16, u16, u16>(ip);
-   221	    
-   222	    // 2. Decode IC
-   223	    InlineCache* ic = const_cast<InlineCache*>(decode::as_struct<InlineCache>(ip));
-   224	
-   225	    constexpr size_t ErrOffset = 6 + sizeof(InlineCache);
+   114	    auto [dst, obj_reg, name_idx, arg_start, argc] = decode::args<u16, u16, u16, u16, u16>(ip);
+   115	    
+   116	    // 2. Inline Cache (Tự động tính size dựa trên architecture)
+   117	    InlineCache* ic = const_cast<InlineCache*>(decode::as_struct<InlineCache>(ip));
+   118	    
+   119	    // IP lúc này đã trỏ sang lệnh tiếp theo (Next IP)
+   120	    const uint8_t* next_ip = ip; 
+   121	    
+   122	    // Tính offset để báo lỗi (10 byte args + Size IC)
+   123	    constexpr size_t ErrOffset = 10 + sizeof(InlineCache);
+   124	
+   125	    Value& receiver = regs[obj_reg];
+   126	    string_t name = constants[name_idx].as_string();
+   127	
+   128	    // 3. Instance Method Call (Fast Path)
+   129	    if (receiver.is_instance()) [[likely]] {
+   130	        instance_t inst = receiver.as_instance();
+   131	        class_t k = inst->get_class();
+   132	                
+   133	        while (k) {
+   134	            if (k->has_method(name)) {
+   135	                Value method = k->get_method(name);
+   136	                
+   137	                if (method.is_function()) {
+   138	                    const uint8_t* jump_target = push_call_frame(
+   139	                        state, method.as_function(), argc, &regs[arg_start], &receiver,
+   140	                        (dst == 0xFFFF) ? nullptr : &regs[dst], next_ip, ip - ErrOffset - 1 // Error IP (approx)
+   141	                    );
+   142	                    if (!jump_target) return impl_PANIC(ip, regs, constants, state);
+   143	                    return jump_target;
+   144	                }
+   145	                else if (method.is_native()) {
+   146	                    constexpr size_t MAX_NATIVE_ARGS = 64;
+   147	                    Value arg_buffer[MAX_NATIVE_ARGS];
+   148	                    arg_buffer[0] = receiver;
+   149	                    size_t copy_count = std::min(static_cast<size_t>(argc), MAX_NATIVE_ARGS - 1);
+   150	                    if (copy_count > 0) std::copy_n(regs + arg_start, copy_count, arg_buffer + 1);
+   151	
+   152	                    Value result = method.as_native()(&state->machine, copy_count + 1, arg_buffer);
+   153	                    if (state->machine.has_error()) return impl_PANIC(ip, regs, constants, state);
+   154	                    if (dst != 0xFFFF) regs[dst] = result;
+   155	                    return next_ip;
+   156	                }
+   157	                break;
+   158	            }
+   159	            k = k->get_super();
+   160	        }
+   161	    }
+   162	
+   163	    // 4. Primitive Method Call (Optimized Stack Allocation)
+   164	    Value method_val = find_primitive_method_slow(state, receiver, name); 
+   165	    
+   166	    if (!method_val.is_null()) [[likely]] {         
+   167	         if (method_val.is_native()) {
+   168	             constexpr size_t MAX_NATIVE_ARGS = 64;
+   169	             Value arg_buffer[MAX_NATIVE_ARGS];
+   170	
+   171	             arg_buffer[0] = receiver; 
+   172	             size_t copy_count = std::min(static_cast<size_t>(argc), MAX_NATIVE_ARGS - 1);
+   173	             if (copy_count > 0) std::copy_n(regs + arg_start, copy_count, arg_buffer + 1);
+   174	
+   175	             Value result = method_val.as_native()(&state->machine, copy_count + 1, arg_buffer);
+   176	
+   177	             if (state->machine.has_error()) return impl_PANIC(ip, regs, constants, state);
+   178	             if (dst != 0xFFFF) regs[dst] = result;
+   179	             return next_ip;
+   180	         } else {
+   181	             return ERROR<ErrOffset>(ip, regs, constants, state, ERR_METHOD, "Primitive method must be native");
+   182	         }
+   183	    }
+   184	
+   185	    return ERROR<ErrOffset>(ip, regs, constants, state, ERR_METHOD, 
+   186	                            "Method '{}' not found on object '{}'.", name->c_str(), to_string(receiver));
+   187	}
+   188	
+   189	[[gnu::always_inline]] 
+   190	static const uint8_t* impl_NEW_CLASS(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   191	    // 2 * u16 = 4 bytes -> Load u32
+   192	    auto [dst, name_idx] = decode::args<u16, u16>(ip);
+   193	    regs[dst] = Value(state->heap.new_class(constants[name_idx].as_string()));
+   194	    return ip;
+   195	}
+   196	
+   197	[[gnu::always_inline]] 
+   198	static const uint8_t* impl_NEW_INSTANCE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   199	    // 2 * u16 = 4 bytes -> Load u32
+   200	    auto [dst, class_reg] = decode::args<u16, u16>(ip);
+   201	    Value& class_val = regs[class_reg];
+   202	    
+   203	    if (!class_val.is_class()) [[unlikely]] {
+   204	        return ERROR<4>(ip, regs, constants, state, ERR_INHERIT, "NEW_INSTANCE: Operand is not a Class");
+   205	    }
+   206	    regs[dst] = Value(state->heap.new_instance(class_val.as_class(), state->heap.get_empty_shape()));
+   207	    return ip;
+   208	}
+   209	
+   210	[[gnu::always_inline]] 
+   211	static const uint8_t* impl_GET_PROP(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   212	    // 1. Decode Args: 3 * u16 = 6 bytes -> Load u64
+   213	    auto [dst, obj_reg, name_idx] = decode::args<u16, u16, u16>(ip);
+   214	    
+   215	    // 2. Decode IC
+   216	    InlineCache* ic = const_cast<InlineCache*>(decode::as_struct<InlineCache>(ip));
+   217	
+   218	    constexpr size_t ErrOffset = 6 + sizeof(InlineCache);
+   219	
+   220	    Value& obj = regs[obj_reg];
+   221	    string_t name = constants[name_idx].as_string();
+   222	
+   223	    // 1. Magic Prop: length
+   224	    static string_t str_length = nullptr;
+   225	    if (!str_length) [[unlikely]] str_length = state->heap.new_string("length");
    226	
-   227	    Value& obj = regs[obj_reg];
-   228	    string_t name = constants[name_idx].as_string();
-   229	
-   230	    // 1. Magic Prop: length
-   231	    static string_t str_length = nullptr;
-   232	    if (!str_length) [[unlikely]] str_length = state->heap.new_string("length");
-   233	
-   234	    if (name == str_length) {
-   235	        if (obj.is_array()) {
-   236	            regs[dst] = Value(static_cast<int64_t>(obj.as_array()->size()));
-   237	            return ip;
-   238	        }
-   239	        if (obj.is_string()) {
-   240	            regs[dst] = Value(static_cast<int64_t>(obj.as_string()->size()));
-   241	            return ip;
-   242	        }
-   243	    }
-   244	
-   245	    // 2. Instance Access (IC Optimized)
-   246	    if (obj.is_instance()) [[likely]] {
-   247	        instance_t inst = obj.as_instance();
-   248	        Shape* current_shape = inst->get_shape();
-   249	
-   250	        // IC Hit (Slot 0)
-   251	        if (ic->entries[0].shape == current_shape) {
-   252	            regs[dst] = inst->get_field_at(ic->entries[0].offset);
-   253	            return ip;
-   254	        }
-   255	        // Move-to-front (Slot 1)
-   256	        if (ic->entries[1].shape == current_shape) {
-   257	            InlineCacheEntry temp = ic->entries[1];
-   258	            ic->entries[1] = ic->entries[0];
-   259	            ic->entries[0] = temp;
-   260	            regs[dst] = inst->get_field_at(temp.offset);
-   261	            return ip;
-   262	        }
-   263	        
-   264	        // IC Miss
-   265	        int offset = current_shape->get_offset(name);
-   266	        if (offset != -1) {
-   267	            update_inline_cache(ic, current_shape, nullptr, static_cast<uint32_t>(offset));
-   268	            regs[dst] = inst->get_field_at(offset);
-   269	            return ip;
-   270	        }
-   271	        
-   272	        // Lookup Class Methods
-   273	        class_t k = inst->get_class();
-   274	        while (k) {
-   275	            if (k->has_method(name)) {
-   276	                regs[dst] = Value(state->heap.new_bound_method(inst, k->get_method(name).as_function()));
-   277	                return ip;
-   278	            }
-   279	            k = k->get_super();
-   280	        }
-   281	    }
-   282	    // 3. Array/String Primitive Access (IC Optimized)
-   283	    else if (obj.is_array() || obj.is_string()) {
-   284	        const Shape* sentinel = obj.is_array() ? PrimitiveShapes::ARRAY : PrimitiveShapes::STRING;
-   285	        
-   286	        if (ic->entries[0].shape == sentinel) {
-   287	            module_t mod = get_core_module(state, obj.is_array() ? CoreModType::ARRAY : CoreModType::STRING);
-   288	            Value method = mod->get_export_by_index(ic->entries[0].offset);
-   289	            regs[dst] = Value(state->heap.new_bound_method(obj, method));
-   290	            return ip;
-   291	        }
-   292	
-   293	        int32_t idx = -1;
-   294	        Value method = find_primitive_method_slow(state, obj, name, &idx);
-   295	        
-   296	        if (!method.is_null()) {
-   297	            if (idx != -1) {
-   298	                update_inline_cache(ic, sentinel, nullptr, static_cast<uint32_t>(idx));
-   299	            }
-   300	            regs[dst] = Value(state->heap.new_bound_method(obj, method));
-   301	            return ip;
-   302	        }
-   303	    }
-   304	    // 4. Hash Table & Module
-   305	    else if (obj.is_hash_table()) {
-   306	        hash_table_t hash = obj.as_hash_table();
-   307	        if (hash->get(name, &regs[dst])) return ip;
-   308	        
-   309	        int32_t idx = -1;
-   310	        Value method = find_primitive_method_slow(state, obj, name, &idx);
-   311	        if (!method.is_null()) {
-   312	            regs[dst] = Value(state->heap.new_bound_method(obj, method));
-   313	            return ip;
-   314	        }
-   315	        regs[dst] = Value(null_t{});
-   316	        return ip;
+   227	    if (name == str_length) {
+   228	        if (obj.is_array()) {
+   229	            regs[dst] = Value(static_cast<int64_t>(obj.as_array()->size()));
+   230	            return ip;
+   231	        }
+   232	        if (obj.is_string()) {
+   233	            regs[dst] = Value(static_cast<int64_t>(obj.as_string()->size()));
+   234	            return ip;
+   235	        }
+   236	    }
+   237	
+   238	    // 2. Instance Access (IC Optimized)
+   239	    if (obj.is_instance()) [[likely]] {
+   240	        instance_t inst = obj.as_instance();
+   241	        Shape* current_shape = inst->get_shape();
+   242	
+   243	        // IC Hit (Slot 0)
+   244	        if (ic->entries[0].shape == current_shape) {
+   245	            regs[dst] = inst->get_field_at(ic->entries[0].offset);
+   246	            return ip;
+   247	        }
+   248	        // Move-to-front (Slot 1)
+   249	        if (ic->entries[1].shape == current_shape) {
+   250	            InlineCacheEntry temp = ic->entries[1];
+   251	            ic->entries[1] = ic->entries[0];
+   252	            ic->entries[0] = temp;
+   253	            regs[dst] = inst->get_field_at(temp.offset);
+   254	            return ip;
+   255	        }
+   256	        
+   257	        // IC Miss
+   258	        int offset = current_shape->get_offset(name);
+   259	        if (offset != -1) {
+   260	            update_inline_cache(ic, current_shape, nullptr, static_cast<uint32_t>(offset));
+   261	            regs[dst] = inst->get_field_at(offset);
+   262	            return ip;
+   263	        }
+   264	        
+   265	        // Lookup Class Methods
+   266	        class_t k = inst->get_class();
+   267	        while (k) {
+   268	            if (k->has_method(name)) {
+   269	                regs[dst] = Value(state->heap.new_bound_method(inst, k->get_method(name).as_function()));
+   270	                return ip;
+   271	            }
+   272	            k = k->get_super();
+   273	        }
+   274	    }
+   275	    // 3. Array/String Primitive Access (IC Optimized)
+   276	    else if (obj.is_array() || obj.is_string()) {
+   277	        const Shape* sentinel = obj.is_array() ? PrimitiveShapes::ARRAY : PrimitiveShapes::STRING;
+   278	        
+   279	        if (ic->entries[0].shape == sentinel) {
+   280	            module_t mod = get_core_module(state, obj.is_array() ? CoreModType::ARRAY : CoreModType::STRING);
+   281	            Value method = mod->get_export_by_index(ic->entries[0].offset);
+   282	            regs[dst] = Value(state->heap.new_bound_method(obj, method));
+   283	            return ip;
+   284	        }
+   285	
+   286	        int32_t idx = -1;
+   287	        Value method = find_primitive_method_slow(state, obj, name, &idx);
+   288	        
+   289	        if (!method.is_null()) {
+   290	            if (idx != -1) {
+   291	                update_inline_cache(ic, sentinel, nullptr, static_cast<uint32_t>(idx));
+   292	            }
+   293	            regs[dst] = Value(state->heap.new_bound_method(obj, method));
+   294	            return ip;
+   295	        }
+   296	    }
+   297	    // 4. Hash Table & Module
+   298	    else if (obj.is_hash_table()) {
+   299	        hash_table_t hash = obj.as_hash_table();
+   300	        if (hash->get(name, &regs[dst])) return ip;
+   301	        
+   302	        int32_t idx = -1;
+   303	        Value method = find_primitive_method_slow(state, obj, name, &idx);
+   304	        if (!method.is_null()) {
+   305	            regs[dst] = Value(state->heap.new_bound_method(obj, method));
+   306	            return ip;
+   307	        }
+   308	        regs[dst] = Value(null_t{});
+   309	        return ip;
+   310	    }
+   311	    else if (obj.is_module()) {
+   312	        module_t mod = obj.as_module();
+   313	        if (mod->has_export(name)) {
+   314	            regs[dst] = mod->get_export(name);
+   315	            return ip;
+   316	        }
    317	    }
-   318	    else if (obj.is_module()) {
-   319	        module_t mod = obj.as_module();
-   320	        if (mod->has_export(name)) {
-   321	            regs[dst] = mod->get_export(name);
+   318	    else if (obj.is_class()) {
+   319	        class_t k = obj.as_class();
+   320	        if (k->has_method(name)) {
+   321	            regs[dst] = k->get_method(name); 
    322	            return ip;
    323	        }
    324	    }
-   325	    else if (obj.is_class()) {
-   326	        class_t k = obj.as_class();
-   327	        if (k->has_method(name)) {
-   328	            regs[dst] = k->get_method(name); 
-   329	            return ip;
-   330	        }
-   331	    }
-   332	    else if (obj.is_null()) [[unlikely]] {
-   333	        return ERROR<ErrOffset>(ip, regs, constants, state, ERR_PROP, "Cannot read property '{}' of null.", name->c_str());
-   334	    }
-   335	
-   336	    return ERROR<ErrOffset>(ip, regs, constants, state, ERR_PROP, 
-   337	                            "Property '{}' not found on type '{}'.", name->c_str(), to_string(obj));
-   338	}
-   339	
-   340	[[gnu::always_inline]] 
-   341	static const uint8_t* impl_SET_PROP(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   342	    // 1. Decode: 3 * u16 = 6 bytes -> Load u64
-   343	    auto [obj_reg, name_idx, val_reg] = decode::args<u16, u16, u16>(ip);
-   344	    
-   345	    // 2. Decode IC
-   346	    InlineCache* ic = const_cast<InlineCache*>(decode::as_struct<InlineCache>(ip));
-   347	    
-   348	    constexpr size_t ErrOffset = 6 + sizeof(InlineCache);
+   325	    else if (obj.is_null()) [[unlikely]] {
+   326	        return ERROR<ErrOffset>(ip, regs, constants, state, ERR_PROP, "Cannot read property '{}' of null.", name->c_str());
+   327	    }
+   328	
+   329	    return ERROR<ErrOffset>(ip, regs, constants, state, ERR_PROP, 
+   330	                            "Property '{}' not found on type '{}'.", name->c_str(), to_string(obj));
+   331	}
+   332	
+   333	[[gnu::always_inline]] 
+   334	static const uint8_t* impl_SET_PROP(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   335	    // 1. Decode: 3 * u16 = 6 bytes -> Load u64
+   336	    auto [obj_reg, name_idx, val_reg] = decode::args<u16, u16, u16>(ip);
+   337	    
+   338	    // 2. Decode IC
+   339	    InlineCache* ic = const_cast<InlineCache*>(decode::as_struct<InlineCache>(ip));
+   340	    
+   341	    constexpr size_t ErrOffset = 6 + sizeof(InlineCache);
+   342	
+   343	    Value& obj = regs[obj_reg];
+   344	    Value& val = regs[val_reg];
+   345	    
+   346	    if (obj.is_instance()) [[likely]] {
+   347	        instance_t inst = obj.as_instance();
+   348	        Shape* current_shape = inst->get_shape();
    349	
-   350	    Value& obj = regs[obj_reg];
-   351	    Value& val = regs[val_reg];
-   352	    
-   353	    if (obj.is_instance()) [[likely]] {
-   354	        instance_t inst = obj.as_instance();
-   355	        Shape* current_shape = inst->get_shape();
-   356	
-   357	        // IC Check
-   358	        for (int i = 0; i < IC_CAPACITY; ++i) {
-   359	            if (ic->entries[i].shape == current_shape) {
-   360	                if (ic->entries[i].transition) { // Transition
-   361	                    inst->set_shape(const_cast<Shape*>(ic->entries[i].transition));
-   362	                    inst->add_field(val); 
-   363	                    state->heap.write_barrier(inst, val);
-   364	                    return ip;
-   365	                }
-   366	                // Update
-   367	                inst->set_field_at(ic->entries[i].offset, val);
-   368	                state->heap.write_barrier(inst, val);
-   369	                return ip;
-   370	            }
-   371	        }
-   372	
-   373	        string_t name = constants[name_idx].as_string();
-   374	        int offset = current_shape->get_offset(name);
-   375	
-   376	        if (offset != -1) { // Update existing
-   377	            update_inline_cache(ic, current_shape, nullptr, static_cast<uint32_t>(offset));
-   378	            inst->set_field_at(offset, val);
-   379	            state->heap.write_barrier(inst, val);
-   380	        } 
-   381	        else { // Transition new
-   382	            Shape* next_shape = current_shape->get_transition(name);
-   383	            if (!next_shape) next_shape = current_shape->add_transition(name, &state->heap);
-   384	            
-   385	            uint32_t new_offset = static_cast<uint32_t>(inst->get_field_count());
-   386	            update_inline_cache(ic, current_shape, next_shape, new_offset);
-   387	
-   388	            inst->set_shape(next_shape);
-   389	            inst->add_field(val);
-   390	            state->heap.write_barrier(inst, Value(reinterpret_cast<object_t>(next_shape))); 
-   391	            state->heap.write_barrier(inst, val);
-   392	        }
-   393	        return ip;
-   394	    }
-   395	    else if (obj.is_hash_table()) {
-   396	        string_t name = constants[name_idx].as_string();
-   397	        obj.as_hash_table()->set(name, val);
-   398	        state->heap.write_barrier(obj.as_object(), val);
-   399	    }
-   400	    else {
-   401	        return ERROR<ErrOffset>(ip, regs, constants, state, ERR_PROP, 
-   402	                                "SET_PROP: Cannot set property '{}' on type '{}'.", 
-   403	                                constants[name_idx].as_string()->c_str(), to_string(obj));
-   404	    }
-   405	    return ip;
-   406	}
-   407	
-   408	[[gnu::always_inline]] 
-   409	static const uint8_t* impl_SET_METHOD(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   410	    // 3 * u16 = 6 bytes -> Load u64
-   411	    auto [class_reg, name_idx, method_reg] = decode::args<u16, u16, u16>(ip);
+   350	        // IC Check
+   351	        for (int i = 0; i < IC_CAPACITY; ++i) {
+   352	            if (ic->entries[i].shape == current_shape) {
+   353	                if (ic->entries[i].transition) { // Transition
+   354	                    inst->set_shape(const_cast<Shape*>(ic->entries[i].transition));
+   355	                    inst->add_field(val); 
+   356	                    state->heap.write_barrier(inst, val);
+   357	                    return ip;
+   358	                }
+   359	                // Update
+   360	                inst->set_field_at(ic->entries[i].offset, val);
+   361	                state->heap.write_barrier(inst, val);
+   362	                return ip;
+   363	            }
+   364	        }
+   365	
+   366	        string_t name = constants[name_idx].as_string();
+   367	        int offset = current_shape->get_offset(name);
+   368	
+   369	        if (offset != -1) { // Update existing
+   370	            update_inline_cache(ic, current_shape, nullptr, static_cast<uint32_t>(offset));
+   371	            inst->set_field_at(offset, val);
+   372	            state->heap.write_barrier(inst, val);
+   373	        } 
+   374	        else { // Transition new
+   375	            Shape* next_shape = current_shape->get_transition(name);
+   376	            if (!next_shape) next_shape = current_shape->add_transition(name, &state->heap);
+   377	            
+   378	            uint32_t new_offset = static_cast<uint32_t>(inst->get_field_count());
+   379	            update_inline_cache(ic, current_shape, next_shape, new_offset);
+   380	
+   381	            inst->set_shape(next_shape);
+   382	            inst->add_field(val);
+   383	            state->heap.write_barrier(inst, Value(reinterpret_cast<object_t>(next_shape))); 
+   384	            state->heap.write_barrier(inst, val);
+   385	        }
+   386	        return ip;
+   387	    }
+   388	    else if (obj.is_hash_table()) {
+   389	        string_t name = constants[name_idx].as_string();
+   390	        obj.as_hash_table()->set(name, val);
+   391	        state->heap.write_barrier(obj.as_object(), val);
+   392	    }
+   393	    else {
+   394	        return ERROR<ErrOffset>(ip, regs, constants, state, ERR_PROP, 
+   395	                                "SET_PROP: Cannot set property '{}' on type '{}'.", 
+   396	                                constants[name_idx].as_string()->c_str(), to_string(obj));
+   397	    }
+   398	    return ip;
+   399	}
+   400	
+   401	[[gnu::always_inline]] 
+   402	static const uint8_t* impl_SET_METHOD(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   403	    // 3 * u16 = 6 bytes -> Load u64
+   404	    auto [class_reg, name_idx, method_reg] = decode::args<u16, u16, u16>(ip);
+   405	    
+   406	    Value& class_val = regs[class_reg];
+   407	    Value& method_val = regs[method_reg];
+   408	    
+   409	    if (!class_val.is_class()) [[unlikely]] {
+   410	        return ERROR<6>(ip, regs, constants, state, ERR_INHERIT, "SET_METHOD: Operand is not a Class");
+   411	    }
    412	    
-   413	    Value& class_val = regs[class_reg];
-   414	    Value& method_val = regs[method_reg];
-   415	    
-   416	    if (!class_val.is_class()) [[unlikely]] {
-   417	        return ERROR<6>(ip, regs, constants, state, ERR_INHERIT, "SET_METHOD: Operand is not a Class");
-   418	    }
-   419	    
-   420	    class_val.as_class()->set_method(constants[name_idx].as_string(), method_val);
-   421	    state->heap.write_barrier(class_val.as_class(), method_val);
-   422	    return ip;
-   423	}
-   424	
-   425	[[gnu::always_inline]] 
-   426	static const uint8_t* impl_INHERIT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   427	    // 2 * u16 = 4 bytes -> Load u32
-   428	    auto [sub_reg, super_reg] = decode::args<u16, u16>(ip);
+   413	    class_val.as_class()->set_method(constants[name_idx].as_string(), method_val);
+   414	    state->heap.write_barrier(class_val.as_class(), method_val);
+   415	    return ip;
+   416	}
+   417	
+   418	[[gnu::always_inline]] 
+   419	static const uint8_t* impl_INHERIT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   420	    // 2 * u16 = 4 bytes -> Load u32
+   421	    auto [sub_reg, super_reg] = decode::args<u16, u16>(ip);
+   422	    
+   423	    Value& sub_val = regs[sub_reg];
+   424	    Value& super_val = regs[super_reg];
+   425	    
+   426	    if (!sub_val.is_class() || !super_val.is_class()) [[unlikely]] {
+   427	        return ERROR<4>(ip, regs, constants, state, ERR_INHERIT, "INHERIT: Both operands must be Classes");
+   428	    }
    429	    
-   430	    Value& sub_val = regs[sub_reg];
-   431	    Value& super_val = regs[super_reg];
-   432	    
-   433	    if (!sub_val.is_class() || !super_val.is_class()) [[unlikely]] {
-   434	        return ERROR<4>(ip, regs, constants, state, ERR_INHERIT, "INHERIT: Both operands must be Classes");
-   435	    }
-   436	    
-   437	    sub_val.as_class()->set_super(super_val.as_class());
-   438	    return ip;
-   439	}
-   440	
-   441	[[gnu::always_inline]] 
-   442	static const uint8_t* impl_GET_SUPER(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-   443	    // 2 * u16 = 4 bytes -> Load u32
-   444	    auto [dst, name_idx] = decode::args<u16, u16>(ip);
-   445	    string_t name = constants[name_idx].as_string();
-   446	    
-   447	    Value& receiver_val = regs[0]; // Convention: this/receiver is always reg[0] in method call? 
-   448	    // FIXME: Nếu GET_SUPER được gọi ngoài method thì sao? 
-   449	    // Tuy nhiên bytecode GET_SUPER thường chỉ sinh ra bên trong method của class.
+   430	    sub_val.as_class()->set_super(super_val.as_class());
+   431	    return ip;
+   432	}
+   433	
+   434	[[gnu::always_inline]] 
+   435	static const uint8_t* impl_GET_SUPER(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+   436	    // 2 * u16 = 4 bytes -> Load u32
+   437	    auto [dst, name_idx] = decode::args<u16, u16>(ip);
+   438	    string_t name = constants[name_idx].as_string();
+   439	    
+   440	    Value& receiver_val = regs[0]; // Convention: this/receiver is always reg[0] in method call? 
+   441	    // FIXME: Nếu GET_SUPER được gọi ngoài method thì sao? 
+   442	    // Tuy nhiên bytecode GET_SUPER thường chỉ sinh ra bên trong method của class.
+   443	    
+   444	    if (!receiver_val.is_instance()) [[unlikely]] {
+   445	        return ERROR<4>(ip, regs, constants, state, ERR_INHERIT, "GET_SUPER: 'this' is not an instance");
+   446	    }
+   447	    
+   448	    instance_t receiver = receiver_val.as_instance();
+   449	    class_t super = receiver->get_class()->get_super();
    450	    
-   451	    if (!receiver_val.is_instance()) [[unlikely]] {
-   452	        return ERROR<4>(ip, regs, constants, state, ERR_INHERIT, "GET_SUPER: 'this' is not an instance");
+   451	    if (!super) {
+   452	        return ERROR<4>(ip, regs, constants, state, ERR_INHERIT, "GET_SUPER: Class has no superclass");
    453	    }
    454	    
-   455	    instance_t receiver = receiver_val.as_instance();
-   456	    class_t super = receiver->get_class()->get_super();
-   457	    
-   458	    if (!super) {
-   459	        return ERROR<4>(ip, regs, constants, state, ERR_INHERIT, "GET_SUPER: Class has no superclass");
-   460	    }
-   461	    
-   462	    class_t k = super;
-   463	    while (k) {
-   464	        if (k->has_method(name)) {
-   465	            regs[dst] = Value(state->heap.new_bound_method(receiver, k->get_method(name).as_function()));
-   466	            return ip;
-   467	        }
-   468	        k = k->get_super();
-   469	    }
-   470	    
-   471	    return ERROR<4>(ip, regs, constants, state, ERR_METHOD, "GET_SUPER: Method '{}' not found in superclass", name->c_str());
-   472	}
-   473	
-   474	} // namespace meow::handlers
+   455	    class_t k = super;
+   456	    while (k) {
+   457	        if (k->has_method(name)) {
+   458	            regs[dst] = Value(state->heap.new_bound_method(receiver, k->get_method(name).as_function()));
+   459	            return ip;
+   460	        }
+   461	        k = k->get_super();
+   462	    }
+   463	    
+   464	    return ERROR<4>(ip, regs, constants, state, ERR_METHOD, "GET_SUPER: Method '{}' not found in superclass", name->c_str());
+   465	}
+   466	
+   467	} // namespace meow::handlers
 
 
 // =============================================================================
@@ -1937,135 +1939,165 @@
      8	#include <concepts>
      9	#include <format>
     10	
-    11	// Project Headers
-    12	#include "vm/vm_state.h"
-    13	#include <meow/bytecode/op_codes.h>
-    14	#include <meow/value.h>
-    15	#include <meow/cast.h>
-    16	#include "runtime/operator_dispatcher.h"
-    17	#include "runtime/execution_context.h"
-    18	#include "runtime/call_frame.h"
-    19	#include <meow/core/function.h>
-    20	#include <meow/memory/memory_manager.h>
-    21	#include "runtime/upvalue.h"
-    22	
-    23	using u8  = uint8_t;
-    24	using u16 = uint16_t;
-    25	using u32 = uint32_t;
-    26	using u64 = uint64_t;
-    27	using i16 = int16_t;
-    28	using i64 = int64_t;
-    29	using f64 = double;
-    30	
-    31	#define HOT_HANDLER [[gnu::always_inline, gnu::hot, gnu::aligned(32)]] static const uint8_t*
-    32	
-    33	namespace meow::handlers {
-    34	
-    35	const uint8_t* impl_PANIC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state);
-    36	
-    37	// --- ERROR HELPER ---
-    38	template <size_t Offset = 0, typename... Args>
-    39	[[gnu::cold, gnu::noinline]]
-    40	static const uint8_t* ERROR(
-    41	    const uint8_t* current_ip, 
-    42	    Value* regs, 
-    43	    const Value* constants, 
-    44	    VMState* state,
-    45	    int code, 
-    46	    Args&&... args
-    47	) {
-    48	    const uint8_t* fault_ip = current_ip - Offset - 1; 
-    49	
-    50	    std::string msg;
-    51	    if constexpr (sizeof...(Args) > 0) {
-    52	        msg = std::format("Error {}: {}", code, std::vformat(std::string_view("..."), std::make_format_args(args...))); 
-    53	    } else {
-    54	        msg = std::format("Runtime Error Code: {}", code);
-    55	    }
-    56	    
-    57	    state->error(msg, fault_ip);
-    58	    
-    59	    return impl_PANIC(fault_ip, regs, constants, state);
-    60	}
+    11	#include "vm/vm_state.h"
+    12	#include <meow/bytecode/op_codes.h>
+    13	#include <meow/value.h>
+    14	#include <meow/cast.h>
+    15	#include "runtime/operator_dispatcher.h"
+    16	#include "runtime/execution_context.h"
+    17	#include "runtime/call_frame.h"
+    18	#include <meow/core/function.h>
+    19	#include <meow/memory/memory_manager.h>
+    20	#include "runtime/upvalue.h"
+    21	
+    22	using u8  = uint8_t;
+    23	using u16 = uint16_t;
+    24	using u32 = uint32_t;
+    25	using u64 = uint64_t;
+    26	using i16 = int16_t;
+    27	using i64 = int64_t;
+    28	using f64 = double;
+    29	
+    30	#define HOT_HANDLER [[gnu::always_inline, gnu::hot, gnu::aligned(32)]] static const uint8_t*
+    31	
+    32	namespace meow::handlers {
+    33	
+    34	const uint8_t* impl_PANIC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state);
+    35	
+    36	template <size_t Offset = 0, typename... Args>
+    37	[[gnu::cold, gnu::noinline]]
+    38	static const uint8_t* ERROR(
+    39	    const uint8_t* current_ip, 
+    40	    Value* regs, 
+    41	    const Value* constants, 
+    42	    VMState* state,
+    43	    int code, 
+    44	    Args&&... args
+    45	) {
+    46	    const uint8_t* fault_ip = current_ip - Offset - 1; 
+    47	    std::string msg;
+    48	    if constexpr (sizeof...(Args) > 0) {
+    49	        msg = std::format("Error {}: {}", code, std::vformat(std::string_view("..."), std::make_format_args(args...))); 
+    50	    } else {
+    51	        msg = std::format("Runtime Error Code: {}", code);
+    52	    }
+    53	    state->error(msg, fault_ip);
+    54	    return impl_PANIC(fault_ip, regs, constants, state);
+    55	}
+    56	
+    57	namespace decode {
+    58	
+    59	    template <typename... Ts>
+    60	    constexpr size_t total_size_v = (sizeof(Ts) + ...);
     61	
-    62	// --- DECODER ENGINE ---
-    63	
-    64	namespace decode {
-    65	
-    66	    template <typename... Ts>
-    67	    constexpr size_t total_size_v = (sizeof(Ts) + ...);
-    68	
-    69	    template <size_t N>
-    70	    struct SelectIntType {
-    71	        using type = 
-    72	            std::conditional_t<N == 1, u8,
-    73	            std::conditional_t<N <= 2, u16,
-    74	            std::conditional_t<N <= 4, u32,
-    75	                                       u64>>>;
-    76	    };
-    77	    
-    78	    template <size_t N>
-    79	    using int_type_for_size_t = typename SelectIntType<N>::type;
-    80	
-    81	    // Helper: Đọc lẻ 1 giá trị
-    82	    template <typename T>
-    83	    [[gnu::always_inline]] 
-    84	    inline T read_one(const uint8_t*& ip) {
-    85	        T val;
-    86	        std::memcpy(&val, ip, sizeof(T));
-    87	        ip += sizeof(T);
-    88	        return val;
-    89	    }
-    90	
-    91	    // MAIN ARGS DECODER
-    92	    template <typename... Ts>
-    93	    [[gnu::always_inline]]
-    94	    std::tuple<Ts...> args(const uint8_t*& ip) {
-    95	        constexpr size_t Size = total_size_v<Ts...>;
-    96	        
-    97	        // [FIX] Nếu tổng size > 8 byte (ví dụ INVOKE 10 byte), 
-    98	        // không thể dùng thanh ghi u64 để chứa, phải đọc tuần tự.
-    99	        if constexpr (Size > 8) {
-   100	            std::tuple<Ts...> result;
-   101	            std::apply([&](auto&... args) {
-   102	                ((args = read_one<std::decay_t<decltype(args)>>(ip)), ...);
-   103	            }, result);
-   104	            return result;
-   105	        } 
-   106	        else {
-   107	            // Logic cũ: Đọc gộp (Packed Read) tối ưu cho < 8 byte
-   108	            constexpr size_t Count = sizeof...(Ts);
-   109	            using PackedType = int_type_for_size_t<Size>;
-   110	            
-   111	            PackedType packed_val;
-   112	            std::memcpy(&packed_val, ip, sizeof(PackedType));
-   113	
-   114	            ip += Size;
-   115	
-   116	            return [&]<size_t... Is>(std::index_sequence<Is...>) {
-   117	                constexpr std::array<size_t, Count> offsets = []() {
-   118	                    std::array<size_t, Count> arr{};
-   119	                    size_t current_bit = 0;
-   120	                    size_t idx = 0;
-   121	                    ((arr[idx++] = current_bit, current_bit += sizeof(Ts) * 8), ...);
-   122	                    return arr;
-   123	                }();
-   124	
-   125	                return std::tuple<Ts...>{
-   126	                    static_cast<Ts>((packed_val >> offsets[Is]))...
-   127	                };
-   128	            }(std::make_index_sequence<Count>{});
-   129	        }
-   130	    }
-   131	
-   132	    template <typename T>
-   133	    [[gnu::always_inline]]
-   134	    inline const T* as_struct(const uint8_t*& ip) {
-   135	        const T* ptr = reinterpret_cast<const T*>(ip);
-   136	        ip += sizeof(T);
-   137	        return ptr;
-   138	    }
-   139	} // namespace decode
-   140	} // namespace meow::handlers
+    62	    template <typename T>
+    63	    [[gnu::always_inline, gnu::hot]]
+    64	    inline T read_one(const uint8_t*& ip) {
+    65	        T val;
+    66	        __builtin_memcpy(&val, ip, sizeof(T));
+    67	        ip += sizeof(T);
+    68	        return val;
+    69	    }
+    70	
+    71	    template <typename... Ts> struct ArgPack;
+    72	    template <typename T1> struct [[gnu::packed]] ArgPack<T1> { T1 v0; };
+    73	    template <typename T1, typename T2> struct [[gnu::packed]] ArgPack<T1, T2> { T1 v0; T2 v1; };
+    74	    template <typename T1, typename T2, typename T3> struct [[gnu::packed]] ArgPack<T1, T2, T3> { T1 v0; T2 v1; T3 v2; };
+    75	    template <typename T1, typename T2, typename T3, typename T4> struct [[gnu::packed]] ArgPack<T1, T2, T3, T4> { T1 v0; T2 v1; T3 v2; T4 v3; };
+    76	    template <typename T1, typename T2, typename T3, typename T4, typename T5> struct [[gnu::packed]] ArgPack<T1, T2, T3, T4, T5> { T1 v0; T2 v1; T3 v2; T4 v3; T5 v4; };
+    77	
+    78	    template <typename... Ts>
+    79	    [[gnu::always_inline, gnu::hot]]
+    80	    inline auto args(const uint8_t*& ip) {
+    81	        using PackedType = ArgPack<Ts...>;
+    82	        PackedType val = *reinterpret_cast<const PackedType*>(ip);
+    83	        ip += sizeof(PackedType);
+    84	        return val;
+    85	    }
+    86	
+    87	    template <typename... Ts>
+    88	    [[gnu::always_inline, gnu::hot]]
+    89	    inline const auto& view(const uint8_t* ip) {
+    90	        using PackedType = ArgPack<Ts...>;
+    91	        return *reinterpret_cast<const PackedType*>(ip);
+    92	    }
+    93	
+    94	    template <typename... Ts>
+    95	    [[gnu::always_inline, gnu::hot]]
+    96	    inline ArgPack<Ts...> load(const uint8_t* ip) {
+    97	        ArgPack<Ts...> val;
+    98	        __builtin_memcpy(&val, ip, sizeof(val)); 
+    99	        return val;
+   100	    }
+   101	
+   102	    template <typename... Ts>
+   103	    constexpr size_t size_of_v = sizeof(ArgPack<Ts...>);
+   104	    
+   105	    template <typename... Ts> struct ArgProxy;
+   106	
+   107	    template <typename T0>
+   108	    struct ArgProxy<T0> {
+   109	        const uint8_t* ip;
+   110	        [[gnu::always_inline]] T0 v0() const { T0 v; __builtin_memcpy(&v, ip, sizeof(T0)); return v; }
+   111	    };
+   112	
+   113	    template <typename T0, typename T1>
+   114	    struct ArgProxy<T0, T1> {
+   115	        const uint8_t* ip;
+   116	        [[gnu::always_inline]] T0 v0() const { T0 v; __builtin_memcpy(&v, ip, sizeof(T0)); return v; }
+   117	        [[gnu::always_inline]] T1 v1() const { T1 v; __builtin_memcpy(&v, ip + sizeof(T0), sizeof(T1)); return v; }
+   118	    };
+   119	
+   120	    template <typename T0, typename T1, typename T2>
+   121	    struct ArgProxy<T0, T1, T2> {
+   122	        const uint8_t* ip;
+   123	        static constexpr size_t O1 = sizeof(T0);
+   124	        static constexpr size_t O2 = O1 + sizeof(T1);
+   125	        [[gnu::always_inline]] T0 v0() const { T0 v; __builtin_memcpy(&v, ip,      sizeof(T0)); return v; }
+   126	        [[gnu::always_inline]] T1 v1() const { T1 v; __builtin_memcpy(&v, ip + O1, sizeof(T1)); return v; }
+   127	        [[gnu::always_inline]] T2 v2() const { T2 v; __builtin_memcpy(&v, ip + O2, sizeof(T2)); return v; }
+   128	    };
+   129	
+   130	    template <typename T0, typename T1, typename T2, typename T3>
+   131	    struct ArgProxy<T0, T1, T2, T3> {
+   132	        const uint8_t* ip;
+   133	        static constexpr size_t O1 = sizeof(T0);
+   134	        static constexpr size_t O2 = O1 + sizeof(T1);
+   135	        static constexpr size_t O3 = O2 + sizeof(T2);
+   136	        [[gnu::always_inline]] T0 v0() const { T0 v; __builtin_memcpy(&v, ip,      sizeof(T0)); return v; }
+   137	        [[gnu::always_inline]] T1 v1() const { T1 v; __builtin_memcpy(&v, ip + O1, sizeof(T1)); return v; }
+   138	        [[gnu::always_inline]] T2 v2() const { T2 v; __builtin_memcpy(&v, ip + O2, sizeof(T2)); return v; }
+   139	        [[gnu::always_inline]] T3 v3() const { T3 v; __builtin_memcpy(&v, ip + O3, sizeof(T3)); return v; }
+   140	    };
+   141	    
+   142	    template <typename T0, typename T1, typename T2, typename T3, typename T4>
+   143	    struct ArgProxy<T0, T1, T2, T3, T4> {
+   144	        const uint8_t* ip;
+   145	        static constexpr size_t O1 = sizeof(T0);
+   146	        static constexpr size_t O2 = O1 + sizeof(T1);
+   147	        static constexpr size_t O3 = O2 + sizeof(T2);
+   148	        static constexpr size_t O4 = O3 + sizeof(T3);
+   149	        [[gnu::always_inline]] T0 v0() const { T0 v; __builtin_memcpy(&v, ip,      sizeof(T0)); return v; }
+   150	        [[gnu::always_inline]] T1 v1() const { T1 v; __builtin_memcpy(&v, ip + O1, sizeof(T1)); return v; }
+   151	        [[gnu::always_inline]] T2 v2() const { T2 v; __builtin_memcpy(&v, ip + O2, sizeof(T2)); return v; }
+   152	        [[gnu::always_inline]] T3 v3() const { T3 v; __builtin_memcpy(&v, ip + O3, sizeof(T3)); return v; }
+   153	        [[gnu::always_inline]] T4 v4() const { T4 v; __builtin_memcpy(&v, ip + O4, sizeof(T4)); return v; }
+   154	    };
+   155	
+   156	    template <typename... Ts>
+   157	    [[gnu::always_inline]]
+   158	    inline ArgProxy<Ts...> make(const uint8_t* ip) {
+   159	        return ArgProxy<Ts...>{ip};
+   160	    }
+   161	    
+   162	    template <typename T>
+   163	    [[gnu::always_inline]]
+   164	    inline const T* as_struct(const uint8_t*& ip) {
+   165	        const T* ptr = reinterpret_cast<const T*>(ip);
+   166	        ip += sizeof(T);
+   167	        return ptr;
+   168	    }
+   169	} // namespace decode
+   170	} // namespace meow::handlers
 
 

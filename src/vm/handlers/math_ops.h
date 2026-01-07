@@ -218,20 +218,26 @@ HOT_HANDLER impl_DEC(const uint8_t* ip, Value* regs, const Value* constants, VMS
 
 // Bản 8-bit
 HOT_HANDLER impl_INC_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    auto args = decode::make<u8>(ip);
+    // 1. Load nhanh: Đọc 1 byte, ip tăng 1. 
+    // Struct trả về nằm trong thanh ghi (Register-mapped).
+    auto [reg_idx] = decode::args<u8>(ip);
     
-    Value& val = regs[args.v0()];
+    Value& val = regs[reg_idx];
 
+    // 2. Logic xử lý (Optimized Type Check)
     if (val.holds<int64_t>()) [[likely]] {
+        // Unsafe set nhanh hơn vì bỏ qua check type lần 2
         val.unsafe_set<int64_t>(val.unsafe_get<int64_t>() + 1);
-    } else if (val.holds<double>()) {
+    } 
+    else if (val.holds<double>()) {
         val.unsafe_set<double>(val.unsafe_get<double>() + 1.0);
-    } else [[unlikely]] {
+    } 
+    else [[unlikely]] {
         return ERROR<1>(ip, regs, constants, state, 1, "INC requires Number");
     }
 
-    // Lazy return
-    return ip + decode::size_of_v<u8>;
+    // 3. Return IP đã được tăng sẵn
+    return ip;
 }
 
 HOT_HANDLER impl_DEC_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
