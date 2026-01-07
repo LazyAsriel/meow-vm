@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <vector>
 #include <string>
-#include <unordered_set>
 #include <memory>
 #include <meow/core/objects.h>
 #include <meow/common.h>
@@ -14,6 +13,7 @@
 
 #include "meow_heap.h"
 #include "meow_allocator.h"
+#include "meow_hash_map.h"
 
 namespace meow {
 class MemoryManager {
@@ -40,7 +40,6 @@ public:
 
     Shape* get_empty_shape() noexcept;
 
-    // --- GC Control ---
     void enable_gc() noexcept { 
         if (gc_pause_count_ > 0) gc_pause_count_--; 
     }
@@ -61,25 +60,36 @@ public:
     static void set_current(MemoryManager* instance) noexcept { current_ = instance; }
     static MemoryManager* get_current() noexcept { return current_; }
 private:
+    struct HashedView {
+        std::string_view view;
+        size_t hash;
+    };
+
     struct StringPoolHash {
         using is_transparent = void;
-        size_t operator()(const char* txt) const { return std::hash<std::string_view>{}(txt); }
-        size_t operator()(std::string_view txt) const { return std::hash<std::string_view>{}(txt); }
-        size_t operator()(string_t s) const { return s->hash(); }
+        size_t operator()(string_t s) const noexcept { return s->hash(); }
+        size_t operator()(std::string_view s) const noexcept { return std::hash<std::string_view>{}(s); }
+        size_t operator()(HashedView s) const noexcept { return s.hash; }
     };
 
     struct StringPoolEq {
         using is_transparent = void;
-        bool operator()(string_t a, string_t b) const { return a == b; }
-        bool operator()(string_t a, std::string_view b) const { return std::string_view(a->c_str(), a->size()) == b; }
-        bool operator()(std::string_view a, string_t b) const { return a == std::string_view(b->c_str(), b->size()); }
+        bool operator()(string_t a, string_t b) const noexcept { return a == b; }
+        bool operator()(string_t a, std::string_view b) const noexcept { return std::string_view(a->c_str(), a->size()) == b; }
+        bool operator()(std::string_view a, string_t b) const noexcept { return a == std::string_view(b->c_str(), b->size()); }
+        bool operator()(string_t a, HashedView b) const noexcept {
+            if (a->size() != b.view.size()) return false;
+            if (a->hash() != b.hash) return false; 
+            return std::string_view(a->c_str(), a->size()) == b.view;
+        }
     };
 
     meow::arena arena_;
     meow::heap heap_; 
 
     std::unique_ptr<GarbageCollector> gc_;
-    std::unordered_set<string_t, StringPoolHash, StringPoolEq> string_pool_;
+    meow::hash_map<string_t, string_t, StringPoolHash, StringPoolEq> string_pool_;
+    
     Shape* empty_shape_ = nullptr;
 
     size_t gc_threshold_;

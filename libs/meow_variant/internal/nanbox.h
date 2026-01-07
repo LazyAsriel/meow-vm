@@ -4,9 +4,9 @@
 #include <bit>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <type_traits>
 #include <utility>
-#include <variant> 
 #include <stdexcept>
 #include "internal/utils.h"
 
@@ -36,7 +36,7 @@ template <typename... Ts>
 struct all_nanboxable_impl<detail::type_list<Ts...>> {
     static constexpr bool value = ((sizeof(std::decay_t<Ts>) <= 8 && 
         (DoubleLike<Ts> || IntegralLike<Ts> || PointerLike<Ts> || 
-         std::is_same_v<std::decay_t<Ts>, std::monostate> || BoolLike<Ts>)) && ...);
+         std::is_same_v<std::decay_t<Ts>, meow::monostate> || BoolLike<Ts>)) && ...);
 };
 
 using Layout = NanboxLayout;
@@ -63,7 +63,7 @@ public:
     using layout_traits = NanboxLayout;
 
     NaNBoxedVariant() noexcept {
-        if constexpr (std::is_same_v<typename detail::nth_type<0, flat_list>::type, std::monostate>) {
+        if constexpr (std::is_same_v<typename detail::nth_type<0, flat_list>::type, meow::monostate>) {
             bits_ = Layout::QNAN_POS;
         } else {
             bits_ = Layout::VALUELESS;
@@ -96,9 +96,14 @@ public:
     }
 
     [[nodiscard]] [[gnu::always_inline]]
+
     std::size_t index() const noexcept {        
         if (is_double(bits_)) return dbl_idx;
-        return static_cast<std::size_t>((bits_ >> Layout::TAG_SHIFT) & 0x7);
+        std::size_t tag = (bits_ >> Layout::TAG_SHIFT) & 0x7;
+        if constexpr (use_extended_tag) {
+            if (static_cast<int64_t>(bits_) < 0) tag += 8; 
+        }
+        return tag;
     }
 
     [[nodiscard]] [[gnu::always_inline]]
@@ -160,9 +165,26 @@ public:
     [[nodiscard]] bool valueless() const noexcept { return bits_ == Layout::VALUELESS; }
 
     template <typename T>
-    [[nodiscard]] bool holds() const noexcept {
-        constexpr std::size_t idx = detail::type_list_index_of<std::decay_t<T>, flat_list>::value;
-        return index() == idx;
+    [[nodiscard]] [[gnu::always_inline]]
+    bool holds() const noexcept {
+        using U = std::decay_t<T>;
+        
+        if constexpr (DoubleLike<U>) {
+            return is_double(bits_);
+        } else {
+            constexpr std::size_t idx = detail::type_list_index_of<U, flat_list>::value;
+            
+            constexpr uint64_t header_mask = 0xFFFF000000000000ULL; 
+            constexpr uint64_t target_tag = []() consteval {
+                if constexpr (use_extended_tag && idx >= 8) {
+                    return Layout::QNAN_NEG | (static_cast<uint64_t>(idx - 8) << Layout::TAG_SHIFT);
+                } else {
+                    return Layout::QNAN_POS | (static_cast<uint64_t>(idx) << Layout::TAG_SHIFT);
+                }
+            }();
+            
+            return (bits_ & header_mask) == target_tag;
+        }
     }
 
     template <typename T>
@@ -193,6 +215,62 @@ public:
     template <typename T>
     [[nodiscard]] const std::decay_t<T>* get_if() const noexcept {
         return const_cast<NaNBoxedVariant*>(this)->get_if<T>();
+    }
+
+    template <typename T>
+    [[gnu::always_inline]]
+    void unsafe_set(T&& v) noexcept {
+        using U = std::decay_t<T>;
+        
+        if constexpr (DoubleLike<U>) {
+             bits_ = to_bits(static_cast<double>(v));
+        } 
+        else {
+            constexpr std::size_t idx = detail::type_list_index_of<U, flat_list>::value;
+            constexpr uint64_t tag = []() consteval {
+                if constexpr (use_extended_tag && idx >= 8) {
+                    return Layout::QNAN_NEG | (static_cast<uint64_t>(idx - 8) << Layout::TAG_SHIFT);
+                } else {
+                    return Layout::QNAN_POS | (static_cast<uint64_t>(idx) << Layout::TAG_SHIFT);
+                }
+            }();
+
+            uint64_t payload = 0;
+            if constexpr (PointerLike<U>) {
+                payload = reinterpret_cast<uintptr_t>(v);
+            } else if constexpr (IntegralLike<U>) {
+                payload = static_cast<uint64_t>(static_cast<int64_t>(v));
+            } else if constexpr (BoolLike<U>) {
+                payload = v ? 1 : 0;
+            }
+
+            bits_ = tag | (payload & Layout::PAYLOAD_MASK);
+        }
+    }
+
+    template <typename T>
+    [[nodiscard]] [[gnu::always_inline]]
+    T get_as() const noexcept {
+        static_assert(sizeof(T) <= 8, "Type T must fit in 64-bit storage");
+        static_assert(std::is_trivially_copyable_v<T>, "Type T must be trivially copyable");
+        
+        T ret{};
+        std::memcpy(&ret, &bits_, sizeof(T));
+        return ret;
+    }
+
+    template <typename T>
+    [[gnu::always_inline]]
+    uint64_t set_as(T val) noexcept {
+        static_assert(sizeof(T) <= 8, "Type T must fit in 64-bit storage");
+        static_assert(std::is_trivially_copyable_v<T>, "Type T must be trivially copyable");
+
+        uint64_t old_bits = bits_;
+        
+        bits_ = 0; 
+        std::memcpy(&bits_, &val, sizeof(T));
+        
+        return old_bits;
     }
 
     void swap(NaNBoxedVariant& other) noexcept { std::swap(bits_, other.bits_); }

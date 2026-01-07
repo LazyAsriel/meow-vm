@@ -4,6 +4,50 @@
 #include <type_traits>
 #include <utility>
 #include <concepts>
+#include <compare>
+#include <functional>
+#include <format>
+#include <iostream>
+
+namespace meow {
+struct monostate {
+    constexpr monostate() noexcept = default;
+    constexpr monostate(const monostate&) noexcept = default;
+    constexpr monostate(monostate&&) noexcept = default;
+    constexpr monostate& operator=(const monostate&) noexcept = default;
+    constexpr monostate& operator=(monostate&&) noexcept = default;
+    ~monostate() = default;
+
+    friend constexpr bool operator==(monostate, monostate) noexcept = default;
+    friend constexpr std::strong_ordering operator<=>(monostate, monostate) noexcept = default;
+    constexpr explicit operator bool() const noexcept { 
+        return false; 
+    }
+};
+}
+
+template <>
+struct std::hash<meow::monostate> {
+    constexpr std::size_t operator()(meow::monostate) const noexcept {
+        return 0xDEADBEEF; 
+    }
+};
+
+template <class CharT>
+struct std::formatter<meow::monostate, CharT> {
+    constexpr auto parse(std::format_parse_context& ctx) {
+        return ctx.begin();
+    }
+
+    auto format(meow::monostate, std::format_context& ctx) const {
+        return std::format_to(ctx.out(), "monostate");
+    }
+};
+
+template <class CharT, class Traits>
+std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os, meow::monostate) {
+    return os << "monostate";
+}
 
 namespace meow {
 template <typename Layout, typename... Args> class basic_variant;

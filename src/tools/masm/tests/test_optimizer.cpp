@@ -16,14 +16,23 @@ fileName: masm/tests/test_optimizer.cpp
 using namespace meow;
 using namespace meow::masm;
 
+// [FIX] Đổi tên namespace từ Arg -> InstArg để tránh xung đột với struct Arg trong common.h
+namespace InstArg {
+    static IrArg R(uint16_t id) { return Reg{id}; }
+    static IrArg Label(uint32_t id) { return LabelIdx{id}; }
+    static IrArg I64(int64_t v) { return v; }
+}
+
 // --- Helper đọc số từ bytecode ---
 uint16_t read_u16(const std::vector<uint8_t>& code, size_t& ip) {
+    if (ip + 2 > code.size()) return 0;
     uint16_t v = code[ip] | (code[ip+1] << 8);
     ip += 2;
     return v;
 }
 
 uint8_t read_u8(const std::vector<uint8_t>& code, size_t& ip) {
+    if (ip + 1 > code.size()) return 0;
     return code[ip++];
 }
 
@@ -55,6 +64,7 @@ void dump_ir_code(const std::vector<IrInstruction>& ir, std::string_view title) 
             inst.args[k].visit(
                 [](Reg r)       { std::print("r{}", r.id); },
                 [](LabelIdx l)  { std::print("Label[{}]", l.id); },
+                [](int64_t v)   { std::print("{}", v); },
                 [](auto)        { std::print("?"); }
             );
         }
@@ -79,9 +89,6 @@ void dump_bytecode(const std::vector<uint8_t>& code, std::string_view title) {
 
         std::print("│ {:04X} │ {:<15} │ ", start_ip, op_name);
 
-        // Logic check loại OpCode để decode cho đúng
-        bool is_byte_op = std::string(op_name).ends_with("_B");
-
         switch(op) {
             // --- STANDARD OPS (16-bit Registers) ---
             case OpCode::MOVE: {
@@ -93,12 +100,14 @@ void dump_bytecode(const std::vector<uint8_t>& code, std::string_view title) {
                 uint16_t dst = read_u16(code, ip); uint16_t lhs = read_u16(code, ip); uint16_t rhs = read_u16(code, ip);
                 std::println("r{}, r{}, r{}", dst, lhs, rhs); break;
             }
-            case OpCode::JUMP_IF_EQ: case OpCode::JUMP_IF_NEQ: // JUMP_IF_EQ không có bản _B
+            // Fused Jumps (16-bit regs + 16-bit relative offset)
+            case OpCode::JUMP_IF_EQ: case OpCode::JUMP_IF_NEQ: 
             case OpCode::JUMP_IF_LT: case OpCode::JUMP_IF_LE: 
             case OpCode::JUMP_IF_GT: case OpCode::JUMP_IF_GE: {
-                uint16_t lhs = read_u16(code, ip); uint16_t rhs = read_u16(code, ip);
-                uint16_t off = read_u16(code, ip);
-                std::println("r{}, r{}, @{:04X}", lhs, rhs, off); break;
+                uint16_t lhs = read_u16(code, ip); 
+                uint16_t rhs = read_u16(code, ip);
+                int16_t off = (int16_t)read_u16(code, ip); // Offset is signed relative
+                std::println("r{}, r{}, {:+d}", lhs, rhs, off); break;
             }
             
             // --- BYTE OPS (8-bit Registers) ---
@@ -114,16 +123,22 @@ void dump_bytecode(const std::vector<uint8_t>& code, std::string_view title) {
 
             // --- JUMPS ---
             case OpCode::JUMP_IF_TRUE: case OpCode::JUMP_IF_FALSE: {
-                uint16_t r = read_u16(code, ip); uint16_t off = read_u16(code, ip);
-                std::println("r{}, @{:04X}", r, off); break;
+                uint16_t r = read_u16(code, ip); 
+                int16_t off = (int16_t)read_u16(code, ip);
+                std::println("r{}, {:+d}", r, off); break;
             }
             case OpCode::JUMP_IF_TRUE_B: case OpCode::JUMP_IF_FALSE_B: {
-                uint8_t r = read_u8(code, ip); uint16_t off = read_u16(code, ip);
-                std::println("r{}b, @{:04X}", r, off); break;
+                uint8_t r = read_u8(code, ip); 
+                int16_t off = (int16_t)read_u16(code, ip);
+                std::println("r{}b, {:+d}", r, off); break;
             }
             case OpCode::JUMP: {
-                uint16_t off = read_u16(code, ip);
-                std::println("@{:04X}", off); break;
+                int16_t off = (int16_t)read_u16(code, ip);
+                std::println("{:+d}", off); break;
+            }
+
+            case OpCode::HALT: {
+                std::println(""); break;
             }
             
             case OpCode::NOP: { std::println(""); break; }
@@ -140,18 +155,19 @@ int main() {
     // --- KỊCH BẢN TEST ---
     
     // 1. Dead Code (MOVE r100, r100) -> Xóa
-    proto.ir_code.push_back(make_inst(OpCode::MOVE, {Arg::R(100), Arg::R(100)}));
+    // [FIX] Dùng InstArg::...
+    proto.ir_code.push_back(make_inst(OpCode::MOVE, {InstArg::R(100), InstArg::R(100)}));
 
-    // 2. Peephole (EQ + JUMP) -> JUMP_IF_EQ (Chuẩn u16, vì VM không có JUMP_IF_EQ_B)
-    proto.ir_code.push_back(make_inst(OpCode::EQ, {Arg::R(50), Arg::R(1), Arg::R(2)}));
-    proto.ir_code.push_back(make_inst(OpCode::JUMP_IF_TRUE, {Arg::R(50), Arg::Label(0)}));
+    // 2. Peephole (EQ + JUMP_IF_TRUE) -> JUMP_IF_EQ
+    proto.ir_code.push_back(make_inst(OpCode::EQ, {InstArg::R(50), InstArg::R(1), InstArg::R(2)}));
+    proto.ir_code.push_back(make_inst(OpCode::JUMP_IF_TRUE, {InstArg::R(50), InstArg::Label(0)}));
 
-    // 3. Bytecode Optimization (ADD r10, r1, r2) -> ADD_B (Vì số regs ít)
-    //    Đây là phần kiểm tra xem Optimizer có tự chuyển sang _B không
-    proto.ir_code.push_back(make_inst(OpCode::ADD, {Arg::R(10), Arg::R(1), Arg::R(2)}));
+    // 3. Bytecode Optimization (ADD r10, r1, r2) -> ADD_B
+    proto.ir_code.push_back(make_inst(OpCode::ADD, {InstArg::R(10), InstArg::R(1), InstArg::R(2)}));
 
     // 4. Target Label
-    proto.ir_code.push_back(make_inst(OpCode::NOP, {Arg::Label(0)}));
+    proto.ir_code.push_back(make_inst(OpCode::NOP, {InstArg::Label(0)}));
+    proto.ir_code.push_back(make_inst(OpCode::HALT, {}));
 
     dump_ir_code(proto.ir_code, "INPUT IR");
 

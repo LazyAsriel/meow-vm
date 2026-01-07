@@ -90,6 +90,8 @@ public:
         return Value(null_t{});
     }
 
+    inline size_t get_field_count() const noexcept { return fields_.size(); }
+
     inline void trace(GCVisitor& visitor) const noexcept override {
         visitor.visit_object(klass_);
         visitor.visit_object(shape_);

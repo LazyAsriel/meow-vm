@@ -4,45 +4,16 @@
 #include <meow/bytecode/op_codes.h>
 #include <meow/value.h>
 #include <meow/bytecode/chunk.h>
+#include <cstring> 
+#include <format>
+#include <iterator>
+#include <vector>
+#include <algorithm>
+#include <bit>
 
 namespace meow {
 
 static constexpr size_t CALL_IC_SIZE = 16;
-
-constexpr std::string_view get_opcode_name(OpCode op) {
-    switch (op) {
-#define OP(name) case OpCode::name: return #name;
-        OP(LOAD_CONST) OP(LOAD_NULL) OP(LOAD_TRUE) OP(LOAD_FALSE)
-        OP(LOAD_INT) OP(LOAD_FLOAT) OP(MOVE)
-        OP(INC) OP(DEC)
-        OP(ADD) OP(SUB) OP(MUL) OP(DIV) OP(MOD) OP(POW)
-        OP(EQ) OP(NEQ) OP(GT) OP(GE) OP(LT) OP(LE)
-        OP(NEG) OP(NOT)
-        OP(BIT_AND) OP(BIT_OR) OP(BIT_XOR) OP(BIT_NOT)
-        OP(LSHIFT) OP(RSHIFT)
-        OP(GET_GLOBAL) OP(SET_GLOBAL)
-        OP(GET_UPVALUE) OP(SET_UPVALUE)
-        OP(CLOSURE) OP(CLOSE_UPVALUES)
-        OP(JUMP) OP(JUMP_IF_FALSE) OP(JUMP_IF_TRUE)
-        OP(CALL) OP(CALL_VOID) OP(RETURN) OP(HALT)
-        OP(NEW_ARRAY) OP(NEW_HASH)
-        OP(GET_INDEX) OP(SET_INDEX)
-        OP(GET_KEYS) OP(GET_VALUES)
-        OP(NEW_CLASS) OP(NEW_INSTANCE)
-        OP(GET_PROP) OP(SET_PROP) OP(SET_METHOD)
-        OP(INHERIT) OP(GET_SUPER)
-        OP(THROW) OP(SETUP_TRY) OP(POP_TRY)
-        OP(IMPORT_MODULE) OP(EXPORT) OP(GET_EXPORT) OP(IMPORT_ALL)
-        OP(TAIL_CALL)
-        
-        OP(ADD_B) OP(SUB_B) OP(MUL_B) OP(DIV_B) OP(MOD_B)
-        OP(EQ_B) OP(NEQ_B) OP(GT_B) OP(GE_B) OP(LT_B) OP(LE_B)
-        OP(JUMP_IF_TRUE_B) OP(JUMP_IF_FALSE_B)
-        OP(MOVE_B) OP(LOAD_INT_B)
-#undef OP
-        default: return "UNKNOWN_OP";
-    }
-}
 
 template <typename T>
 [[gnu::always_inline]] 
@@ -84,7 +55,10 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
     std::string line;
     line.reserve(64); 
 
-    std::format_to(std::back_inserter(line), "{:<16}", get_opcode_name(op));
+    std::string_view op_name = meow::enum_name(op);
+    if (op_name.empty()) op_name = "UNKNOWN_OP";
+
+    std::format_to(std::back_inserter(line), "{:<16}", op_name);
 
     switch (op) {
         // --- CONSTANTS ---
@@ -97,8 +71,23 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
             }
             break;
         }
+        case OpCode::LOAD_CONST_B: {
+            uint8_t dst = read_u8(code, ip);
+            uint16_t idx = read_u16(code, ip); 
+            std::format_to(std::back_inserter(line), "r{}, [{}]", dst, idx);
+            if (idx < chunk.get_pool_size()) {
+                std::format_to(std::back_inserter(line), " ({})", value_to_string(chunk.get_constant(idx)));
+            }
+            break;
+        }
         case OpCode::LOAD_INT: {
             uint16_t dst = read_u16(code, ip);
+            int64_t val = std::bit_cast<int64_t>(read_u64(code, ip));
+            std::format_to(std::back_inserter(line), "r{}, {}", dst, val);
+            break;
+        }
+        case OpCode::LOAD_INT_B: {
+            uint8_t dst = read_u8(code, ip);
             int64_t val = std::bit_cast<int64_t>(read_u64(code, ip));
             std::format_to(std::back_inserter(line), "r{}, {}", dst, val);
             break;
@@ -109,17 +98,20 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
             std::format_to(std::back_inserter(line), "r{}, {:.6g}", dst, val);
             break;
         }
-        case OpCode::LOAD_NULL:
-        case OpCode::LOAD_TRUE:
-        case OpCode::LOAD_FALSE: {
+        case OpCode::LOAD_FLOAT_B: {
+            uint8_t dst = read_u8(code, ip);
+            double val = read_f64(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, {:.6g}", dst, val);
+            break;
+        }
+        case OpCode::LOAD_NULL: case OpCode::LOAD_TRUE: case OpCode::LOAD_FALSE: {
             uint16_t dst = read_u16(code, ip);
             std::format_to(std::back_inserter(line), "r{}", dst);
             break;
         }
-        case OpCode::LOAD_INT_B: {
+        case OpCode::LOAD_NULL_B: case OpCode::LOAD_TRUE_B: case OpCode::LOAD_FALSE_B: {
             uint8_t dst = read_u8(code, ip);
-            int8_t val = static_cast<int8_t>(read_u8(code, ip));
-            std::format_to(std::back_inserter(line), "r{}, {}", dst, val);
+            std::format_to(std::back_inserter(line), "r{}", dst);
             break;
         }
 
@@ -137,7 +129,7 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
             break;
         }
 
-        // --- MATH / BINARY (STANDARD) ---
+        // --- MATH / BINARY (STANDARD 16-bit) ---
         case OpCode::ADD: case OpCode::SUB: case OpCode::MUL: case OpCode::DIV:
         case OpCode::MOD: case OpCode::POW:
         case OpCode::EQ: case OpCode::NEQ: case OpCode::GT: case OpCode::GE:
@@ -151,11 +143,13 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
             break;
         }
 
-        // --- MATH / BINARY (BYTE OPTIMIZED) ---
+        // --- MATH / BINARY (BYTE OPTIMIZED 8-bit) ---
         case OpCode::ADD_B: case OpCode::SUB_B: case OpCode::MUL_B: case OpCode::DIV_B:
         case OpCode::MOD_B:
         case OpCode::EQ_B: case OpCode::NEQ_B: case OpCode::GT_B: case OpCode::GE_B:
-        case OpCode::LT_B: case OpCode::LE_B: {
+        case OpCode::LT_B: case OpCode::LE_B: 
+        case OpCode::BIT_AND_B: case OpCode::BIT_OR_B: case OpCode::BIT_XOR_B:
+        case OpCode::LSHIFT_B: case OpCode::RSHIFT_B: {
             uint8_t dst = read_u8(code, ip);
             uint8_t r1 = read_u8(code, ip);
             uint8_t r2 = read_u8(code, ip);
@@ -163,7 +157,7 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
             break;
         }
 
-        // --- UNARY ---
+        // --- UNARY (STANDARD) ---
         case OpCode::NEG: case OpCode::NOT: case OpCode::BIT_NOT: {
             uint16_t dst = read_u16(code, ip);
             uint16_t src = read_u16(code, ip);
@@ -172,6 +166,19 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
         }
         case OpCode::INC: case OpCode::DEC: case OpCode::THROW: {
             uint16_t reg = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}", reg);
+            break;
+        }
+
+        // --- UNARY (BYTE) ---
+        case OpCode::NEG_B: case OpCode::NOT_B: case OpCode::BIT_NOT_B: {
+            uint8_t dst = read_u8(code, ip);
+            uint8_t src = read_u8(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, r{}", dst, src);
+            break;
+        }
+        case OpCode::INC_B: case OpCode::DEC_B: {
+            uint8_t reg = read_u8(code, ip);
             std::format_to(std::back_inserter(line), "r{}", reg);
             break;
         }
@@ -215,7 +222,7 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
             break;
         }
 
-        // --- JUMPS ---
+        // --- JUMPS (SIMPLE) ---
         case OpCode::JUMP: {
             uint16_t offset = read_u16(code, ip);
             std::format_to(std::back_inserter(line), "-> {:04d}", offset);
@@ -239,6 +246,28 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
             uint8_t cond = read_u8(code, ip);
             uint16_t offset = read_u16(code, ip);
             std::format_to(std::back_inserter(line), "r{} ? -> {:04d}", cond, offset);
+            break;
+        }
+
+        // --- FUSED JUMPS (16-bit) ---
+        case OpCode::JUMP_IF_EQ: case OpCode::JUMP_IF_NEQ:
+        case OpCode::JUMP_IF_GT: case OpCode::JUMP_IF_GE:
+        case OpCode::JUMP_IF_LT: case OpCode::JUMP_IF_LE: {
+            uint16_t r1 = read_u16(code, ip);
+            uint16_t r2 = read_u16(code, ip);
+            uint16_t off = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, r{} ? -> {:04d}", r1, r2, off);
+            break;
+        }
+
+        // --- FUSED JUMPS (8-bit) ---
+        case OpCode::JUMP_IF_EQ_B: case OpCode::JUMP_IF_NEQ_B:
+        case OpCode::JUMP_IF_GT_B: case OpCode::JUMP_IF_GE_B:
+        case OpCode::JUMP_IF_LT_B: case OpCode::JUMP_IF_LE_B: {
+            uint8_t r1 = read_u8(code, ip);
+            uint8_t r2 = read_u8(code, ip);
+            uint16_t off = read_u16(code, ip);
+            std::format_to(std::back_inserter(line), "r{}, r{} ? -> {:04d}", r1, r2, off);
             break;
         }
 
@@ -354,6 +383,16 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
             std::format_to(std::back_inserter(line), "r{}, name=[{}]", dst, idx);
             break;
         }
+        case OpCode::INVOKE: {
+             uint16_t dst = read_u16(code, ip);
+             uint16_t obj = read_u16(code, ip);
+             uint16_t idx = read_u16(code, ip);
+             uint16_t arg = read_u16(code, ip);
+             uint16_t argc = read_u16(code, ip);
+             std::format_to(std::back_inserter(line), "r{} = r{}.[{}](argc={}, args=r{})", dst, obj, idx, argc, arg);
+             ip += 80; // IC_SIZE
+             break;
+        }
 
         // --- MODULES ---
         case OpCode::IMPORT_MODULE: {
@@ -391,7 +430,8 @@ std::pair<std::string, size_t> disassemble_instruction(const Chunk& chunk, size_
         }
         case OpCode::HALT:
         case OpCode::POP_TRY:
-            break; // No operands
+        case OpCode::NOP:
+            break; 
 
         default:
             line += "<unknown_operands>";

@@ -4,49 +4,66 @@
 
 namespace meow::handlers {
 
-struct BinaryArgs { uint16_t dst; uint16_t r1; uint16_t r2; } __attribute__((packed));
-struct BinaryArgsB { uint8_t dst; uint8_t r1; uint8_t r2; } __attribute__((packed));
-struct UnaryArgs { uint16_t dst; uint16_t src; } __attribute__((packed));
-struct UnaryArgsB { uint8_t dst; uint8_t src; } __attribute__((packed));
+// --- MACROS (Updated for decode::args) ---
 
-// --- MACROS ---
+// Binary Op (Standard 16-bit regs) -> Tổng 6 bytes -> decode đọc u64
 #define BINARY_OP_IMPL(NAME, OP_ENUM) \
     HOT_HANDLER impl_##NAME(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
-        const auto& args = *reinterpret_cast<const BinaryArgs*>(ip); \
-        Value& left  = regs[args.r1]; \
-        Value& right = regs[args.r2]; \
-        regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
-        return ip + sizeof(BinaryArgs); \
+        auto [dst, r1, r2] = decode::args<u16, u16, u16>(ip); \
+        Value& left  = regs[r1]; \
+        Value& right = regs[r2]; \
+        regs[dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
+        return ip; \
     }
 
+// Binary Op (Byte 8-bit regs) -> Tổng 3 bytes -> decode đọc u32
 #define BINARY_OP_B_IMPL(NAME, OP_ENUM) \
     HOT_HANDLER impl_##NAME##_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
-        const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip); \
-        Value& left  = regs[args.r1]; \
-        Value& right = regs[args.r2]; \
-        regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
-        return ip + sizeof(BinaryArgsB); \
+        auto [dst, r1, r2] = decode::args<u8, u8, u8>(ip); \
+        Value& left  = regs[r1]; \
+        Value& right = regs[r2]; \
+        regs[dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
+        return ip; \
     }
 
-// --- ADD (Arithmetic) ---
+// --- ADD (Specialized Arithmetic) ---
+
 HOT_HANDLER impl_ADD(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    const auto& args = *reinterpret_cast<const BinaryArgs*>(ip);
-    Value& left = regs[args.r1];
-    Value& right = regs[args.r2];
-    if (left.holds_both<int_t>(right)) [[likely]] regs[args.dst] = left.as_int() + right.as_int();
-    else if (left.holds_both<float_t>(right)) regs[args.dst] = Value(left.as_float() + right.as_float());
-    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
-    return ip + sizeof(BinaryArgs);
+    // 3 * u16 = 6 bytes. Decoder tự động dùng u64 load.
+    auto [dst, r1, r2] = decode::args<u16, u16, u16>(ip);
+    
+    Value& left = regs[r1];
+    Value& right = regs[r2];
+    
+    if (left.holds_both<int_t>(right)) [[likely]] {
+        regs[dst] = left.as_int() + right.as_int();
+    }
+    else if (left.holds_both<float_t>(right)) {
+        regs[dst] = Value(left.as_float() + right.as_float());
+    }
+    else [[unlikely]] {
+        regs[dst] = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
+    }
+    return ip;
 }
 
 HOT_HANDLER impl_ADD_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip);
-    Value& left = regs[args.r1];
-    Value& right = regs[args.r2];
-    if (left.holds_both<int_t>(right)) [[likely]] regs[args.dst] = left.as_int() + right.as_int();
-    else if (left.holds_both<float_t>(right)) regs[args.dst] = Value(left.as_float() + right.as_float());
-    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
-    return ip + sizeof(BinaryArgsB);
+    // 3 * u8 = 3 bytes. Decoder tự động dùng u32 load.
+    auto [dst, r1, r2] = decode::args<u8, u8, u8>(ip);
+    
+    Value& left = regs[r1];
+    Value& right = regs[r2];
+    
+    if (left.holds_both<int_t>(right)) [[likely]] {
+        regs[dst] = left.as_int() + right.as_int();
+    }
+    else if (left.holds_both<float_t>(right)) {
+        regs[dst] = Value(left.as_float() + right.as_float());
+    }
+    else [[unlikely]] {
+        regs[dst] = OperatorDispatcher::find(OpCode::ADD, left, right)(&state->heap, left, right);
+    }
+    return ip;
 }
 
 // --- Arithmetic Ops ---
@@ -75,28 +92,29 @@ BINARY_OP_B_IMPL(LSHIFT, LSHIFT)
 BINARY_OP_B_IMPL(RSHIFT, RSHIFT)
 
 // --- Comparison Ops ---
+
 #define CMP_FAST_IMPL(OP_NAME, OP_ENUM, OPERATOR) \
     HOT_HANDLER impl_##OP_NAME(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
-        const auto& args = *reinterpret_cast<const BinaryArgs*>(ip); \
-        Value& left = regs[args.r1]; \
-        Value& right = regs[args.r2]; \
+        auto [dst, r1, r2] = decode::args<u16, u16, u16>(ip); \
+        Value& left = regs[r1]; \
+        Value& right = regs[r2]; \
         if (left.holds_both<int_t>(right)) [[likely]] { \
-            regs[args.dst] = Value(left.as_int() OPERATOR right.as_int()); \
+            regs[dst] = Value(left.as_int() OPERATOR right.as_int()); \
         } else [[unlikely]] { \
-            regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
+            regs[dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
         } \
-        return ip + sizeof(BinaryArgs); \
+        return ip; \
     } \
     HOT_HANDLER impl_##OP_NAME##_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) { \
-        const auto& args = *reinterpret_cast<const BinaryArgsB*>(ip); \
-        Value& left = regs[args.r1]; \
-        Value& right = regs[args.r2]; \
+        auto [dst, r1, r2] = decode::args<u8, u8, u8>(ip); \
+        Value& left = regs[r1]; \
+        Value& right = regs[r2]; \
         if (left.holds_both<int_t>(right)) [[likely]] { \
-            regs[args.dst] = Value(left.as_int() OPERATOR right.as_int()); \
+            regs[dst] = Value(left.as_int() OPERATOR right.as_int()); \
         } else [[unlikely]] { \
-            regs[args.dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
+            regs[dst] = OperatorDispatcher::find(OpCode::OP_ENUM, left, right)(&state->heap, left, right); \
         } \
-        return ip + sizeof(BinaryArgsB); \
+        return ip; \
     }
 
 CMP_FAST_IMPL(EQ, EQ, ==)
@@ -110,95 +128,121 @@ CMP_FAST_IMPL(LE, LE, <=)
 
 // NEG
 HOT_HANDLER impl_NEG(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
-    Value& val = regs[args.src];
-    if (val.is_int()) [[likely]] regs[args.dst] = Value(-val.as_int());
-    else if (val.is_float()) regs[args.dst] = Value(-val.as_float());
-    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::NEG, val)(&state->heap, val);
-    return ip + sizeof(UnaryArgs);
+    // 2 * u16 = 4 bytes -> Load u32
+    auto [dst, src] = decode::args<u16, u16>(ip);
+    
+    Value& val = regs[src];
+    if (val.is_int()) [[likely]] regs[dst] = Value(-val.as_int());
+    else if (val.is_float()) regs[dst] = Value(-val.as_float());
+    else [[unlikely]] regs[dst] = OperatorDispatcher::find(OpCode::NEG, val)(&state->heap, val);
+    return ip;
 }
 
 HOT_HANDLER impl_NEG_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    const auto& args = *reinterpret_cast<const UnaryArgsB*>(ip);
-    Value& val = regs[args.src];
-    if (val.is_int()) [[likely]] regs[args.dst] = Value(-val.as_int());
-    else if (val.is_float()) regs[args.dst] = Value(-val.as_float());
-    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::NEG, val)(&state->heap, val);
-    return ip + sizeof(UnaryArgsB);
+    // 2 * u8 = 2 bytes -> Load u16
+    auto [dst, src] = decode::args<u8, u8>(ip);
+    
+    Value& val = regs[src];
+    if (val.is_int()) [[likely]] regs[dst] = Value(-val.as_int());
+    else if (val.is_float()) regs[dst] = Value(-val.as_float());
+    else [[unlikely]] regs[dst] = OperatorDispatcher::find(OpCode::NEG, val)(&state->heap, val);
+    return ip;
 }
 
 // NOT (!)
 HOT_HANDLER impl_NOT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
-    Value& val = regs[args.src];
-    if (val.is_bool()) [[likely]] regs[args.dst] = Value(!val.as_bool());
-    else if (val.is_int()) regs[args.dst] = Value(val.as_int() == 0);
-    else if (val.is_null()) regs[args.dst] = Value(true);
-    else [[unlikely]] regs[args.dst] = Value(!to_bool(val));
-    return ip + sizeof(UnaryArgs);
+    auto [dst, src] = decode::args<u16, u16>(ip);
+    Value& val = regs[src];
+    if (val.is_bool()) [[likely]] regs[dst] = Value(!val.as_bool());
+    else if (val.is_int()) regs[dst] = Value(val.as_int() == 0);
+    else if (val.is_null()) regs[dst] = Value(true);
+    else [[unlikely]] regs[dst] = Value(!to_bool(val));
+    return ip;
 }
 
 HOT_HANDLER impl_NOT_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    const auto& args = *reinterpret_cast<const UnaryArgsB*>(ip);
-    Value& val = regs[args.src];
-    if (val.is_bool()) [[likely]] regs[args.dst] = Value(!val.as_bool());
-    else if (val.is_int()) regs[args.dst] = Value(val.as_int() == 0);
-    else if (val.is_null()) regs[args.dst] = Value(true);
-    else [[unlikely]] regs[args.dst] = Value(!to_bool(val));
-    return ip + sizeof(UnaryArgsB);
+    auto [dst, src] = decode::args<u8, u8>(ip);
+    Value& val = regs[src];
+    if (val.is_bool()) [[likely]] regs[dst] = Value(!val.as_bool());
+    else if (val.is_int()) regs[dst] = Value(val.as_int() == 0);
+    else if (val.is_null()) regs[dst] = Value(true);
+    else [[unlikely]] regs[dst] = Value(!to_bool(val));
+    return ip;
 }
 
 // BIT_NOT (~)
 HOT_HANDLER impl_BIT_NOT(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    const auto& args = *reinterpret_cast<const UnaryArgs*>(ip);
-    Value& val = regs[args.src];
-    if (val.is_int()) [[likely]] regs[args.dst] = Value(~val.as_int());
-    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::BIT_NOT, val)(&state->heap, val);
-    return ip + sizeof(UnaryArgs);
+    auto [dst, src] = decode::args<u16, u16>(ip);
+    Value& val = regs[src];
+    if (val.is_int()) [[likely]] regs[dst] = Value(~val.as_int());
+    else [[unlikely]] regs[dst] = OperatorDispatcher::find(OpCode::BIT_NOT, val)(&state->heap, val);
+    return ip;
 }
 
 HOT_HANDLER impl_BIT_NOT_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    const auto& args = *reinterpret_cast<const UnaryArgsB*>(ip);
-    Value& val = regs[args.src];
-    if (val.is_int()) [[likely]] regs[args.dst] = Value(~val.as_int());
-    else [[unlikely]] regs[args.dst] = OperatorDispatcher::find(OpCode::BIT_NOT, val)(&state->heap, val);
-    return ip + sizeof(UnaryArgsB);
+    auto [dst, src] = decode::args<u8, u8>(ip);
+    Value& val = regs[src];
+    if (val.is_int()) [[likely]] regs[dst] = Value(~val.as_int());
+    else [[unlikely]] regs[dst] = OperatorDispatcher::find(OpCode::BIT_NOT, val)(&state->heap, val);
+    return ip;
 }
 
 // INC / DEC (Toán hạng 1 register)
+
 // Bản 16-bit
-[[gnu::always_inline]] static const uint8_t* impl_INC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    uint16_t reg_idx = read_u16(ip);
+HOT_HANDLER impl_INC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    // 1 * u16 = 2 bytes
+    auto [reg_idx] = decode::args<u16>(ip);
     Value& val = regs[reg_idx];
+    
     if (val.is_int()) [[likely]] val = Value(val.as_int() + 1);
     else if (val.is_float()) val = Value(val.as_float() + 1.0);
-    else [[unlikely]] { state->error("INC requires Number.", ip); return nullptr; }
+    else [[unlikely]] { 
+        // Đã đọc 2 bytes -> Offset = 2
+        return ERROR<2>(ip, regs, constants, state, 1 /*TYPE_ERR*/, "INC requires Number"); 
+    }
     return ip;
 }
-[[gnu::always_inline]] static const uint8_t* impl_DEC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    uint16_t reg_idx = read_u16(ip);
+
+HOT_HANDLER impl_DEC(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    auto [reg_idx] = decode::args<u16>(ip);
     Value& val = regs[reg_idx];
+    
     if (val.is_int()) [[likely]] val = Value(val.as_int() - 1);
     else if (val.is_float()) val = Value(val.as_float() - 1.0);
-    else [[unlikely]] { state->error("DEC requires Number.", ip); return nullptr; }
+    else [[unlikely]] { 
+        return ERROR<2>(ip, regs, constants, state, 1 /*TYPE_ERR*/, "DEC requires Number"); 
+    }
     return ip;
 }
 
 // Bản 8-bit
-[[gnu::always_inline]] static const uint8_t* impl_INC_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    uint8_t reg_idx = *ip++;
-    Value& val = regs[reg_idx];
-    if (val.is_int()) [[likely]] val = Value(val.as_int() + 1);
-    else if (val.is_float()) val = Value(val.as_float() + 1.0);
-    else [[unlikely]] { state->error("INC requires Number.", ip); return nullptr; }
-    return ip;
+HOT_HANDLER impl_INC_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    auto args = decode::make<u8>(ip);
+    
+    Value& val = regs[args.v0()];
+
+    if (val.holds<int64_t>()) [[likely]] {
+        val.unsafe_set<int64_t>(val.unsafe_get<int64_t>() + 1);
+    } else if (val.holds<double>()) {
+        val.unsafe_set<double>(val.unsafe_get<double>() + 1.0);
+    } else [[unlikely]] {
+        return ERROR<1>(ip, regs, constants, state, 1, "INC requires Number");
+    }
+
+    // Lazy return
+    return ip + decode::size_of_v<u8>;
 }
-[[gnu::always_inline]] static const uint8_t* impl_DEC_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    uint8_t reg_idx = *ip++;
+
+HOT_HANDLER impl_DEC_B(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    auto [reg_idx] = decode::args<u8>(ip);
     Value& val = regs[reg_idx];
+    
     if (val.is_int()) [[likely]] val = Value(val.as_int() - 1);
     else if (val.is_float()) val = Value(val.as_float() - 1.0);
-    else [[unlikely]] { state->error("DEC requires Number.", ip); return nullptr; }
+    else [[unlikely]] { 
+        return ERROR<1>(ip, regs, constants, state, 1 /*TYPE_ERR*/, "DEC requires Number"); 
+    }
     return ip;
 }
 

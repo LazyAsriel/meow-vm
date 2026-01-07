@@ -152,7 +152,7 @@ public:
         return 0;
     }
 
-    [[nodiscard]] __attribute__((always_inline))
+    [[nodiscard]] [[gnu::always_inline]]
     static FallbackVariant from_raw([[maybe_unused]] uint64_t bits) noexcept {
         return FallbackVariant();
     }
@@ -160,16 +160,16 @@ public:
     std::size_t index() const noexcept { return static_cast<std::size_t>(index_); }
     bool valueless() const noexcept { return index_ == npos; }
 
-    [[nodiscard]] __attribute__((always_inline))
+    [[nodiscard]] [[gnu::always_inline]]
     uint64_t raw_tag() const noexcept {
         return static_cast<uint64_t>(index_);
     }
 
-    __attribute__((always_inline))
+    [[gnu::always_inline]]
     void set_raw(uint64_t) noexcept {}
 
     template <typename T>
-    [[nodiscard]] __attribute__((always_inline))
+    [[nodiscard]] [[gnu::always_inline]]
     bool holds_both(const FallbackVariant& other) const noexcept {
         using U = std::decay_t<T>;
         constexpr std::size_t idx = detail::type_list_index_of<U, flat_list>::value;
@@ -178,7 +178,7 @@ public:
     }
 
     // --- 2. Type Check Optimized: Integer Comparison ---
-    [[nodiscard]] __attribute__((always_inline))
+    [[nodiscard]] [[gnu::always_inline]]
     bool has_same_type_as(const FallbackVariant& other) const noexcept {
         return index_ == other.index_;
     }
@@ -220,6 +220,35 @@ public:
         return nullptr;
     }
 
+    template <typename T>
+    [[gnu::always_inline]]
+    void unsafe_set(T&& v) noexcept {
+        using U = std::decay_t<T>;
+        *reinterpret_cast<U*>(storage_) = std::forward<T>(v);
+    }
+
+    template <typename T>
+    [[nodiscard]] [[gnu::always_inline]]
+    T get_as() const noexcept {
+        static_assert(sizeof(T) <= sizeof(storage_), "Type T is larger than variant storage");
+        static_assert(std::is_trivially_copyable_v<T>, "Type T must be trivially copyable for raw access");
+        
+        T ret;
+        std::memcpy(&ret, storage_, sizeof(T));
+        return ret;
+    }
+
+    template <typename T>
+    [[gnu::always_inline]]
+    uint64_t set_as(T v) noexcept {
+        static_assert(sizeof(T) <= sizeof(storage_), "Type T is larger than variant storage");
+        static_assert(std::is_trivially_copyable_v<T>, "Type T must be trivially copyable for raw access");
+        this->destroy(); 
+        std::memcpy(storage_, &v, sizeof(T));
+        index_ = npos;
+        return 0; 
+    }
+
     void swap(FallbackVariant& other) noexcept {
         FallbackVariant temp = std::move(*this);
         *this = std::move(other);
@@ -258,7 +287,7 @@ private:
 
     // --- Switch Generation ---
     template <typename Visitor>
-    __attribute__((always_inline))
+    [[gnu::always_inline]]
     decltype(auto) visit_switch(Visitor&& vis) const {
         switch (index_) {
             #define MEOW_FB_CASE(N) \
@@ -282,7 +311,7 @@ private:
     }
     
     template <typename Visitor>
-    __attribute__((always_inline))
+    [[gnu::always_inline]]
     decltype(auto) visit_switch(Visitor&& vis) {
         switch (index_) {
             #define MEOW_FB_CASE(N) \

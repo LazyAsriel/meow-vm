@@ -97,7 +97,7 @@ public:
     inline string_t get_name() const noexcept {
         return name_;
     }
-    inline const chunk_t& get_chunk() const noexcept {
+    inline chunk_t& get_chunk() noexcept {
         return chunk_;
     }
     inline size_t desc_size() const noexcept {

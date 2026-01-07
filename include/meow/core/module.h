@@ -20,14 +20,16 @@ private:
 
     enum class State { INITIAL, EXECUTING, EXECUTED };
 
+    // --- Globals Storage ---
     std::vector<Value> globals_store_;
-    
     using GlobalNameMap = meow::flat_map<string_t, uint32_t>;
-    using ExportMap = meow::flat_map<string_t, value_t>;
-
     GlobalNameMap global_names_;
-    ExportMap exports_;
-    
+
+    // --- Exports Storage (Đã tối ưu) ---
+    std::vector<Value> exports_store_; 
+    using ExportNameMap = meow::flat_map<string_t, uint32_t>; // Map tên -> index
+    ExportNameMap export_names_;
+
     string_t file_name_;
     string_t file_path_;
     proto_t main_proto_;
@@ -38,8 +40,10 @@ public:
     explicit ObjModule(string_t file_name, string_t file_path, proto_t main_proto = nullptr) noexcept 
         : file_name_(file_name), file_path_(file_path), main_proto_(main_proto), state(State::INITIAL) {}
     
+    // --- Globals Logic (Giữ nguyên logic tốt của bạn) ---
     [[gnu::always_inline]]
     inline return_t get_global_by_index(uint32_t index) const noexcept {
+        // Unsafe access for speed, caller must ensure index is valid
         return globals_store_[index];
     }
 
@@ -49,14 +53,13 @@ public:
     }
 
     uint32_t intern_global(string_t name) {
-        uint32_t next_idx = static_cast<uint32_t>(globals_store_.size());
-        auto [ptr, inserted] = global_names_.try_emplace(name, next_idx);
-        
-        if (inserted) {
-            globals_store_.push_back(Value(null_t{}));
+        if (auto* idx_ptr = global_names_.find(name)) {
+            return *idx_ptr;
         }
-        
-        return *ptr;
+        uint32_t next_idx = static_cast<uint32_t>(globals_store_.size());
+        global_names_.try_emplace(name, next_idx);
+        globals_store_.push_back(Value(null_t{}));
+        return next_idx;
     }
 
     inline bool has_global(string_t name) {
@@ -71,13 +74,13 @@ public:
     }
 
     inline void set_global(string_t name, param_t value) noexcept {
-        uint32_t idx = intern_global(name);
+        uint32_t idx = intern_global(name); // Tự động tạo slot nếu chưa có
         globals_store_[idx] = value;
     }
 
     inline void import_all_global(const module_t other) noexcept {
         const auto& other_keys = other->global_names_.keys();
-        const auto& other_vals = other->global_names_.values();
+        const auto& other_vals = other->global_names_.values(); // Đây là index
         
         for (size_t i = 0; i < other_keys.size(); ++i) {
             Value val = other->globals_store_[other_vals[i]];
@@ -85,31 +88,63 @@ public:
         }
     }
 
-    // --- Exports ---
-    inline return_t get_export(string_t name) noexcept {
-        if (auto* val_ptr = exports_.find(name)) {
-            return *val_ptr;
+    // --- Exports Logic (Đã tối ưu Index Access) ---
+    
+    // 1. Lấy export qua index (Fast Path cho VM)
+    [[gnu::always_inline]]
+    inline return_t get_export_by_index(uint32_t index) const noexcept {
+        return exports_store_[index];
+    }
+
+    // 2. Tìm index của export (Dùng để cache lần đầu)
+    // Trả về -1 nếu không tìm thấy (lưu ý trả về int32 hoặc check size)
+    inline int32_t resolve_export_index(string_t name) noexcept {
+        if (auto* idx_ptr = export_names_.find(name)) {
+            return static_cast<int32_t>(*idx_ptr);
         }
+        return -1;
+    }
+
+    // 3. Intern export (Tạo slot mới)
+    uint32_t intern_export(string_t name) {
+        if (auto* idx_ptr = export_names_.find(name)) {
+            return *idx_ptr;
+        }
+        uint32_t next_idx = static_cast<uint32_t>(exports_store_.size());
+        export_names_.try_emplace(name, next_idx);
+        exports_store_.push_back(Value(null_t{}));
+        return next_idx;
+    }
+
+    // 4. Các hàm tiện ích cũ
+    inline return_t get_export(string_t name) noexcept {
+        int32_t idx = resolve_export_index(name);
+        if (idx != -1) return exports_store_[idx];
         return Value(null_t{});
     }
     
     inline void set_export(string_t name, param_t value) noexcept {
-        exports_[name] = value; 
+        uint32_t idx = intern_export(name);
+        exports_store_[idx] = value; 
     }
     
     inline bool has_export(string_t name) {
-        return exports_.contains(name);
+        return export_names_.contains(name);
     }
     
     inline void import_all_export(const module_t other) noexcept {
-        const auto& other_keys = other->exports_.keys();
-        const auto& other_vals = other->exports_.values();
+        const auto& other_keys = other->export_names_.keys();
+        const auto& other_vals = other->export_names_.values(); // Index bên module kia
         
         for (size_t i = 0; i < other_keys.size(); ++i) {
-            exports_.try_emplace(other_keys[i], other_vals[i]);
+            // Lấy giá trị thực từ module kia
+            Value val = other->exports_store_[other_vals[i]];
+            // Set vào module này (sẽ tạo index mới nếu cần)
+            set_export(other_keys[i], val);
         }
     }
 
+    // --- Getters / Setters ---
     inline string_t get_file_name() const noexcept { return file_name_; }
     inline string_t get_file_path() const noexcept { return file_path_; }
     inline proto_t get_main_proto() const noexcept { return main_proto_; }
@@ -125,6 +160,6 @@ public:
     void trace(visitor_t& visitor) const noexcept override;
     
     const auto& get_global_names_raw() const { return global_names_; }
-    const auto& get_exports_raw() const { return exports_; }
-};
-}
+    // Trả về map tên -> index để debug
+    const auto& get_export_names_raw() const { return export_names_; }
+};}

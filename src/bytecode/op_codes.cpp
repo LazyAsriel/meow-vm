@@ -1,7 +1,3 @@
-/*
-type: uploaded file
-fileName: op_codes.cpp
-*/
 #include "meow/bytecode/op_codes.h"
 #include <type_traits>
 
@@ -86,14 +82,13 @@ static constexpr auto OP_TABLE = make_table(
     def(JUMP,           off16),
     def(JUMP_IF_TRUE,   reg16, off16),
     def(JUMP_IF_FALSE,  reg16, off16),
-    def(CALL,           reg16, reg16, u16, u16), // dst, fn, arg_start, count
-    def(CALL_VOID,      reg16, u16, u16),        // fn, arg_start, count (no dst)
+    def(CALL,           reg16, reg16, u16, u16), 
+    def(CALL_VOID,      reg16, u16, u16),        
     def(RETURN,         reg16),
     def(TAIL_CALL,      reg16, reg16, u16, u16),
 
     // 6. EXCEPTION & MODULES
     def(THROW,          reg16),
-    // [FIX] SETUP_TRY: Đảo thứ tự thành off16, reg16 để khớp với VM Handler
     def(SETUP_TRY,      off16, reg16), 
     def(POP_TRY),
     def(IMPORT_MODULE,  reg16, idx),
@@ -129,7 +124,6 @@ static constexpr auto OP_TABLE = make_table(
     // ==========================================
     //            OPTIMIZED OPS (_B)
     // ==========================================
-
     def(ADD_B,          reg8, reg8, reg8),
     def(SUB_B,          reg8, reg8, reg8),
     def(MUL_B,          reg8, reg8, reg8),
@@ -155,13 +149,17 @@ static constexpr auto OP_TABLE = make_table(
     def(LE_B,           reg8, reg8, reg8),
 
     def(MOVE_B,         reg8, reg8),
-    def(LOAD_CONST_B,   reg8, reg8),
+    // SỬA: LOAD_CONST_B dùng idx (2 byte) để truy cập full constant pool
+    def(LOAD_CONST_B,   reg8, idx), 
     def(LOAD_INT_B,     reg8, i64),
+    
+    // THÊM: Các lệnh Load _B còn thiếu
+    def(LOAD_FLOAT_B,   reg8, f64),
+    def(LOAD_NULL_B,    reg8),
+    def(LOAD_TRUE_B,    reg8),
+    def(LOAD_FALSE_B,   reg8),
 
-    // ==========================================
-    //            FUSED JUMPS
-    // ==========================================
-
+    // Fused Jumps
     def(JUMP_IF_EQ,     reg16, reg16, off16),
     def(JUMP_IF_NEQ,    reg16, reg16, off16),
     def(JUMP_IF_GT,     reg16, reg16, off16),
@@ -179,8 +177,6 @@ static constexpr auto OP_TABLE = make_table(
     def(JUMP_IF_LE_B,   reg8, reg8, off16)
 );
 
-// --- Implementation ---
-
 const OpSchema& get_op_schema(OpCode op) {
     if (static_cast<size_t>(op) >= OP_TABLE.size()) {
         static const OpSchema EMPTY;
@@ -192,9 +188,9 @@ const OpSchema& get_op_schema(OpCode op) {
 OpInfo get_op_info(OpCode op) {
     const auto& s = get_op_schema(op);
     uint8_t size = s.get_operand_bytes();
-    
-    // [FIX] Tính toán Padding thủ công cho các lệnh "Fat" (Inline Cache)
-    // Nếu không có phần này, Loader sẽ nhảy sai vị trí và Assembler sẽ không emit byte 0.
+
+    constexpr uint8_t IC_SIZE = 80;
+
     switch (op) {
         case OpCode::CALL: 
         case OpCode::CALL_VOID:
@@ -204,13 +200,8 @@ OpInfo get_op_info(OpCode op) {
             
         case OpCode::GET_PROP: 
         case OpCode::SET_PROP:
-            size += 48; // InlineCache
-            break;
-            
         case OpCode::INVOKE:
-            // Arguments (10 bytes) + IC (48) + ? = 79 bytes total data
-            // OpSchema defines 10 bytes args. -> Cần thêm 69 bytes
-            size += 69; 
+            size += IC_SIZE; 
             break;
             
         default: break;

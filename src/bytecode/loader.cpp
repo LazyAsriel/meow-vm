@@ -162,7 +162,7 @@ Result<void, LoaderErrorCode> Loader::link_prototypes() {
     for (const auto& patch : patches_) {
         if (patch.proto_idx >= loaded_protos_.size() || patch.target_idx >= loaded_protos_.size()) 
             return error(LoaderErrorCode::INVALID_PROTO_INDEX);
-        Chunk& chunk = const_cast<Chunk&>(loaded_protos_[patch.proto_idx]->get_chunk()); 
+        Chunk& chunk = loaded_protos_[patch.proto_idx]->get_chunk(); 
         if (patch.const_idx >= chunk.get_pool_size()) return error(LoaderErrorCode::INVALID_CONST_INDEX);
         chunk.get_constant_ref(patch.const_idx) = Value(loaded_protos_[patch.target_idx]);
     }
@@ -193,7 +193,7 @@ static Result<void, LoaderErrorCode> patch_chunk_globals_recursive(module_t mod,
     if (!proto || visited.contains(proto)) return {};
     visited.insert(proto);
 
-    Chunk& chunk = const_cast<Chunk&>(proto->get_chunk());
+    Chunk& chunk = proto->get_chunk();
     const uint8_t* code = chunk.get_code();
     size_t size = chunk.get_code_size();
     size_t ip = 0;

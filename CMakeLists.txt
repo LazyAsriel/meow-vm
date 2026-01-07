@@ -18,7 +18,7 @@ add_subdirectory(libs)
 
 add_subdirectory(src)
 
-if(BUILD_BENCHMARKS)
+# if(BUILD_BENCHMARKS)
     message(STATUS "Benchmarks enabled")
     add_subdirectory(benchmarks)
-endif()
+# endif()

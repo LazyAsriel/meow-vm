@@ -1,14 +1,11 @@
-/*
-type: uploaded file
-fileName: masm/src/optimizer.cpp
-*/
 #include <meow/masm/optimizer.h>
 #include <meow/bytecode/op_codes.h>
 #include <iostream>
-#include <cstring>
 #include <algorithm>
 #include <print>
 #include <bit>
+#include <set>
+#include <cmath> 
 
 namespace meow::masm {
 
@@ -18,7 +15,6 @@ void optimize_prototype(Prototype& proto, const std::vector<Prototype>& all_prot
     opt.run();
 }
 
-// --- HELPER: Constant Pool Deduplication ---
 template <typename T>
 uint32_t Optimizer::add_constant(T v) {
     for(size_t i=0; i<const_pool_.size(); ++i) {
@@ -42,11 +38,124 @@ uint32_t Optimizer::add_string(const std::string& s) {
     return (uint32_t)(string_pool_.size() - 1);
 }
 
+// --- HELPER: Fast Constant Evaluation ---
+
+static ConstantValue get_val(
+    const IrArg& arg, 
+    const std::map<uint16_t, ConstantValue>& known_regs,
+    const std::vector<ConstantValue>& const_pool
+) {
+    if (arg.is<Reg>()) {
+        uint16_t rid = arg.unsafe_get<Reg>().id;
+        auto it = known_regs.find(rid);
+        if (it != known_regs.end()) return it->second;
+        return Unknown{};
+    }
+    if (arg.is<int64_t>()) return arg.unsafe_get<int64_t>();
+    if (arg.is<double>()) return arg.unsafe_get<double>();
+    if (arg.is<ConstIdx>()) {
+        size_t idx = arg.unsafe_get<ConstIdx>().id;
+        if (idx < const_pool.size()) return const_pool[idx];
+    }
+    return Unknown{};
+}
+
+static ConstantValue evaluate_binary(OpCode op, const ConstantValue& lhs, const ConstantValue& rhs) {
+    if (lhs.is<Unknown>() || rhs.is<Unknown>()) return Unknown{};
+
+    return lhs.visit(
+        [&](int64_t l) -> ConstantValue {
+            return rhs.visit(
+                [&](int64_t r) -> ConstantValue { 
+                    switch(op) {
+                        case OpCode::ADD: return l + r;
+                        case OpCode::SUB: return l - r;
+                        case OpCode::MUL: return l * r;
+                        case OpCode::DIV: return (r == 0) ? ConstantValue(Unknown{}) : (l / r);
+                        case OpCode::MOD: return (r == 0) ? ConstantValue(Unknown{}) : (l % r);
+                        case OpCode::BIT_AND: return l & r;
+                        case OpCode::BIT_OR:  return l | r;
+                        case OpCode::BIT_XOR: return l ^ r;
+                        case OpCode::LSHIFT:  return l << r;
+                        case OpCode::RSHIFT:  return l >> r;
+                        case OpCode::EQ: return (int64_t)(l == r);
+                        case OpCode::NEQ: return (int64_t)(l != r);
+                        case OpCode::GT: return (int64_t)(l > r);
+                        case OpCode::GE: return (int64_t)(l >= r);
+                        case OpCode::LT: return (int64_t)(l < r);
+                        case OpCode::LE: return (int64_t)(l <= r);
+                        default: return Unknown{};
+                    }
+                },
+                [&](double r) -> ConstantValue { 
+                    double ld = static_cast<double>(l);
+                    switch(op) {
+                        case OpCode::ADD: return ld + r;
+                        case OpCode::SUB: return ld - r;
+                        case OpCode::MUL: return ld * r;
+                        case OpCode::DIV: return ld / r;
+                        case OpCode::EQ: return (int64_t)(ld == r);
+                        case OpCode::NEQ: return (int64_t)(ld != r);
+                        case OpCode::LT: return (int64_t)(ld < r);
+                        case OpCode::LE: return (int64_t)(ld <= r);
+                        case OpCode::GT: return (int64_t)(ld > r);
+                        case OpCode::GE: return (int64_t)(ld >= r);
+                        default: return Unknown{};
+                    }
+                },
+                [](auto) -> ConstantValue { return Unknown{}; }
+            );
+        },
+        [&](double l) -> ConstantValue {
+             return rhs.visit(
+                [&](int64_t r) -> ConstantValue { 
+                    double rd = static_cast<double>(r);
+                    switch(op) {
+                        case OpCode::ADD: return l + rd;
+                        case OpCode::SUB: return l - rd;
+                        case OpCode::MUL: return l * rd;
+                        case OpCode::DIV: return l / rd;
+                        case OpCode::EQ: return (int64_t)(l == rd);
+                        case OpCode::NEQ: return (int64_t)(l != rd);
+                        case OpCode::LT: return (int64_t)(l < rd);
+                        case OpCode::LE: return (int64_t)(l <= rd);
+                        case OpCode::GT: return (int64_t)(l > rd);
+                        case OpCode::GE: return (int64_t)(l >= rd);
+                        default: return Unknown{};
+                    }
+                },
+                [&](double r) -> ConstantValue { 
+                     switch(op) {
+                        case OpCode::ADD: return l + r;
+                        case OpCode::SUB: return l - r;
+                        case OpCode::MUL: return l * r;
+                        case OpCode::DIV: return l / r;
+                        case OpCode::EQ: return (int64_t)(l == r);
+                        case OpCode::NEQ: return (int64_t)(l != r);
+                        case OpCode::LT: return (int64_t)(l < r);
+                        case OpCode::LE: return (int64_t)(l <= r);
+                        case OpCode::GT: return (int64_t)(l > r);
+                        case OpCode::GE: return (int64_t)(l >= r);
+                        default: return Unknown{};
+                    }
+                },
+                [](auto) -> ConstantValue { return Unknown{}; }
+            );
+        },
+        [](auto) -> ConstantValue { return Unknown{}; }
+    );
+}
+
 // --- MAIN PIPELINE ---
 
 void Optimizer::run() {
     ir_code_ = std::move(proto_.ir_code);
     string_pool_ = std::move(proto_.string_pool);
+
+    for(const auto& c : proto_.constants) {
+        if(c.type == ConstType::INT_T) add_constant(c.val_i64);
+        else if(c.type == ConstType::FLOAT_T) add_constant(c.val_f64);
+    }
 
     struct PassDesc {
         OptFlags required_flag;
@@ -55,16 +164,16 @@ void Optimizer::run() {
     };
 
     static constexpr std::array pipeline = {
-        PassDesc{OptFlags::DCE,      &Optimizer::pass_dce,      true},
-        PassDesc{OptFlags::Peephole, &Optimizer::pass_peephole, true},
-        PassDesc{OptFlags::RegAlloc, &Optimizer::pass_reg_alloc, false}
+        PassDesc{OptFlags::DCE,       &Optimizer::pass_dce,       true},
+        PassDesc{OptFlags::ConstFold, &Optimizer::pass_const_folding, true}, 
+        PassDesc{OptFlags::Peephole,  &Optimizer::pass_peephole,  true},
+        PassDesc{OptFlags::RegAlloc,  &Optimizer::pass_reg_alloc, false} 
     };
 
     bool changed = true;
     int loop_count = 0;
-    const int MAX_LOOPS = 5;
+    const int MAX_LOOPS = 5; 
 
-    // Phase 1: Iterative Passes
     while (changed && loop_count < MAX_LOOPS) {
         changed = false;
         for (const auto& pass : pipeline) {
@@ -75,7 +184,6 @@ void Optimizer::run() {
         loop_count++;
     }
 
-    // Phase 2: Final Passes
     for (const auto& pass : pipeline) {
         if (!pass.loopable && has_flag(config_.flags, pass.required_flag)) {
             (this->*pass.func)();
@@ -103,6 +211,92 @@ bool Optimizer::pass_dce() {
     return changed;
 }
 
+// --- PASS: Constant Folding (Optimized) ---
+bool Optimizer::pass_const_folding() {
+    bool changed = false;
+    std::map<uint16_t, ConstantValue> known_values;
+
+    for (auto& inst : ir_code_) {
+        // 1. INVALIDATION
+        if (inst.op == OpCode::NOP && inst.arg_count > 0 && inst.args[0].is<LabelIdx>()) {
+            known_values.clear();
+            continue;
+        }
+
+        // 2. CAPTURE DEFINITIONS
+        if (inst.op == OpCode::LOAD_INT && inst.arg_count == 2) {
+            uint16_t dst = inst.args[0].unsafe_get<Reg>().id;
+            known_values[dst] = inst.args[1].unsafe_get<int64_t>();
+            continue;
+        }
+        if (inst.op == OpCode::LOAD_FLOAT && inst.arg_count == 2) {
+            uint16_t dst = inst.args[0].unsafe_get<Reg>().id;
+            known_values[dst] = inst.args[1].unsafe_get<double>();
+            continue;
+        }
+        if (inst.op == OpCode::LOAD_CONST && inst.arg_count == 2) {
+             uint16_t dst = inst.args[0].unsafe_get<Reg>().id;
+             size_t idx = inst.args[1].unsafe_get<ConstIdx>().id;
+             if (idx < const_pool_.size()) {
+                 known_values[dst] = const_pool_[idx];
+             }
+             continue;
+        }
+
+        // 3. FOLDING
+        if (inst.arg_count == 3 && inst.args[0].is<Reg>()) {
+            ConstantValue lhs = get_val(inst.args[1], known_values, const_pool_);
+            if (lhs.is<Unknown>()) {
+                uint16_t dst = inst.args[0].unsafe_get<Reg>().id;
+                known_values.erase(dst);
+                continue;
+            }
+
+            ConstantValue rhs = get_val(inst.args[2], known_values, const_pool_);
+            if (rhs.is<Unknown>()) {
+                uint16_t dst = inst.args[0].unsafe_get<Reg>().id;
+                known_values.erase(dst);
+                continue;
+            }
+
+            // Tính toán trực tiếp
+            ConstantValue result = evaluate_binary(inst.op, lhs, rhs);
+            
+            if (!result.is<Unknown>()) {
+                uint16_t dst_reg = inst.args[0].unsafe_get<Reg>().id;
+                
+                result.visit(
+                    [&](int64_t i) {
+                        inst.op = OpCode::LOAD_INT;
+                        inst.arg_count = 2;
+                        inst.args[0] = Reg{dst_reg};
+                        inst.args[1] = i; 
+                        known_values[dst_reg] = i; 
+                    },
+                    [&](double d) {
+                        inst.op = OpCode::LOAD_FLOAT;
+                        inst.arg_count = 2;
+                        inst.args[0] = Reg{dst_reg};
+                        inst.args[1] = d; 
+                        known_values[dst_reg] = d;
+                    },
+                    [](auto){}
+                );
+                
+                changed = true;
+                continue; 
+            }
+        }
+
+        // 4. CLEANUP
+        if (inst.arg_count > 0 && inst.args[0].is<Reg>()) {
+            uint16_t dst = inst.args[0].unsafe_get<Reg>().id;
+            known_values.erase(dst);
+        }
+    }
+    return changed;
+}
+
 // --- PASS: Peephole Optimization ---
 bool Optimizer::pass_peephole() {
     bool changed = false;
@@ -113,7 +307,6 @@ bool Optimizer::pass_peephole() {
         auto& inst = ir_code_[i];
         bool fused = false;
 
-        // Fusion: CMP + JUMP_IF_TRUE -> JUMP_IF_CMP
         if (i + 1 < ir_code_.size()) {
             auto& next = ir_code_[i+1];
             if (next.op == meow::OpCode::JUMP_IF_TRUE && inst.arg_count >= 3 && next.arg_count >= 2) {
@@ -121,23 +314,24 @@ bool Optimizer::pass_peephole() {
                      inst.args[0].unsafe_get<Reg>().id == next.args[0].unsafe_get<Reg>().id) {
 
                     meow::OpCode new_op = meow::OpCode::NOP;
+                    using enum meow::OpCode;
                     switch(inst.op) {
-                        case meow::OpCode::EQ: new_op = meow::OpCode::JUMP_IF_EQ; break;
-                        case meow::OpCode::NEQ: new_op = meow::OpCode::JUMP_IF_NEQ; break;
-                        case meow::OpCode::LT: new_op = meow::OpCode::JUMP_IF_LT; break;
-                        case meow::OpCode::LE: new_op = meow::OpCode::JUMP_IF_LE; break;
-                        case meow::OpCode::GT: new_op = meow::OpCode::JUMP_IF_GT; break;
-                        case meow::OpCode::GE: new_op = meow::OpCode::JUMP_IF_GE; break;
+                        case EQ: new_op = JUMP_IF_EQ; break;
+                        case NEQ: new_op = JUMP_IF_NEQ; break;
+                        case LT: new_op = JUMP_IF_LT; break;
+                        case LE: new_op = JUMP_IF_LE; break;
+                        case GT: new_op = JUMP_IF_GT; break;
+                        case GE: new_op = JUMP_IF_GE; break;
                         default: break;
                     }
 
-                    if (new_op != meow::OpCode::NOP) {
+                    if (new_op != NOP) {
                         IrInstruction f = inst;
                         f.op = new_op;
                         f.arg_count = 3; 
                         f.args[0] = inst.args[1]; 
                         f.args[1] = inst.args[2]; 
-                        f.args[2] = next.args[1]; // Label
+                        f.args[2] = next.args[1]; 
                         next_ir.push_back(f);
                         i++; 
                         fused = true;
@@ -157,12 +351,13 @@ bool Optimizer::pass_reg_alloc() {
     build_liveness();
     
     std::vector<uint16_t> sorted_vregs;
-    uint16_t max_vreg = 0;
+    uint16_t max_vreg_id = 0;
     for (auto& [r, iv] : intervals_) {
         sorted_vregs.push_back(r);
-        if (r > max_vreg) max_vreg = r;
+        if (r > max_vreg_id) max_vreg_id = r;
     }
-    vreg_to_phys_.assign(max_vreg + 1, 0xFFFF); 
+    
+    vreg_to_phys_.assign(max_vreg_id + 1, 0xFFFF); 
 
     std::sort(sorted_vregs.begin(), sorted_vregs.end(), [&](uint16_t a, uint16_t b) {
         return intervals_[a].start < intervals_[b].start;
@@ -179,25 +374,30 @@ bool Optimizer::pass_reg_alloc() {
         }
 
         int phys = -1;
-        // Hint -> Fast -> Spill
-        if (iv.hint_reg != -1 && iv.hint_reg <= max_vreg && vreg_to_phys_[iv.hint_reg] != 0xFFFF) {
+
+        // Ưu tiên 1: Hint Reg (byte_threshold)
+        if (iv.hint_reg != -1 && iv.hint_reg <= max_vreg_id && vreg_to_phys_[iv.hint_reg] != 0xFFFF) {
             int h = vreg_to_phys_[iv.hint_reg];
-            if (h < config_.max_fast_regs && free_until[h] <= iv.start) phys = h;
+            if (h < config_.byte_threshold && free_until[h] <= iv.start) {
+                phys = h;
+            }
         }
+
+        // Ưu tiên 2: Byte Regs
         if (phys == -1) {
-            for (int i = 0; i < config_.max_fast_regs; ++i) {
+            for (int i = 0; i < config_.byte_threshold; ++i) {
                 if (free_until[i] <= iv.start) { phys = i; break; }
             }
         }
-        // [NOTE] Spill Logic: Nếu hết fast regs (ví dụ 10), ta sẽ tràn (spill) vào các register tiếp theo.
-        // Tuy nhiên ở đây logic đơn giản hóa: spill tất cả vào slot cuối cùng của fast regs.
-        // Cần lưu ý nếu muốn mở rộng ra > 10 regs nhưng vẫn < 256.
+        
+        // Ưu tiên 3: Spill Area
         if (phys == -1) {
-             // Nếu cho phép spill ra ngoài fast area:
-             // for (int i = config_.max_fast_regs; i < 255; ++i) ...
-             // Nhưng ở đây ta giữ logic spill vào slot cuối để tiết kiệm register count.
-             phys = config_.max_fast_regs; 
+             for (int i = config_.byte_threshold; i < 256; ++i) {
+                if (free_until[i] <= iv.start) { phys = i; break; }
+             }
         }
+
+        if (phys == -1) phys = 0; // Fallback unsafe
 
         vreg_to_phys_[vreg] = (uint16_t)phys;
         free_until[phys] = iv.end;
@@ -218,10 +418,12 @@ void Optimizer::build_liveness() {
                 [](auto) {}
             );
         }
+        
         if (inst.op == meow::OpCode::MOVE && inst.arg_count >= 2 && 
             inst.args[0].is<Reg>() && inst.args[1].is<Reg>()) {
             intervals_[inst.args[0].unsafe_get<Reg>().id].hint_reg = inst.args[1].unsafe_get<Reg>().id;
         }
+
         if (inst.op == meow::OpCode::CLOSURE && inst.arg_count >= 2 && inst.args[1].is<int64_t>()) {
              size_t p_idx = (size_t)inst.args[1].unsafe_get<int64_t>();
              if (p_idx < all_protos_.size()) {
@@ -236,7 +438,6 @@ void Optimizer::build_liveness() {
     }
 }
 
-// --- HELPER: Bytecode Optimization Logic ---
 static bool is_byte_op(meow::OpCode op) {
     using enum meow::OpCode;
     return (op >= ADD_B && op <= RSHIFT_B) || 
@@ -247,38 +448,25 @@ static bool is_byte_op(meow::OpCode op) {
 static meow::OpCode to_byte_op(meow::OpCode op) {
     using enum meow::OpCode;
     switch(op) {
-        case ADD: return ADD_B;
-        case SUB: return SUB_B;
-        case MUL: return MUL_B;
-        case DIV: return DIV_B;
-        case MOD: return MOD_B;
-        
-        case EQ: return EQ_B;
-        case NEQ: return NEQ_B;
-        case GT: return GT_B;
-        case GE: return GE_B;
-        case LT: return LT_B;
-        case LE: return LE_B;
-
-        case BIT_AND: return BIT_AND_B;
-        case BIT_OR: return BIT_OR_B;
-        case BIT_XOR: return BIT_XOR_B;
-        case LSHIFT: return LSHIFT_B;
-        case RSHIFT: return RSHIFT_B;
-
+        case ADD: return ADD_B; case SUB: return SUB_B;
+        case MUL: return MUL_B; case DIV: return DIV_B; case MOD: return MOD_B;
+        case EQ: return EQ_B; case NEQ: return NEQ_B;
+        case GT: return GT_B; case GE: return GE_B;
+        case LT: return LT_B; case LE: return LE_B;
+        case BIT_AND: return BIT_AND_B; case BIT_OR: return BIT_OR_B;
+        case BIT_XOR: return BIT_XOR_B; 
+        case LSHIFT: return LSHIFT_B; case RSHIFT: return RSHIFT_B;
         case MOVE: return MOVE_B;
         case JUMP_IF_TRUE: return JUMP_IF_TRUE_B;
         case JUMP_IF_FALSE: return JUMP_IF_FALSE_B;
-        // LOAD_INT_B bỏ qua vì OpInfo chưa support
+        case LOAD_CONST: return LOAD_CONST_B;
         default: return op;
     }
 }
 
-// --- CODEGEN: IR -> Bytecode ---
 void Optimizer::rewrite_proto() {
     uint16_t max_phys = 0;
     
-    // 1. Remap Registers
     for (auto& inst : ir_code_) {
         for (int k = 0; k < inst.arg_count; ++k) {
             inst.args[k].visit(
@@ -294,11 +482,20 @@ void Optimizer::rewrite_proto() {
     }
     proto_.num_regs = max_phys + 1;
 
-    // [OPTIMIZATION] Chỉ dùng Byte OpCode nếu số lượng thanh ghi nằm trong vùng "Fast"
-    // (ví dụ <= 10 regs như bạn yêu cầu). Nếu spill ra ngoài thì dùng bản chuẩn (u16).
-    bool use_byte_ops = (proto_.num_regs <= config_.max_fast_regs); 
+    bool use_byte_ops = (proto_.num_regs <= config_.byte_threshold); 
 
-    // 2. Emit Bytecode
+    proto_.constants.clear();
+    for (const auto& val : const_pool_) {
+        Constant c;
+        val.visit(
+            [&](int64_t i) { c.type = ConstType::INT_T; c.val_i64 = i; },
+            [&](double d)  { c.type = ConstType::FLOAT_T; c.val_f64 = d; },
+            [](auto) {} // Bỏ qua Unknown (thực tế const_pool ko nên chứa Unknown)
+        );
+        proto_.constants.push_back(c);
+    }
+    proto_.string_pool = std::move(string_pool_);
+
     proto_.bytecode.clear();
     
     auto emit_byte = [&](uint8_t b) { proto_.bytecode.push_back(b); };
@@ -316,7 +513,6 @@ void Optimizer::rewrite_proto() {
         }
         if (inst.op == meow::OpCode::NOP) continue;
 
-        // Cleanup Redundant Move
         if (inst.op == meow::OpCode::MOVE && inst.arg_count >= 2) {
              if (inst.args[0].is<Reg>() && inst.args[1].is<Reg>()) {
                  if (inst.args[0].unsafe_get<Reg>().id == inst.args[1].unsafe_get<Reg>().id) {
@@ -325,48 +521,32 @@ void Optimizer::rewrite_proto() {
              }
         }
 
-        // [OPTIMIZATION] Switch to Byte OpCode
-        if (use_byte_ops) {
-            inst.op = to_byte_op(inst.op);
-        }
+        if (use_byte_ops) inst.op = to_byte_op(inst.op);
 
         emit_byte(static_cast<uint8_t>(inst.op));
         
         int written_bytes = 0;
-        // Kiểm tra xem OpCode hiện tại có phải loại Byte không để emit register 1 byte
         bool is_byte_mode = is_byte_op(inst.op);
 
         for(int k=0; k < inst.arg_count; ++k) {
             inst.args[k].visit(
                 [&](Reg r) { 
-                    if (is_byte_mode) {
-                        emit_byte((uint8_t)r.id); 
-                        written_bytes += 1;
-                    } else {
-                        emit_u16(r.id); 
-                        written_bytes += 2;
-                    }
+                    if (is_byte_mode) { emit_byte((uint8_t)r.id); written_bytes += 1; } 
+                    else { emit_u16(r.id); written_bytes += 2; }
                 },
                 [&](int64_t v) { emit_u64((uint64_t)v); written_bytes += 8; },
                 [&](double v)  { emit_u64(std::bit_cast<uint64_t>(v)); written_bytes += 8; },
-                [&](ConstIdx c) {
-                    const_pool_[c.id].visit(
-                        [&](int64_t i) { emit_u64((uint64_t)i); written_bytes += 8; },
-                        [&](double d)  { emit_u64(std::bit_cast<uint64_t>(d)); written_bytes += 8; }
-                    );
-                },
+                [&](ConstIdx c) { emit_u16((uint16_t)c.id); written_bytes += 2; },
                 [&](StrIdx s)   { emit_u16((uint16_t)s.id); written_bytes += 2; },
                 [&](LabelIdx l) { 
                     patches.push_back({proto_.bytecode.size(), l.id});
-                    emit_u16(0xFFFF); 
-                    written_bytes += 2;
+                    emit_u16(0xFFFF); written_bytes += 2;
                 },
                 [&](JumpOffset o){ emit_u16((uint16_t)o.val); written_bytes += 2; },
                 [](auto){}
             );
         }
 
-        // Emit Padding (Inline Cache support)
         auto info = meow::get_op_info(inst.op);
         int padding = info.operand_bytes - written_bytes;
         if (padding > 0) {
@@ -374,16 +554,15 @@ void Optimizer::rewrite_proto() {
         }
     }
 
-    // 3. Patch Jumps
     for(auto& p : patches) {
         if (label_locs.count(p.label_id)) {
             size_t target = label_locs[p.label_id];
-            proto_.bytecode[p.pos] = target & 0xFF;
-            proto_.bytecode[p.pos+1] = (target >> 8) & 0xFF;
+            int32_t offset = static_cast<int32_t>(target) - static_cast<int32_t>(p.pos + 2);
+            proto_.bytecode[p.pos] = offset & 0xFF;
+            proto_.bytecode[p.pos+1] = (offset >> 8) & 0xFF;
         }
     }
 
-    proto_.string_pool = std::move(string_pool_);
     proto_.ir_code.clear();
 }
 

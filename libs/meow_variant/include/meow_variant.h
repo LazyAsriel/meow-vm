@@ -6,32 +6,35 @@
 #include <exception>
 #include <type_traits>
 #include <functional>
+#include <bit>
 
 #include "internal/nanbox.h"
 #include "internal/fallback.h"
 #include "internal/utils.h"
 
-// --- Platform Detection ---
-#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__)
-    #define MEOW_BYTE_ORDER __BYTE_ORDER__
-    #define MEOW_ORDER_LITTLE __ORDER_LITTLE_ENDIAN__
-#endif
-
-#if (defined(__x86_64__) || defined(_M_X64) || defined(__aarch64__)) && \
-    (defined(MEOW_BYTE_ORDER) && MEOW_BYTE_ORDER == MEOW_ORDER_LITTLE)
-    #define MEOW_CAN_USE_NAN_BOXING 1
-#else
-    #define MEOW_CAN_USE_NAN_BOXING 0
-#endif
-
 namespace meow {
+
+namespace arch {
+    constexpr bool is_little_endian = std::endian::native == std::endian::little;
+
+    constexpr bool is_64bit = sizeof(void*) == 8;
+
+    consteval bool is_supported_architecture() {
+        #if defined(__x86_64__) || defined(_M_X64) || defined(__aarch64__)
+            return true;
+        #else
+            return false;
+        #endif
+    }
+
+    constexpr bool can_use_nan_boxing = is_little_endian && is_64bit && is_supported_architecture();
+}
 
 using utils::overload;
 
 struct no_flatten_t { explicit constexpr no_flatten_t(int) {} };
 inline constexpr no_flatten_t no_flatten{0};
 
-// --- Layout Policies ---
 namespace layout {
     struct auto_detect {}; 
     struct nanbox {};      
@@ -39,7 +42,6 @@ namespace layout {
 }
 
 namespace detail {
-    // Config Parser
     template<typename... Args>
     struct config_parser {
         static constexpr bool flatten = true;
@@ -52,7 +54,6 @@ namespace detail {
         using types = utils::detail::type_list<Args...>;
     };
 
-    // List Builder
     template <bool Flatten, typename List> struct list_builder;
     template <typename... Ts>
     struct list_builder<true, utils::detail::type_list<Ts...>> {
@@ -63,26 +64,27 @@ namespace detail {
         using type = utils::unique_t<Ts...>;
     };
 
-    // Backend Resolver
     template <typename LayoutPolicy, typename TypeList>
     struct backend_resolver;
 
     template <typename Policy, typename... Ts>
     struct backend_resolver<Policy, utils::detail::type_list<Ts...>> {
-        static constexpr bool is_supported_arch = MEOW_CAN_USE_NAN_BOXING;
-        static constexpr bool is_small_enough   = (sizeof...(Ts) <= 16);
-        static constexpr bool are_types_valid   = utils::all_nanboxable_impl<utils::detail::type_list<Ts...>>::value;
+        static constexpr bool is_supported_env = arch::can_use_nan_boxing;
+        static constexpr bool is_small_enough  = (sizeof...(Ts) <= 16);
+        static constexpr bool are_types_valid  = utils::all_nanboxable_impl<utils::detail::type_list<Ts...>>::value;
 
         static constexpr bool use_nanbox = []() {
             if constexpr (std::is_same_v<Policy, layout::nanbox>) {
-                static_assert(is_supported_arch, "Nanbox layout requires 64-bit Little Endian architecture.");
+                static_assert(arch::is_little_endian, "Nanbox layout requires Little Endian architecture.");
+                static_assert(arch::is_64bit, "Nanbox layout requires 64-bit pointers.");
+                static_assert(arch::is_supported_architecture(), "Nanbox layout requires x86_64 or AArch64.");
                 static_assert(are_types_valid, "Types are not compatible with Nanboxing.");
                 static_assert(is_small_enough, "Too many types for Nanboxing (max 16).");
                 return true;
             } else if constexpr (std::is_same_v<Policy, layout::fallback>) {
                 return false;
             } else {
-                return is_supported_arch && is_small_enough && are_types_valid;
+                return is_supported_env && is_small_enough && are_types_valid;
             }
         }();
 
@@ -101,7 +103,6 @@ using nanboxed_variant = basic_variant<layout::nanbox, Args...>;
 template <typename... Args>
 using fallback_variant = basic_variant<layout::fallback, Args...>;
 
-// --- Basic Variant Class ---
 template <typename LayoutPolicy, typename... Args>
 class basic_variant {
     using config = detail::config_parser<Args...>;
@@ -157,7 +158,7 @@ public:
         return utils::detail::type_list_index_of<std::decay_t<T>, final_list_t>::value;
     }
 
-    [[nodiscard]] __attribute__((always_inline))
+    [[nodiscard]] [[gnu::always_inline]]
     auto raw() const noexcept requires (requires { storage_.raw(); }) {
         return storage_.raw();
     }
@@ -172,24 +173,24 @@ public:
     [[nodiscard]] constexpr bool valueless() const noexcept { return storage_.valueless(); }
     [[nodiscard]] constexpr bool has_value() const noexcept { return !valueless(); }
     
-    [[nodiscard]] __attribute__((always_inline))
+    [[nodiscard]] [[gnu::always_inline]]
     uint64_t raw_tag() const noexcept {
         return storage_.raw_tag();
     }
 
-    __attribute__((always_inline))
+    [[gnu::always_inline]]
     void set_raw(uint64_t bits) noexcept {
         storage_.set_raw(bits);
     }
 
     // --- 2. Type Checking API ---
-    [[nodiscard]] __attribute__((always_inline))
+    [[nodiscard]] [[gnu::always_inline]]
     bool has_same_type_as(const basic_variant& other) const noexcept {
         return storage_.has_same_type_as(other.storage_);
     }
 
     template <typename T>
-    [[nodiscard]] __attribute__((always_inline))
+    [[nodiscard]] [[gnu::always_inline]]
     bool holds_both(const basic_variant& other) const noexcept {
         return storage_.template holds_both<T>(other.storage_);
     }
@@ -210,6 +211,40 @@ public:
 
     template <typename T> [[nodiscard]] constexpr auto* get_if() noexcept { return storage_.template get_if<T>(); }
     template <typename T> [[nodiscard]] constexpr const auto* get_if() const noexcept { return storage_.template get_if<T>(); }
+
+    template <typename T>
+    constexpr void set(T&& v) noexcept {
+        *this = std::forward<T>(v);
+    }
+
+    template <typename T>
+    [[gnu::always_inline]]
+    void unsafe_set(T&& v) noexcept {
+        storage_.template unsafe_set<T>(std::forward<T>(v));
+    }
+
+    template <typename T>
+    constexpr bool safe_set(T&& v) noexcept {
+        if (holds<T>()) [[likely]] {
+            unsafe_set<T>(std::forward<T>(v));
+            return true;
+        }
+        return false;
+    }
+
+    template <typename T>
+    uint64_t set_as(T&& value) noexcept {
+        return storage_.template set_as<std::decay_t<T>>(std::forward<T>(value));
+    }
+
+    template <typename T>
+    T get_as() const noexcept {
+        return storage_.template get_as<T>();
+    }
+
+    void recover(uint64_t backup_bits) noexcept {
+        set_raw(backup_bits);
+    }
 
     // --- Visitation ---
     template <typename Self, typename Visitor>
@@ -238,7 +273,7 @@ public:
     // --- Monadic Operations ---
     template <typename F>
     constexpr auto transform(F&& f) const {
-        if (valueless()) return variant<std::monostate>{};
+        if (valueless()) return variant<meow::monostate>{};
         
         return this->visit([&](auto&& val) {
             using ResultType = std::invoke_result_t<F, decltype(val)>;
@@ -249,7 +284,7 @@ public:
     template <typename F>
     constexpr auto and_then(F&& f) const {
         if (valueless()) {
-             return std::invoke(std::forward<F>(f), std::monostate{}); 
+             return std::invoke(std::forward<F>(f), meow::monostate{}); 
         }
         return this->visit([&](auto&& val) {
             return std::invoke(std::forward<F>(f), val);
@@ -260,6 +295,23 @@ public:
     void swap(basic_variant& other) noexcept { storage_.swap(other.storage_); }
     bool operator==(const basic_variant& o) const { return storage_ == o.storage_; }
     bool operator!=(const basic_variant& o) const { return storage_ != o.storage_; }
+
+    std::partial_ordering operator<=>(const basic_variant& other) const {
+        if (valueless() && other.valueless()) return std::partial_ordering::equivalent;
+        if (valueless()) return std::partial_ordering::less;
+        if (other.valueless()) return std::partial_ordering::greater;
+        
+        if (index() != other.index()) return index() <=> other.index();
+        
+        return this->visit([&](const auto& val) -> std::partial_ordering {
+            using T = std::decay_t<decltype(val)>;
+            if constexpr (std::three_way_comparable<T>) {
+                return val <=> other.unsafe_get<T>();
+            } else {
+                return std::partial_ordering::equivalent; 
+            }
+        });
+    }
 
     [[nodiscard]] backend_type& backend() noexcept { return storage_; }
     [[nodiscard]] const backend_type& backend() const noexcept { return storage_; }

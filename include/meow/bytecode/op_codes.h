@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <array>
 #include <string_view>
-#include <meow_enum.h> // File bạn đã cung cấp
+#include <meow_enum.h>
 
 namespace meow {
 
@@ -62,6 +62,10 @@ enum class OpCode : uint8_t {
     MOVE_B, 
     LOAD_CONST_B,
     LOAD_INT_B,
+    LOAD_FLOAT_B, // Mới thêm
+    LOAD_NULL_B,  // Mới thêm
+    LOAD_TRUE_B,  // Mới thêm
+    LOAD_FALSE_B, // Mới thêm
     
     // Standard (16-bit regs)
     JUMP_IF_EQ, JUMP_IF_NEQ,
@@ -77,7 +81,6 @@ enum class OpCode : uint8_t {
     TOTAL_OPCODES
 };
 
-// Đăng ký range cho meow_enum
 template <>
 struct enum_traits<OpCode> {
     static constexpr int min_val = 0;
@@ -103,7 +106,6 @@ struct OpInfo {
     uint8_t operand_bytes;
 };
 
-// --- 3. OPCODE SCHEMA ---
 struct OpSchema {
     std::string_view name;
     std::array<ArgType, 5> args;
@@ -130,7 +132,6 @@ struct OpSchema {
     }
 };
 
-// Public Accessors
 const OpSchema& get_op_schema(OpCode op);
 OpInfo get_op_info(OpCode op);
 

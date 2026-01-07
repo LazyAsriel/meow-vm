@@ -43,9 +43,11 @@ void ObjClosure::trace(GCVisitor& visitor) const noexcept {
 }
 
 void ObjModule::trace(GCVisitor& visitor) const noexcept {
-    visitor.visit_object(file_name_);
-    visitor.visit_object(file_path_);
-    visitor.visit_object(main_proto_);
+    // 1. Trace các metadata (String & Proto)
+    // Thêm check null nếu visitor không tự handle (an toàn hơn)
+    if (file_name_) visitor.visit_object(file_name_);
+    if (file_path_) visitor.visit_object(file_path_);
+    if (main_proto_) visitor.visit_object(main_proto_);
 
     for (const auto& val : globals_store_) {
         visitor.visit_value(val);
@@ -56,13 +58,13 @@ void ObjModule::trace(GCVisitor& visitor) const noexcept {
         visitor.visit_object(key);
     }
 
-    const auto& e_keys = exports_.keys();
-    const auto& e_vals = exports_.values();
-    
-    const size_t e_size = e_keys.size();
-    for (size_t i = 0; i < e_size; ++i) {
-        visitor.visit_object(e_keys[i]);
-        visitor.visit_value(e_vals[i]);
+    for (const auto& val : exports_store_) {
+        visitor.visit_value(val);
+    }
+
+    const auto& e_keys = export_names_.keys();
+    for (auto key : e_keys) {
+        visitor.visit_object(key);
     }
 }
 

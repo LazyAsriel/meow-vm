@@ -5,31 +5,31 @@
 
 namespace meow::handlers {
 
-[[gnu::always_inline]] static const uint8_t* impl_GET_GLOBAL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    uint16_t dst = read_u16(ip);
-    uint16_t global_idx = read_u16(ip);
-        
+constexpr int ERR_CONST_TYPE = 20;
+
+[[gnu::always_inline]] 
+static const uint8_t* impl_GET_GLOBAL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    // 2 * u16 = 4 bytes -> Load u32
+    auto [dst, global_idx] = decode::args<u16, u16>(ip);
     regs[dst] = state->current_module->get_global_by_index(global_idx);
-    
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_SET_GLOBAL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    uint16_t global_idx = read_u16(ip);
-    uint16_t src = read_u16(ip);
+[[gnu::always_inline]] 
+static const uint8_t* impl_SET_GLOBAL(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    // 2 * u16 = 4 bytes -> Load u32
+    auto [global_idx, src] = decode::args<u16, u16>(ip);
     Value val = regs[src];
         
     state->current_module->set_global_by_index(global_idx, val);
-    
     state->heap.write_barrier(state->current_module, val);
     
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_GET_UPVALUE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    uint16_t dst = read_u16(ip);
-    uint16_t uv_idx = read_u16(ip);
-    (void)constants;
+[[gnu::always_inline]] 
+static const uint8_t* impl_GET_UPVALUE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    auto [dst, uv_idx] = decode::args<u16, u16>(ip);
     
     upvalue_t uv = state->ctx.frame_ptr_->function_->get_upvalue(uv_idx);
     if (uv->is_closed()) {
@@ -40,9 +40,9 @@ namespace meow::handlers {
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_SET_UPVALUE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    uint16_t uv_idx = read_u16(ip);
-    uint16_t src = read_u16(ip);
+[[gnu::always_inline]] 
+static const uint8_t* impl_SET_UPVALUE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    auto [uv_idx, src] = decode::args<u16, u16>(ip);
     Value val = regs[src];
 
     upvalue_t uv = state->ctx.frame_ptr_->function_->get_upvalue(uv_idx);
@@ -55,16 +55,18 @@ namespace meow::handlers {
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_CLOSURE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    uint16_t dst = read_u16(ip);
-    uint16_t proto_idx = read_u16(ip);
+[[gnu::always_inline]] 
+static const uint8_t* impl_CLOSURE(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    // 2 * u16 = 4 bytes -> Load u32
+    auto [dst, proto_idx] = decode::args<u16, u16>(ip);
     
     Value val = constants[proto_idx];
     if (!val.is_proto()) [[unlikely]] {
-        state->ctx.current_frame_->ip_ = ip - 5;
-        state->error("CLOSURE: Constant index " + std::to_string(proto_idx) + " is not a Proto", ip);
-        return impl_PANIC(ip, regs, constants, state);
+        // Offset 4 bytes -> ERROR<4> sẽ tự tính ip - 5 (đúng logic cũ)
+        return ERROR<4>(ip, regs, constants, state, ERR_CONST_TYPE, 
+                       "CLOSURE: Constant index {} is not a Proto", proto_idx);
     }
+
     proto_t proto = val.as_proto();
     function_t closure = state->heap.new_function(proto);
     
@@ -84,9 +86,9 @@ namespace meow::handlers {
     return ip;
 }
 
-[[gnu::always_inline]] static const uint8_t* impl_CLOSE_UPVALUES(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
-    uint16_t last_reg = read_u16(ip);
-    (void)constants;
+[[gnu::always_inline]] 
+static const uint8_t* impl_CLOSE_UPVALUES(const uint8_t* ip, Value* regs, const Value* constants, VMState* state) {
+    auto [last_reg] = decode::args<u16>(ip);
     
     size_t current_base_idx = regs - state->ctx.stack_;
     close_upvalues(&state->ctx, current_base_idx + last_reg);

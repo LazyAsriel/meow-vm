@@ -43,19 +43,18 @@ namespace {
         }
     }
 
-struct TableInitializer {
+    struct TableInitializer {
         TableInitializer() {
-            // 1. Mặc định gán tất cả là UNIMPL (Unimplemented) để an toàn
             for (int i = 0; i < 256; ++i) {
                 dispatch_table[i] = op_wrapper<OpCode::HALT, handlers::impl_UNIMPL>;
             }
 
-            // Macro giúp code ngắn gọn, tự động map OpCode::NAME -> handlers::impl_NAME
+            // Macro helper để đăng ký nhanh
             #define reg(NAME) dispatch_table[static_cast<size_t>(OpCode::NAME)] = op_wrapper<OpCode::NAME, handlers::impl_##NAME>
             
             reg(NOP);
 
-            // --- CORE OPS ---
+            // --- CORE OPS (Standard 16-bit regs) ---
             reg(LOAD_CONST); reg(LOAD_NULL); reg(LOAD_TRUE); reg(LOAD_FALSE);
             reg(LOAD_INT); reg(LOAD_FLOAT); reg(MOVE);
             reg(INC); reg(DEC);
@@ -109,9 +108,15 @@ struct TableInitializer {
             // --- OPT 3: UNARY & DATA _B (8-bit regs) ---
             reg(INC_B); reg(DEC_B);
             reg(NEG_B); reg(NOT_B);
-            // reg(MOVE_B); 
-            // reg(LOAD_CONST_B); // Load hằng số index < 256 vào reg < 256
-            // reg(LOAD_INT_B); // (Bỏ comment nếu bạn đã implement handler này)
+            
+            // Các lệnh di chuyển & nạp dữ liệu tối ưu
+            reg(MOVE_B); 
+            reg(LOAD_CONST_B);
+            reg(LOAD_INT_B);
+            reg(LOAD_FLOAT_B);
+            reg(LOAD_NULL_B);
+            reg(LOAD_TRUE_B);
+            reg(LOAD_FALSE_B);
 
             // --- OPT 4: FLOW CONTROL _B (8-bit regs) ---
             reg(JUMP_IF_TRUE_B); reg(JUMP_IF_FALSE_B);
@@ -129,7 +134,7 @@ struct TableInitializer {
             #undef reg
         }
     };
-        
+
     static TableInitializer init_trigger;
 
 } // namespace anonymous

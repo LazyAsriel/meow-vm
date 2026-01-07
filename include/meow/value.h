@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <type_traits>
+#include <compare>
 #include <meow/common.h>
 #include "meow_variant.h"
 #include <meow/core/meow_object.h>
@@ -13,8 +14,6 @@ namespace meow {
 class Value {
 private:
     base_t data_;
-
-    // --- Private Helpers ---
 
     template <typename Self>
     inline auto get_object_ptr(this Self&& self) noexcept -> object_t {
@@ -41,8 +40,6 @@ private:
 
 public:
     using layout_traits = base_t::layout_traits;
-
-    // --- Constructors & Assignments ---
     
     inline Value() noexcept : data_(null_t{}) {}
     
@@ -74,12 +71,55 @@ public:
         return *this;
     }
 
-    // --- Operators ---
+    template <typename T>
+    [[gnu::always_inline]] bool holds() const noexcept {
+        return data_.template holds<T>();
+    }
+
+    template <typename T>
+    [[gnu::always_inline]] bool is() const noexcept { return holds<T>(); }
+
+    template <typename T>
+    [[gnu::always_inline]] decltype(auto) get() const {
+        return data_.template get<T>();
+    }
+
+    template <typename T>
+    [[gnu::always_inline]] decltype(auto) unsafe_get() const noexcept {
+        return data_.template unsafe_get<T>();
+    }
+
+    template <typename T>
+    [[gnu::always_inline]] void unsafe_set(T&& v) noexcept {
+        if constexpr (std::is_convertible_v<T, MeowObject*>) {
+            data_.template unsafe_set<object_t>(static_cast<object_t>(v));
+        } else {
+            data_.template unsafe_set<T>(std::forward<T>(v));
+        }
+    }
+
+    template <typename T>
+    constexpr void set(T&& v) noexcept {
+        *this = std::forward<T>(v);
+    }
+
+    template <typename T>
+    constexpr bool safe_set(T&& v) noexcept {
+        using CheckType = std::conditional_t<std::is_convertible_v<T, MeowObject*>, object_t, std::decay_t<T>>;
+        
+        if (holds<CheckType>()) {
+            unsafe_set<T>(std::forward<T>(v));
+            return true;
+        }
+        return false;
+    }
 
     inline bool operator==(const Value& other) const noexcept { return data_ == other.data_; }
     inline bool operator!=(const Value& other) const noexcept { return data_ != other.data_; }
 
-    // --- Core Access ---
+    inline std::partial_ordering operator<=>(const Value& other) const noexcept {
+        return data_ <=> other.data_;
+    }
 
     inline constexpr size_t index() const noexcept { return data_.index(); }
     inline uint64_t raw_tag() const noexcept { return data_.raw_tag(); }
@@ -95,14 +135,12 @@ public:
         Value v; v.set_raw(bits); return v;
     }
 
-    // === Type Checkers ===
-
-    inline bool is_null() const noexcept { return data_.holds<null_t>(); }
-    inline bool is_bool() const noexcept { return data_.holds<bool_t>(); }
-    inline bool is_int() const noexcept { return data_.holds<int_t>(); }
-    inline bool is_float() const noexcept { return data_.holds<float_t>(); }
-    inline bool is_native() const noexcept { return data_.holds<native_t>(); }
-    inline bool is_pointer() const noexcept { return data_.holds<pointer_t>(); }
+    inline bool is_null() const noexcept { return holds<null_t>(); }
+    inline bool is_bool() const noexcept { return holds<bool_t>(); }
+    inline bool is_int() const noexcept { return holds<int_t>(); }
+    inline bool is_float() const noexcept { return holds<float_t>(); }
+    inline bool is_native() const noexcept { return holds<native_t>(); }
+    inline bool is_pointer() const noexcept { return holds<pointer_t>(); }
     inline bool is_object() const noexcept { return get_object_ptr() != nullptr; }
 
     inline bool is_array() const noexcept        { return check_obj_type(ObjectType::ARRAY); }
@@ -116,15 +154,13 @@ public:
     inline bool is_bound_method() const noexcept { return check_obj_type(ObjectType::BOUND_METHOD); }
     inline bool is_module() const noexcept       { return check_obj_type(ObjectType::MODULE); }
 
-    // === Unsafe Accessors ===
-
-    inline bool as_bool() const noexcept       { return data_.get<bool_t>(); }
-    inline int64_t as_int() const noexcept     { return data_.get<int_t>(); }
-    inline double as_float() const noexcept    { return data_.get<float_t>(); }
-    inline native_t as_native() const noexcept { return data_.get<native_t>(); }
-    inline pointer_t as_pointer() const noexcept { return data_.get<pointer_t>(); }
+    inline bool as_bool() const noexcept       { return unsafe_get<bool_t>(); }
+    inline int64_t as_int() const noexcept     { return unsafe_get<int_t>(); }
+    inline double as_float() const noexcept    { return unsafe_get<float_t>(); }
+    inline native_t as_native() const noexcept { return unsafe_get<native_t>(); }
+    inline pointer_t as_pointer() const noexcept { return unsafe_get<pointer_t>(); }
     
-    inline MeowObject* as_object() const noexcept { return data_.get<object_t>(); }
+    inline MeowObject* as_object() const noexcept { return unsafe_get<object_t>(); }
 
     template <typename T>
     inline T as_obj_unsafe() const noexcept { return reinterpret_cast<T>(as_object()); }
@@ -140,8 +176,6 @@ public:
     inline bound_method_t as_bound_method() const noexcept { return as_obj_unsafe<bound_method_t>(); }
     inline module_t as_module() const noexcept             { return as_obj_unsafe<module_t>(); }
 
-    // === Safe Getters (Deducing 'this') ===
-
     template <typename Self>
     auto as_if_bool(this Self&& self) noexcept   { return self.data_.template get_if<bool_t>(); }
     template <typename Self>
@@ -153,7 +187,6 @@ public:
     template <typename Self>
     auto as_if_pointer(this Self&& self) noexcept  { return self.data_.template get_if<pointer_t>(); }
 
-    // Objects
     template <typename Self> auto as_if_array(this Self&& self) noexcept        { return self.template get_obj_if<array_t, ObjectType::ARRAY>(); }
     template <typename Self> auto as_if_string(this Self&& self) noexcept       { return self.template get_obj_if<string_t, ObjectType::STRING>(); }
     template <typename Self> auto as_if_hash_table(this Self&& self) noexcept   { return self.template get_obj_if<hash_table_t, ObjectType::HASH_TABLE>(); }
@@ -165,7 +198,6 @@ public:
     template <typename Self> auto as_if_bound_method(this Self&& self) noexcept { return self.template get_obj_if<bound_method_t, ObjectType::BOUND_METHOD>(); }
     template <typename Self> auto as_if_module(this Self&& self) noexcept       { return self.template get_obj_if<module_t, ObjectType::MODULE>(); }
 
-    // === Visitor ===
     template <typename... Fs>
     decltype(auto) visit(Fs&&... fs) const { return data_.visit(std::forward<Fs>(fs)...); }
     

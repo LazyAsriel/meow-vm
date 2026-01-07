@@ -31,7 +31,7 @@ using return_t = value_t;
 using mutable_t = value_t&;
 using arguments_t = std::vector<value_t>&;
     
-using null_t = std::monostate;
+using null_t = meow::monostate;
 using bool_t = bool;
 using int_t = int64_t;
 using float_t = double;

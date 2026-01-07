@@ -39,7 +39,7 @@ static void link_module_to_proto(module_t mod, proto_t proto, std::unordered_set
 
     proto->set_module(mod);
 
-    Chunk& chunk = const_cast<Chunk&>(proto->get_chunk());
+    Chunk& chunk = proto->get_chunk();
     for (size_t i = 0; i < chunk.get_pool_size(); ++i) {
         if (chunk.get_constant(i).is_proto()) {
             link_module_to_proto(mod, chunk.get_constant(i).as_proto(), visited);

@@ -10,39 +10,37 @@ MemoryManager::MemoryManager(std::unique_ptr<GarbageCollector> gc) noexcept
       heap_(arena_),
       gc_(std::move(gc)), 
       gc_threshold_(1e7), 
-      object_allocated_(0) 
+      object_allocated_(0),
+      string_pool_(32768)
 { 
     if (gc_) {
         gc_->set_heap(&heap_);
     }
 }
+
 MemoryManager::~MemoryManager() noexcept {}
 
 string_t MemoryManager::new_string(std::string_view str_view) {
-    if (auto it = string_pool_.find(str_view); it != string_pool_.end()) {
-        return *it;
-    }
-    
-    size_t length = str_view.size();
     size_t hash = std::hash<std::string_view>{}(str_view);
     
-    string_t new_obj = heap_.create_varsize<ObjString>(length, str_view.data(), length, hash);
+    if (auto* cached = string_pool_.find(HashedView{str_view, hash})) {
+        return *cached;
+    }
+    
+    string_t new_obj = heap_.create_varsize<ObjString>(str_view.size(), str_view.data(), str_view.size(), hash);
     
     gc_->register_permanent(new_obj);
-    
     object_allocated_++;
-    string_pool_.insert(new_obj);
+    
+    string_pool_.try_emplace(new_obj, new_obj);
     return new_obj;
 }
 
 string_t MemoryManager::new_string(const char* chars, size_t length) {
-    return new_string(std::string(chars, length));
+    return new_string(std::string_view(chars, length));
 }
 
 array_t MemoryManager::new_array(const std::vector<Value>& elements) {
-    // meow::allocator<Value> alloc(arena_);
-    
-    // return new_object<ObjArray>(elements, alloc);
     return new_object<ObjArray>(elements);
 }
 

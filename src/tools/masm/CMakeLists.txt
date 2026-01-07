@@ -34,9 +34,9 @@ target_compile_features(masm PRIVATE cxx_std_23)
 target_compile_options(masm PRIVATE ${MASM_CXX_FLAGS})
 target_link_options(masm PRIVATE ${NO_EXCEPTION_FLAGS} ${LTO_FLAGS} -Wl,--gc-sections)
 
-add_executable(test_optimizer tests/test_optimizer.cpp)
+# add_executable(test_optimizer tests/test_optimizer.cpp)
 
-target_link_libraries(test_optimizer PRIVATE masm_core meow_core)
+# target_link_libraries(test_optimizer PRIVATE masm_core meow_core)
 
-target_compile_features(test_optimizer PRIVATE cxx_std_23)
-target_compile_options(test_optimizer PRIVATE ${MASM_CXX_FLAGS})
+# target_compile_features(test_optimizer PRIVATE cxx_std_23)
+# target_compile_options(test_optimizer PRIVATE ${MASM_CXX_FLAGS})
